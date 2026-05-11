@@ -161,7 +161,7 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
               <span className="h-1 w-1 rounded-full bg-[#adb3b4]" />
               <span>{products.length} 个商品</span>
               <span className="h-1 w-1 rounded-full bg-[#adb3b4]" />
-              <span>主价格为最低价，缺货会明显标注</span>
+              <span>主价格优先取有货最低价，缺货会明显标注</span>
             </div>
             <button
               type="button"

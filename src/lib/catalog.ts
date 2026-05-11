@@ -366,7 +366,10 @@ function getDisplayLowestOffer(offers: RawOffer[]): RawOffer | null {
   const pricedOffers = offers.filter(hasUsablePrice);
   if (!pricedOffers.length) return null;
 
-  return [...pricedOffers].sort((a, b) => {
+  const availablePricedOffers = pricedOffers.filter(isAvailable);
+  const displayPool = availablePricedOffers.length ? availablePricedOffers : pricedOffers;
+
+  return [...displayPool].sort((a, b) => {
     const priceDelta = (a.price ?? Number.MAX_SAFE_INTEGER) - (b.price ?? Number.MAX_SAFE_INTEGER);
     if (priceDelta !== 0) return priceDelta;
 
