@@ -6,11 +6,13 @@ import {
   ChevronRight,
   Database,
   Filter,
+  LayoutGrid,
   Layers3,
   PackageCheck,
   Plus,
   Search,
   Store,
+  Table2,
 } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -21,6 +23,7 @@ import type { DashboardData, ProductGroup } from "@/lib/types";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 type SortMode = "available_price" | "price" | "updated" | "channels";
+type ViewMode = "cards" | "table";
 
 const productTypeLabels: Record<string, string> = {
   全部: "全部",
@@ -42,6 +45,7 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
 
   const products = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -163,7 +167,7 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
           </div>
         ) : null}
 
-        <div className="mb-9 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="mb-9 space-y-5">
           <div>
             <h1 className="font-serif text-4xl font-bold tracking-normal text-[#202829] md:text-5xl">
               {title}
@@ -194,7 +198,7 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
             </button>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <label className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-white px-4 shadow-[0_16px_45px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15 sm:w-[320px]">
               <Search size={16} className="shrink-0 text-[#5a6061]" />
               <input
@@ -207,12 +211,26 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
             <button
               type="button"
               onClick={() => setFiltersOpen((value) => !value)}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#e4e9ea] px-5 text-sm font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#e4e9ea] px-5 text-sm font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
             >
               <Filter size={17} />
               筛选{activeFilters.length ? ` ${activeFilters.length}` : ""}
             </button>
-            <label className="inline-flex h-11 items-center gap-2 rounded-full bg-[#e4e9ea] px-5 text-sm font-semibold text-[#2d3435]">
+            <div className="hidden h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1 md:inline-flex">
+              <ViewToggleButton
+                active={viewMode === "cards"}
+                icon={<LayoutGrid size={16} />}
+                label="卡片"
+                onClick={() => setViewMode("cards")}
+              />
+              <ViewToggleButton
+                active={viewMode === "table"}
+                icon={<Table2 size={16} />}
+                label="表格"
+                onClick={() => setViewMode("table")}
+              />
+            </div>
+            <label className="inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-[#e4e9ea] px-5 text-sm font-semibold text-[#2d3435]">
               <ArrowUpDown size={17} />
               <select
                 value={sort}
@@ -225,6 +243,14 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
                 <option value="channels">渠道数量</option>
               </select>
             </label>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-submission-floater"))}
+              className="hidden h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#2d3435] px-5 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526] md:inline-flex"
+            >
+              <Plus size={16} />
+              提交渠道
+            </button>
           </div>
         </div>
 
@@ -277,11 +303,22 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
         ) : null}
 
         {products.length ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {products.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          <>
+            <div
+              className={`grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 ${
+                viewMode === "table" ? "md:hidden" : ""
+              }`}
+            >
+              {products.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+            {viewMode === "table" ? (
+              <div className="hidden md:block">
+                <ProductTable products={products} />
+              </div>
+            ) : null}
+          </>
         ) : (
           <div className="rounded-lg bg-white px-6 py-16 text-center shadow-[0_20px_60px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15">
             <p className="font-serif text-2xl font-semibold text-[#202829]">没有符合条件的报价</p>
@@ -293,6 +330,93 @@ export function PriceExplorer({ data }: { data: DashboardData }) {
       <footer className="px-5 py-8 text-center text-xs leading-6 text-[#5a6061] sm:px-8">
         价格仅供参考，实际价格、库存和售后规则以原平台为准。本工具不构成购买建议。
       </footer>
+    </div>
+  );
+}
+
+function ProductTable({ products }: { products: ProductGroup[] }) {
+  return (
+    <div className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
+      <div className="overflow-x-auto">
+        <table className="min-w-[1040px] w-full border-collapse text-left text-sm">
+          <thead className="bg-[#f2f4f4] text-[0.68rem] font-semibold text-[#5a6061]">
+            <tr>
+              <TableHead>标准商品</TableHead>
+              <TableHead>平台</TableHead>
+              <TableHead>类型</TableHead>
+              <TableHead>最低价</TableHead>
+              <TableHead>库存</TableHead>
+              <TableHead>渠道</TableHead>
+              <TableHead>最低渠道</TableHead>
+              <TableHead>最近更新</TableHead>
+              <TableHead>操作</TableHead>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#edf0f1]">
+            {products.map((product) => {
+              const previewOffer = product.lowestOffer || product.offers[0];
+              const isAvailable = product.inStockCount > 0;
+
+              return (
+                <tr key={product.id} className="transition hover:bg-[#f7f9f9]">
+                  <td className="max-w-[310px] px-5 py-4">
+                    <Link href={`/products/${product.slug}`} className="group flex min-w-0 items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5e5e5e]">
+                        {platformIcon(product.platform)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold text-[#202829] group-hover:text-[#5e5e5e]">
+                          {product.displayName}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-[#5a6061]">{product.spec}</span>
+                      </span>
+                    </Link>
+                  </td>
+                  <td className="px-5 py-4 text-[#2d3435]">{product.platform}</td>
+                  <td className="px-5 py-4 text-[#5a6061]">
+                    {productTypeLabels[product.productType] || product.productType}
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-lg font-bold text-[#202829]">
+                        {formatCurrency(product.lowestPrice, previewOffer?.currency)}
+                      </span>
+                      <span className={`w-fit rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${tableStatusClass(isAvailable)}`}>
+                        {isAvailable ? "有货" : "缺货"}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <CountBadge tone="good">有货 {product.inStockCount}</CountBadge>
+                      <CountBadge tone="danger">缺货 {product.outOfStockCount}</CountBadge>
+                    </div>
+                  </td>
+                  <td className="px-5 py-4 text-[#2d3435]">{product.offerCount}</td>
+                  <td className="max-w-[190px] px-5 py-4">
+                    <span className="block truncate font-medium text-[#202829]">
+                      {previewOffer?.sourceStoreName || previewOffer?.sourceName || "未记录"}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-[#5a6061]">
+                      {previewOffer?.sourceTitle || "暂无原始商品名"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4 text-[#5a6061]">{formatRelativeTime(product.latestSeenAt)}</td>
+                  <td className="px-5 py-4">
+                    <Link
+                      href={`/products/${product.slug}`}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+                    >
+                      查看
+                      <ChevronRight size={14} />
+                    </Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -366,6 +490,38 @@ function ProductCard({ product }: { product: ProductGroup }) {
         </Link>
       </div>
     </article>
+  );
+}
+
+function TableHead({ children }: { children: ReactNode }) {
+  return <th className="px-5 py-3 font-semibold">{children}</th>;
+}
+
+function ViewToggleButton({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm font-semibold transition ${
+        active
+          ? "bg-white text-[#202829] shadow-[0_8px_24px_rgba(45,52,53,0.08)]"
+          : "text-[#5a6061] hover:text-[#202829]"
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   );
 }
 
@@ -519,6 +675,10 @@ function pricePanelClass(tone: ProductGroup["lowestPriceTone"]): string {
     muted: "bg-[#f2f4f4] text-[#5a6061]",
     danger: "bg-[#fbe9e7] text-[#8f2f24] ring-1 ring-[#e9b7b0]",
   }[tone];
+}
+
+function tableStatusClass(isAvailable: boolean): string {
+  return isAvailable ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]";
 }
 
 function productSortPenalty(product: ProductGroup): number {
