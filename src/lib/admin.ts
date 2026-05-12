@@ -210,6 +210,12 @@ export async function recordSourceCollectionResult(input: {
     .eq("id", input.sourceId)
     .maybeSingle();
 
+  // Skip failure if another channel succeeded recently (within 1 hour)
+  if (input.status === "failed" && existing?.last_success_at) {
+    const ageMs = Date.now() - new Date(existing.last_success_at).getTime();
+    if (ageMs < 60 * 60 * 1000) return;
+  }
+
   const previousFailures = Number(existing?.consecutive_failures || 0);
   const consecutiveFailures = input.status === "failed" ? previousFailures + 1 : 0;
   const healthStatus =
