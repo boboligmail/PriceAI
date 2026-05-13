@@ -2,22 +2,27 @@
 
 import {
   AlertTriangle,
-  ChevronRight,
+  Check,
   CheckCircle2,
+  ChevronDown,
+  ClipboardList,
+  Clock,
   Database,
   FileInput,
+  History,
   Inbox,
   KeyRound,
   Loader2,
   Plus,
   RefreshCcw,
+  Search,
   Store,
   TerminalSquare,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import type { FormEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AdminSummary,
   ChannelSubmission,
@@ -27,6 +32,8 @@ import type {
   Source,
 } from "@/lib/types";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
+
+/* ─── Types ─── */
 
 type Message = {
   type: "success" | "error" | "info";
@@ -58,24 +65,40 @@ type ProbeResult = {
   finishedAt?: string;
 };
 
-type AdminTab = "review" | "collect" | "sources" | "manual" | "logs";
+type AdminTab = "review" | "todo" | "history" | "collect" | "sources" | "manual" | "logs";
+
+type RowFeedback = {
+  id: string;
+  type: "success" | "error";
+  text: string;
+};
 
 const statusOptions: Array<[OfferStatus, string]> = [
   ["in_stock", "有货"],
   ["out_of_stock", "缺货"],
 ];
 
+/* ─── Main Component ─── */
+
 export function AdminConsole({ data }: { data: AdminSummary }) {
   const [password, setPassword] = useState("");
   const [authed, setAuthed] = useState(false);
-  const [message, setMessage] = useState<Message | null>(null);
+  const [globalMessage, setGlobalMessage] = useState<Message | null>(null);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<ChannelSubmission[]>(data.pendingSubmissions || []);
   const [probeResults, setProbeResults] = useState<Record<string, ProbeResult>>({});
   const [activeTab, setActiveTab] = useState<AdminTab>("review");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rowFeedback, setRowFeedback] = useState<RowFeedback | null>(null);
+  const [historySubmissions, setHistorySubmissions] = useState<ChannelSubmission[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const reviewSubmissions = useMemo(
-    () => submissions.filter((submission) => !isCollectorTodo(submission)),
+    () => submissions.filter((s) => !isCollectorTodo(s)),
     [submissions],
   );
   const collectorTodoSubmissions = useMemo(
@@ -83,9 +106,43 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     [submissions],
   );
   const sourceById = useMemo(
-    () => new Map(data.sources.map((source) => [source.id, source])),
+    () => new Map(data.sources.map((s) => [s.id, s])),
     [data.sources],
   );
+
+  const filteredReview = useMemo(() => {
+    if (!searchQuery.trim()) return reviewSubmissions;
+    const q = searchQuery.toLowerCase();
+    return reviewSubmissions.filter(
+      (s) =>
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.parsedTitle || "").toLowerCase().includes(q) ||
+        s.url.toLowerCase().includes(q),
+    );
+  }, [reviewSubmissions, searchQuery]);
+
+  const filteredTodo = useMemo(() => {
+    if (!searchQuery.trim()) return collectorTodoSubmissions;
+    const q = searchQuery.toLowerCase();
+    return collectorTodoSubmissions.filter(
+      (s) =>
+        (s.name || "").toLowerCase().includes(q) ||
+        (s.parsedTitle || "").toLowerCase().includes(q) ||
+        s.url.toLowerCase().includes(q),
+    );
+  }, [collectorTodoSubmissions, searchQuery]);
+
+  const probeSuccessIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const s of filteredReview) {
+      const probe = probeResults[s.id] || probeResultFromMeta(s.parsedMeta || {});
+      const existing = sourceById.get(suggestedSourceIdForSubmission(s) || "");
+      if (existing || (probe?.status === "success" && probe.offerCount > 0)) {
+        ids.add(s.id);
+      }
+    }
+    return ids;
+  }, [filteredReview, probeResults, sourceById]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -95,17 +152,27 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         setAuthed(true);
       }
     }, 0);
-
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (rowFeedback) {
+      const timer = window.setTimeout(() => setRowFeedback(null), 4000);
+      return () => window.clearTimeout(timer);
+    }
+  }, [rowFeedback]);
+
+  const showRowFeedback = useCallback((id: string, type: "success" | "error", text: string) => {
+    setRowFeedback({ id, type, text });
   }, []);
 
   const summary = useMemo(
     () => [
-      ["渠道源", data.sources.length.toString(), <Store key="store" size={17} />],
-      ["标准商品", data.products.length.toString(), <Database key="db" size={17} />],
-      ["报价", data.rawOffers.length.toString(), <FileInput key="file" size={17} />],
-      ["待审核", reviewSubmissions.length.toString(), <Inbox key="inbox" size={17} />],
-      ["采集待办", collectorTodoSubmissions.length.toString(), <TerminalSquare key="terminal" size={17} />],
+      { label: "渠道源", value: data.sources.length, icon: <Store key="s" size={15} /> },
+      { label: "标准商品", value: data.products.length, icon: <Database key="d" size={15} /> },
+      { label: "报价", value: data.rawOffers.length, icon: <FileInput key="f" size={15} /> },
+      { label: "待审核", value: reviewSubmissions.length, icon: <Inbox key="i" size={15} /> },
+      { label: "采集待办", value: collectorTodoSubmissions.length, icon: <TerminalSquare key="t" size={15} /> },
     ],
     [collectorTodoSubmissions.length, data, reviewSubmissions.length],
   );
@@ -119,79 +186,102 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   }, [data.rawOffers]);
   const sourceGroups = useMemo(() => groupSources(data.sources), [data.sources]);
   const failedRunCount = useMemo(
-    () => data.crawlRuns.filter((run) => run.status === "failed").length,
+    () => data.crawlRuns.filter((r) => r.status === "failed").length,
     [data.crawlRuns],
   );
-  const adminTabs = useMemo(
+  const adminTabs: Array<{ id: AdminTab; label: string; count: number | null; icon: ReactNode }> = useMemo(
     () => [
-      { id: "review" as const, label: "审核", count: reviewSubmissions.length + collectorTodoSubmissions.length },
-      { id: "collect" as const, label: "采集", count: failedRunCount },
-      { id: "sources" as const, label: "渠道", count: data.sources.length },
-      { id: "manual" as const, label: "维护", count: null },
-      { id: "logs" as const, label: "日志", count: data.crawlRuns.length },
+      { id: "review", label: "审核", count: reviewSubmissions.length, icon: <Inbox size={15} /> },
+      { id: "todo", label: "待办", count: collectorTodoSubmissions.length, icon: <ClipboardList size={15} /> },
+      { id: "history", label: "历史", count: null, icon: <History size={15} /> },
+      { id: "collect", label: "采集", count: failedRunCount || null, icon: <RefreshCcw size={15} /> },
+      { id: "sources", label: "渠道", count: data.sources.length, icon: <Store size={15} /> },
+      { id: "manual", label: "维护", count: null, icon: <Plus size={15} /> },
+      { id: "logs", label: "日志", count: data.crawlRuns.length, icon: <Clock size={15} /> },
     ],
-    [
-      collectorTodoSubmissions.length,
-      data.crawlRuns.length,
-      data.sources.length,
-      failedRunCount,
-      reviewSubmissions.length,
-    ],
+    [collectorTodoSubmissions.length, data.crawlRuns.length, data.sources.length, failedRunCount, reviewSubmissions.length],
   );
 
+  /* ─── Keyboard shortcuts ─── */
+  useEffect(() => {
+    if (!authed) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+
+      if (activeTab !== "review" && activeTab !== "todo") return;
+      const items = activeTab === "review" ? filteredReview : filteredTodo;
+      if (!items.length) return;
+
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedIndex((i) => Math.min(i + 1, items.length - 1));
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedIndex((i) => Math.max(i - 1, 0));
+      } else if (e.key === "Enter" && focusedIndex >= 0) {
+        e.preventDefault();
+        const item = items[focusedIndex];
+        if (item) setExpandedId((prev) => (prev === item.id ? null : item.id));
+      } else if (e.key === "Escape") {
+        setExpandedId(null);
+        setSelectedIds(new Set());
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [authed, activeTab, filteredReview, filteredTodo, focusedIndex]);
+
+  /* ─── API actions ─── */
   async function login(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoadingAction("login");
-    setMessage(null);
-
+    setGlobalMessage(null);
     const result = await request("/api/admin/login", password, { password });
     setLoadingAction(null);
-
     if (result.ok) {
       window.sessionStorage.setItem("ai-price-hub-admin", password);
       setAuthed(true);
-      setMessage({ type: "success", text: "后台已解锁。" });
+      setGlobalMessage({ type: "success", text: "后台已解锁。" });
       void refreshSubmissions(password);
     } else {
-      setMessage({ type: "error", text: result.message || "登录失败。" });
+      setGlobalMessage({ type: "error", text: result.message || "登录失败。" });
     }
   }
 
   async function importAibijia() {
     setLoadingAction("import-aibijia");
-    setMessage({ type: "info", text: "正在导入 Aibijia 公开报价..." });
+    setGlobalMessage({ type: "info", text: "正在导入 Aibijia 公开报价..." });
     const result = await request("/api/admin/import-aibijia", password, {});
     setLoadingAction(null);
-
     if (result.ok) {
-      setMessage({
+      setGlobalMessage({
         type: "success",
         text: `导入完成：${result.result?.offerCount || 0} 条报价，合并到 ${result.result?.sourceCount || 0} 个渠道源，并迁移 ${result.result?.migratedLegacyOfferCount || 0} 条旧报价。刷新页面即可看到最新数据。`,
       });
     } else {
-      setMessage({ type: "error", text: result.message || "导入失败。" });
+      setGlobalMessage({ type: "error", text: result.message || "导入失败。" });
     }
   }
 
   async function reclassifyOffers() {
     setLoadingAction("reclassify-offers");
-    setMessage({ type: "info", text: "正在按最新标准商品规则重建分类..." });
+    setGlobalMessage({ type: "info", text: "正在按最新标准商品规则重建分类..." });
     const result = await request("/api/admin/reclassify", password, {});
     setLoadingAction(null);
-
     if (result.ok) {
-      setMessage({
+      setGlobalMessage({
         type: "success",
         text: `重分类完成：同步 ${result.productCount || 0} 个标准商品，更新 ${result.updatedCount || 0} 条报价。刷新页面后可查看结果。`,
       });
     } else {
-      setMessage({ type: "error", text: result.message || "重分类失败。" });
+      setGlobalMessage({ type: "error", text: result.message || "重分类失败。" });
     }
   }
 
   async function collectPrices() {
     setLoadingAction("collect-prices");
-    setMessage({ type: "info", text: "正在采集所有卡网最新价格，请稍候..." });
+    setGlobalMessage({ type: "info", text: "正在采集所有卡网最新价格，请稍候..." });
     try {
       const response = await fetch("/api/cron/collect-prices", {
         method: "POST",
@@ -204,15 +294,15 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         const success = summaries.filter((item) => item.status === "success").length;
         const failed = summaries.length - success;
         const totalOffers = summaries.reduce((sum, item) => sum + (item.offers || 0), 0);
-        setMessage({
+        setGlobalMessage({
           type: failed ? "info" : "success",
-          text: `采集完成：${success}/${summaries.length} 个来源成功，共 ${totalOffers} 条报价。${failed ? `失败 ${failed} 个，可在「最近采集记录」查看原因。` : ""}`,
+          text: `采集完成：${success}/${summaries.length} 个来源成功，共 ${totalOffers} 条报价。${failed ? `失败 ${failed} 个，可在日志查看原因。` : ""}`,
         });
       } else {
-        setMessage({ type: "error", text: json.message || "采集失败。" });
+        setGlobalMessage({ type: "error", text: json.message || "采集失败。" });
       }
     } catch (error) {
-      setMessage({ type: "error", text: error instanceof Error ? error.message : "网络错误。" });
+      setGlobalMessage({ type: "error", text: error instanceof Error ? error.message : "网络错误。" });
     } finally {
       setLoadingAction(null);
     }
@@ -231,8 +321,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       notes: String(form.get("notes") || "") || null,
     });
     setLoadingAction(null);
-
-    setMessage(result.ok ? { type: "success", text: "来源已保存，刷新页面后可查看。" } : { type: "error", text: result.message || "保存失败。" });
+    setGlobalMessage(result.ok ? { type: "success", text: "来源已保存，刷新页面后可查看。" } : { type: "error", text: result.message || "保存失败。" });
   }
 
   async function submitOffer(event: FormEvent<HTMLFormElement>) {
@@ -244,7 +333,6 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       .map((item) => item.trim())
       .filter(Boolean);
     const priceValue = String(form.get("price") || "");
-
     const result = await request("/api/admin/manual-offer", password, {
       sourceName: String(form.get("sourceName") || ""),
       sourceUrl: String(form.get("sourceUrl") || ""),
@@ -258,8 +346,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       stockCount: null,
     });
     setLoadingAction(null);
-
-    setMessage(result.ok ? { type: "success", text: "手动报价已保存，刷新页面后可查看。" } : { type: "error", text: result.message || "保存失败。" });
+    setGlobalMessage(result.ok ? { type: "success", text: "手动报价已保存，刷新页面后可查看。" } : { type: "error", text: result.message || "保存失败。" });
   }
 
   async function refreshSubmissions(currentPassword: string) {
@@ -276,6 +363,33 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     }
   }
 
+  async function loadHistory() {
+    if (historyLoading) return;
+    setHistoryLoading(true);
+    try {
+      const [approvedRes, rejectedRes] = await Promise.all([
+        fetch("/api/admin/submissions?status=approved", {
+          headers: { "x-admin-password": password },
+        }),
+        fetch("/api/admin/submissions?status=rejected", {
+          headers: { "x-admin-password": password },
+        }),
+      ]);
+      const approvedJson = await approvedRes.json().catch(() => ({ ok: false }));
+      const rejectedJson = await rejectedRes.json().catch(() => ({ ok: false }));
+      const all: ChannelSubmission[] = [
+        ...(approvedJson.ok ? approvedJson.submissions : []),
+        ...(rejectedJson.ok ? rejectedJson.submissions : []),
+      ];
+      all.sort((a, b) => new Date(b.reviewedAt || b.createdAt).getTime() - new Date(a.reviewedAt || a.createdAt).getTime());
+      setHistorySubmissions(all);
+    } catch {
+      setGlobalMessage({ type: "error", text: "加载历史记录失败。" });
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
   async function approveSubmission(
     submission: ChannelSubmission,
     overrides: { name?: string; collectionMethod?: CollectionMethod },
@@ -287,47 +401,50 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       collectionMethod: overrides.collectionMethod || "manual",
     });
     setLoadingAction(null);
-
     if (result.ok) {
-      setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
-      setProbeResults((prev) => omitKey(prev, submission.id));
       const imported = Number(result.importedOfferCount || 0);
       const merged = Boolean(result.matchedExistingSource);
-      setMessage({
-        type: "success",
-        text: merged
-          ? `已合并到已有源：${result.source?.name || submission.url}${imported ? `，入库 ${imported} 条报价。` : "。"}`
-          : `已通过并入库：${result.source?.name || submission.url}，入库 ${imported} 条报价。`,
-      });
+      showRowFeedback(
+        submission.id,
+        "success",
+        merged
+          ? `已合并到已有源：${result.source?.name || submission.url}${imported ? `，入库 ${imported} 条报价` : ""}`
+          : `已通过并入库：${result.source?.name || submission.url}，入库 ${imported} 条报价`,
+      );
+      setTimeout(() => {
+        setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
+        setProbeResults((prev) => omitKey(prev, submission.id));
+        setSelectedIds((prev) => { const next = new Set(prev); next.delete(submission.id); return next; });
+      }, 1500);
     } else {
       if (isAlreadyHandled(result.message)) {
         setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
         setProbeResults((prev) => omitKey(prev, submission.id));
       }
-      setMessage({ type: "error", text: result.message || "通过失败。" });
+      showRowFeedback(submission.id, "error", result.message || "通过失败。");
     }
   }
 
   async function probeSubmission(submission: ChannelSubmission) {
     setLoadingAction(`probe-${submission.id}`);
-    setMessage({ type: "info", text: "正在试采集该渠道，不会写入正式报价..." });
+    showRowFeedback(submission.id, "info" as "success", "正在试采集，通常需要 10-30 秒...");
     const result = await request("/api/admin/submissions/probe", password, {
       id: submission.id,
     });
     setLoadingAction(null);
-
     if (result.ok && result.result) {
       const probeResult = result.result as ProbeResult;
       setProbeResults((prev) => ({ ...prev, [submission.id]: probeResult }));
       if (result.submission) {
         setSubmissions((prev) => replaceSubmission(prev, result.submission as ChannelSubmission));
       }
-      setMessage({
-        type: probeResult.status === "success" ? "success" : "info",
-        text: probeResult.message || "试采集完成。",
-      });
+      showRowFeedback(
+        submission.id,
+        probeResult.status === "success" ? "success" : "error",
+        probeResult.message || "试采集完成。",
+      );
     } else {
-      setMessage({ type: "error", text: result.message || "试采集失败。" });
+      showRowFeedback(submission.id, "error", result.message || "试采集失败。");
     }
   }
 
@@ -338,12 +455,11 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       note: note || null,
     });
     setLoadingAction(null);
-
     if (result.ok && result.submission) {
       setSubmissions((prev) => replaceSubmission(prev, result.submission as ChannelSubmission));
-      setMessage({ type: "info", text: "已加入采集器待办，后续补解析脚本后可重新试采集。" });
+      showRowFeedback(submission.id, "success", "已加入采集器待办。");
     } else {
-      setMessage({ type: "error", text: result.message || "加入待办失败。" });
+      showRowFeedback(submission.id, "error", result.message || "加入待办失败。");
     }
   }
 
@@ -354,261 +470,471 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       reviewerNote: note || null,
     });
     setLoadingAction(null);
-
     if (result.ok) {
-      setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
-      setProbeResults((prev) => omitKey(prev, submission.id));
-      setMessage({ type: "info", text: "已拒绝该提交。" });
+      showRowFeedback(submission.id, "success", "已拒绝该提交。");
+      setTimeout(() => {
+        setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
+        setProbeResults((prev) => omitKey(prev, submission.id));
+        setSelectedIds((prev) => { const next = new Set(prev); next.delete(submission.id); return next; });
+      }, 1500);
     } else {
       if (isAlreadyHandled(result.message)) {
         setSubmissions((prev) => prev.filter((item) => item.id !== submission.id));
         setProbeResults((prev) => omitKey(prev, submission.id));
       }
-      setMessage({ type: "error", text: result.message || "拒绝失败。" });
+      showRowFeedback(submission.id, "error", result.message || "拒绝失败。");
     }
   }
 
+  async function batchApprove() {
+    const items = filteredReview.filter((s) => selectedIds.has(s.id) && probeSuccessIds.has(s.id));
+    if (!items.length) return;
+    setLoadingAction("batch-approve");
+    let successCount = 0;
+    for (const item of items) {
+      const meta = item.parsedMeta || {};
+      const suggestedMethod = collectionMethodMeta(meta, "suggested_collection_method");
+      const probe = probeResults[item.id] || probeResultFromMeta(meta);
+      const method: CollectionMethod = (probe?.status === "success" ? "http" : suggestedMethod) || "http";
+      const result = await request("/api/admin/submissions/approve", password, {
+        id: item.id,
+        name: item.name || stringMeta(meta, "suggested_source_name") || item.parsedTitle || null,
+        collectionMethod: method,
+      });
+      if (result.ok) {
+        successCount++;
+        setSubmissions((prev) => prev.filter((s) => s.id !== item.id));
+        setProbeResults((prev) => omitKey(prev, item.id));
+      }
+    }
+    setLoadingAction(null);
+    setSelectedIds(new Set());
+    setGlobalMessage({
+      type: "success",
+      text: `批量通过完成：${successCount}/${items.length} 条成功。`,
+    });
+  }
+
+  /* ─── Render ─── */
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllApprovable = () => {
+    if (selectedIds.size === probeSuccessIds.size && [...probeSuccessIds].every((id) => selectedIds.has(id))) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(probeSuccessIds));
+    }
+  };
+
   return (
-    <main className="min-h-screen bg-[#f6f7f2] text-stone-950">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-4 border border-stone-200 bg-white p-5 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <Link href="/" className="text-sm font-medium text-stone-500 hover:text-emerald-800">
-              返回首页
+    <main className="min-h-screen bg-[#f9f9f9] text-[#2d3435]">
+      {/* Header */}
+      <header className="border-b border-[#adb3b4]/30 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="text-sm font-medium text-[#5a6061] transition-colors hover:text-[#2d3435]">
+              &larr; PriceAI
             </Link>
-            <h1 className="mt-2 text-3xl font-semibold tracking-normal">后台管理</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-stone-600">
-              管理来源、审核提交、同步 Aibijia 公开数据，并查看自动采集与浏览器采集记录。
-            </p>
+            <span className="text-[#adb3b4]">/</span>
+            <h1 className="font-serif text-lg font-semibold text-[#202829]">后台管理</h1>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5 lg:w-[700px]">
-            {summary.map(([label, value, icon]) => (
-              <div key={String(label)} className="border border-stone-200 bg-stone-50 px-3 py-2">
-                <div className="flex items-center gap-2 text-xs text-stone-500">
-                  {icon}
-                  {label}
+          {authed && (
+            <div className="flex items-center gap-3">
+              {summary.map((s) => (
+                <div key={s.label} className="hidden items-center gap-1.5 text-xs text-[#5a6061] sm:flex">
+                  {s.icon}
+                  <span className="font-semibold text-[#2d3435]">{s.value}</span>
+                  <span>{s.label}</span>
                 </div>
-                <p className="mt-1 text-xl font-semibold">{value}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
+      </header>
 
-        {message ? <MessageBox message={message} /> : null}
-
-        {!data.configured ? (
-          <div className="mt-4 flex items-start gap-2 border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <AlertTriangle size={17} className="mt-0.5 shrink-0" />
-            <span>
-              还没有配置 Supabase。前台会使用演示数据，后台保存、导入和采集入库会返回配置提示。
-            </span>
+      <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+        {/* Global message */}
+        {globalMessage && (
+          <div className="mb-4">
+            <MessageBox message={globalMessage} onDismiss={() => setGlobalMessage(null)} />
           </div>
-        ) : null}
+        )}
+
+        {!data.configured && (
+          <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-[#fff7e8] px-4 py-3 text-sm text-[#7a541b]">
+            <AlertTriangle size={17} className="mt-0.5 shrink-0" />
+            <span>还没有配置 Supabase。前台会使用演示数据，后台保存、导入和采集入库会返回配置提示。</span>
+          </div>
+        )}
 
         {!authed ? (
-          <section className="mt-5 max-w-xl border border-stone-200 bg-white p-5">
-            <div className="flex items-center gap-2 text-lg font-semibold">
+          <section className="mx-auto mt-8 max-w-md rounded-lg border border-[#adb3b4]/30 bg-white p-6">
+            <div className="flex items-center gap-2 text-lg font-semibold text-[#202829]">
               <KeyRound size={19} />
               后台密码
             </div>
-            <p className="mt-2 text-sm text-stone-600">
+            <p className="mt-2 text-sm text-[#5a6061]">
               使用 `.env.local` 里的 `ADMIN_PASSWORD`。未配置时，本地默认密码为 `ai-price-hub-local`。
             </p>
             <form onSubmit={login} className="mt-4 flex gap-2">
               <input
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 placeholder="输入后台密码"
-                className="h-11 min-w-0 flex-1 border border-stone-300 bg-stone-50 px-3 text-sm outline-none focus:border-emerald-700"
+                className="h-11 min-w-0 flex-1 rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
               />
-              <button className="inline-flex h-11 items-center gap-2 bg-stone-900 px-4 text-sm font-medium text-white hover:bg-emerald-800">
+              <button className="inline-flex h-11 items-center gap-2 rounded-lg bg-[#2d3435] px-5 text-sm font-medium text-[#f8f8f8] transition-colors hover:bg-[#202829]">
                 {loadingAction === "login" ? <Loader2 size={16} className="animate-spin" /> : <KeyRound size={16} />}
                 解锁
               </button>
             </form>
           </section>
         ) : (
-          <div className="mt-5 space-y-4">
-            <div className="overflow-x-auto border border-stone-200 bg-white p-1">
-              <div className="flex min-w-max gap-1">
-                {adminTabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`inline-flex h-10 items-center gap-2 px-4 text-sm font-medium transition ${
+          <>
+            {/* Tab bar */}
+            <nav role="tablist" aria-label="管理后台导航" className="mb-5 flex gap-1 overflow-x-auto border-b border-[#adb3b4]/20">
+              {adminTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab.id}
+                  aria-controls={`tabpanel-${tab.id}`}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setSearchQuery("");
+                    setSelectedIds(new Set());
+                    setFocusedIndex(-1);
+                    setExpandedId(null);
+                    if (tab.id === "history" && !historySubmissions.length) void loadHistory();
+                  }}
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    activeTab === tab.id
+                      ? "border-[#2d3435] text-[#2d3435]"
+                      : "border-transparent text-[#5a6061] hover:border-[#adb3b4]/40 hover:text-[#2d3435]"
+                  }`}
+                >
+                  {tab.icon}
+                  {tab.label}
+                  {typeof tab.count === "number" && tab.count > 0 && (
+                    <span className={`rounded-full px-1.5 py-0.5 text-xs ${
                       activeTab === tab.id
-                        ? "bg-stone-900 text-white"
-                        : "text-stone-600 hover:bg-stone-100 hover:text-stone-950"
-                    }`}
-                  >
-                    {tab.label}
-                    {typeof tab.count === "number" ? (
-                      <span
-                        className={`px-1.5 py-0.5 text-xs ${
-                          activeTab === tab.id ? "bg-white/15 text-white" : "bg-stone-100 text-stone-600"
-                        }`}
-                      >
-                        {tab.count}
-                      </span>
-                    ) : null}
-                  </button>
-                ))}
-              </div>
-            </div>
+                        ? "bg-[#2d3435] text-white"
+                        : "bg-[#f2f4f4] text-[#5a6061]"
+                    }`}>
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </nav>
 
-            {activeTab === "review" ? (
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-                <Panel title={`待审核提交 (${reviewSubmissions.length})`} icon={<Inbox size={18} />}>
-                  {reviewSubmissions.length ? (
-                    <div className="divide-y divide-stone-200 border border-stone-200">
-                      {reviewSubmissions.map((submission) => (
-                        <SubmissionRow
-                          key={submission.id}
-                          submission={submission}
-                          existingSource={sourceById.get(suggestedSourceIdForSubmission(submission) || "") || null}
-                          loadingAction={loadingAction}
-                          probeResult={probeResults[submission.id]}
-                          onApprove={approveSubmission}
-                          onProbe={probeSubmission}
-                          onTodo={todoSubmission}
-                          onReject={rejectSubmission}
-                        />
+            {/* Review tab */}
+            {activeTab === "review" && (
+              <div role="tabpanel" id="tabpanel-review">
+                {/* Toolbar */}
+                <div className="mb-4 flex flex-wrap items-center gap-3">
+                  <div className="relative flex-1">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#adb3b4]" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="搜索渠道名或 URL..."
+                      aria-label="搜索渠道名或 URL"
+                      className="h-9 w-full rounded-lg border border-[#adb3b4]/30 bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
+                    />
+                  </div>
+                  {probeSuccessIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={selectAllApprovable}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#2d3435] transition-colors hover:bg-[#f2f4f4]"
+                    >
+                      <Check size={14} />
+                      {selectedIds.size > 0 ? "取消全选" : `全选可通过 (${probeSuccessIds.size})`}
+                    </button>
+                  )}
+                  {selectedIds.size > 0 && (
+                    <button
+                      type="button"
+                      onClick={batchApprove}
+                      disabled={loadingAction === "batch-approve"}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#2f7a4b] px-4 text-xs font-medium text-white transition-colors hover:bg-[#256a3d] disabled:opacity-60"
+                    >
+                      {loadingAction === "batch-approve" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                      批量通过 ({selectedIds.size})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => refreshSubmissions(password)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                  >
+                    <RefreshCcw size={14} />
+                    刷新
+                  </button>
+                </div>
+
+                {/* Submission list */}
+                <div ref={listRef} className="space-y-2">
+                  {filteredReview.length ? (
+                    filteredReview.map((submission, index) => (
+                      <SubmissionCard
+                        key={submission.id}
+                        submission={submission}
+                        existingSource={sourceById.get(suggestedSourceIdForSubmission(submission) || "") || null}
+                        loadingAction={loadingAction}
+                        probeResult={probeResults[submission.id]}
+                        expanded={expandedId === submission.id}
+                        focused={focusedIndex === index}
+                        selected={selectedIds.has(submission.id)}
+                        selectable={probeSuccessIds.has(submission.id)}
+                        feedback={rowFeedback?.id === submission.id ? rowFeedback : null}
+                        onToggleExpand={() => setExpandedId((prev) => (prev === submission.id ? null : submission.id))}
+                        onToggleSelect={() => toggleSelect(submission.id)}
+                        onApprove={approveSubmission}
+                        onProbe={probeSubmission}
+                        onTodo={todoSubmission}
+                        onReject={rejectSubmission}
+                      />
+                    ))
+                  ) : (
+                    <EmptyState
+                      icon={<Inbox size={32} className="text-[#adb3b4]" />}
+                      title="所有提交已处理完毕"
+                      description="用户提交的新渠道会出现在这里。"
+                    />
+                  )}
+                </div>
+
+                {/* Keyboard hint */}
+                {filteredReview.length > 0 && (
+                  <p className="mt-4 text-center text-xs text-[#adb3b4]">
+                    <kbd className="rounded border border-[#adb3b4]/30 px-1">j</kbd>/<kbd className="rounded border border-[#adb3b4]/30 px-1">k</kbd> 导航
+                    {" "}<kbd className="rounded border border-[#adb3b4]/30 px-1">Enter</kbd> 展开
+                    {" "}<kbd className="rounded border border-[#adb3b4]/30 px-1">Esc</kbd> 收起
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Todo tab */}
+            {activeTab === "todo" && (
+              <div role="tabpanel" id="tabpanel-todo">
+                <div className="mb-4">
+                  <div className="relative max-w-md">
+                    <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#adb3b4]" />
+                    <input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="搜索待办..."
+                      aria-label="搜索待办"
+                      className="h-9 w-full rounded-lg border border-[#adb3b4]/30 bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  {filteredTodo.length ? (
+                    filteredTodo.map((submission) => {
+                      const meta = submission.parsedMeta || {};
+                      const reason = stringMeta(meta, "collector_todo_reason") || stringMeta(meta, "support_reason");
+                      const domain = stringMeta(meta, "domain") || safeDomain(submission.url);
+                      const probeLoading = loadingAction === `probe-${submission.id}`;
+
+                      return (
+                        <div key={submission.id} className="rounded-lg border border-amber-200/60 bg-white p-4 transition-colors hover:border-amber-300">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-baseline gap-2">
+                                <a
+                                  href={submission.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm font-medium text-[#2d3435] hover:text-[#7a541b]"
+                                >
+                                  {submission.name || submission.parsedTitle || domain || submission.url}
+                                </a>
+                                {domain && <span className="text-xs text-[#5a6061]">{domain}</span>}
+                              </div>
+                              <p className="mt-1 break-all text-xs text-[#adb3b4]">{submission.url}</p>
+                              <p className="mt-2 text-xs leading-5 text-[#7a541b]">
+                                {reason || "需要新增解析脚本后重新试采集。"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={probeLoading}
+                              onClick={() => probeSubmission(submission)}
+                              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-amber-200 bg-white px-3 text-xs font-medium text-[#7a541b] transition-colors hover:bg-[#fff7e8] disabled:opacity-60"
+                            >
+                              {probeLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
+                              重新试采集
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <EmptyState
+                      icon={<ClipboardList size={32} className="text-[#adb3b4]" />}
+                      title="暂无采集器待办"
+                      description="试采集失败的渠道会放到这里，后续新增解析脚本后再验证。"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* History tab */}
+            {activeTab === "history" && (
+              <div role="tabpanel" id="tabpanel-history">
+                <div className="mb-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={loadHistory}
+                    disabled={historyLoading}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-60"
+                  >
+                    {historyLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
+                    刷新
+                  </button>
+                  <span className="text-xs text-[#adb3b4]">{historySubmissions.length} 条记录</span>
+                </div>
+                {historyLoading && !historySubmissions.length ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 size={24} className="animate-spin text-[#adb3b4]" />
+                  </div>
+                ) : historySubmissions.length ? (
+                  <div className="overflow-hidden rounded-lg border border-[#adb3b4]/20">
+                    <div className="hidden grid-cols-[1fr_100px_120px_180px] gap-3 border-b border-[#adb3b4]/20 bg-[#f2f4f4] px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#5a6061] md:grid">
+                      <span>渠道</span>
+                      <span>状态</span>
+                      <span>审核人备注</span>
+                      <span>处理时间</span>
+                    </div>
+                    <div className="divide-y divide-[#adb3b4]/15">
+                      {historySubmissions.map((s) => (
+                        <div key={s.id} className="grid gap-2 bg-white px-4 py-3 md:grid-cols-[1fr_100px_120px_180px] md:items-center">
+                          <div className="min-w-0">
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm font-medium text-[#2d3435] hover:text-[#47657a]"
+                            >
+                              {s.name || s.parsedTitle || s.url}
+                            </a>
+                            <p className="mt-0.5 truncate text-xs text-[#adb3b4]">{s.url}</p>
+                          </div>
+                          <span className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+                            s.status === "approved"
+                              ? "bg-[#e8f3ec] text-[#2f7a4b]"
+                              : "bg-[#fbe9e7] text-[#9b3328]"
+                          }`}>
+                            {s.status === "approved" ? "已通过" : "已拒绝"}
+                          </span>
+                          <span className="truncate text-xs text-[#5a6061]">{s.reviewerNote || "-"}</span>
+                          <span className="text-xs text-[#adb3b4]">{s.reviewedAt ? formatRelativeTime(s.reviewedAt) : "-"}</span>
+                        </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="border border-stone-200 bg-stone-50 px-4 py-6">
-                      <p className="text-sm font-medium text-stone-900">暂无待审核提交</p>
-                      <p className="mt-2 text-sm leading-6 text-stone-600">
-                        用户提交的新渠道会先解析和试采集。成功后通过并入库，暂不支持的渠道进入采集器待办。
-                      </p>
-                    </div>
-                  )}
-                </Panel>
-
-                <section className="space-y-5">
-                  <Panel title="审核规则" icon={<CheckCircle2 size={18} />}>
-                    <div className="space-y-4 text-sm leading-6 text-stone-600">
-                      <p>
-                        默认流程：解析链接，试采集，采集成功后通过并入库；如果匹配已有源，可以直接合并通过；暂不支持的渠道加入采集器待办。
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <StatTile label="待审核" value={reviewSubmissions.length.toString()} />
-                        <StatTile label="采集待办" value={collectorTodoSubmissions.length.toString()} />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab("collect")}
-                        className="inline-flex h-10 w-full items-center justify-center gap-2 border border-stone-300 bg-white px-4 text-sm font-medium text-stone-800 hover:bg-stone-50"
-                      >
-                        查看采集状态
-                        <ChevronRight size={16} />
-                      </button>
-                    </div>
-                  </Panel>
-
-                  <CollectorTodoPanel
-                    submissions={collectorTodoSubmissions}
-                    loadingAction={loadingAction}
-                    onRetry={probeSubmission}
+                  </div>
+                ) : (
+                  <EmptyState
+                    icon={<History size={32} className="text-[#adb3b4]" />}
+                    title="暂无历史记录"
+                    description="审核通过或拒绝的提交会出现在这里。"
                   />
-                </section>
+                )}
               </div>
-            ) : null}
+            )}
 
-            {activeTab === "collect" ? (
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-                <section className="space-y-5">
-                  <Panel title="数据同步" icon={<RefreshCcw size={18} />}>
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-stone-900">Aibijia 公开报价</p>
-                        <p className="mt-1 text-sm text-stone-600">
-                          从 `https://data.aibijia.org/products.json` 同步商品、渠道和报价。
-                        </p>
-                      </div>
-                      <button
-                        onClick={importAibijia}
-                        className="inline-flex h-10 items-center justify-center gap-2 bg-emerald-800 px-4 text-sm font-medium text-white hover:bg-emerald-700"
-                      >
-                        {loadingAction === "import-aibijia" ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
-                        导入 Aibijia
-                      </button>
-                    </div>
-
-	                    <div className="mt-4 flex flex-col gap-3 border-t border-stone-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-	                      <div>
-	                        <p className="text-sm font-medium text-stone-900">重建标准商品分类</p>
-	                        <p className="mt-1 text-sm text-stone-600">
-	                          按最新粗粒度规则重新归类已有报价，修正 API、邮箱、Gemini、Team 等误分。
-	                        </p>
-	                      </div>
-	                      <button
-	                        onClick={reclassifyOffers}
-	                        disabled={loadingAction === "reclassify-offers"}
-	                        className="inline-flex h-10 items-center justify-center gap-2 border border-stone-300 bg-white px-4 text-sm font-medium text-stone-900 hover:bg-stone-50 disabled:opacity-60"
-	                      >
-	                        {loadingAction === "reclassify-offers" ? <Loader2 size={16} className="animate-spin" /> : <Database size={16} />}
-	                        重建分类
-	                      </button>
-	                    </div>
-
-	                    <div className="mt-4 flex flex-col gap-3 border-t border-stone-200 pt-4 sm:flex-row sm:items-center sm:justify-between">
-	                      <div>
-	                        <p className="text-sm font-medium text-stone-900">立即采集所有卡网</p>
-	                        <p className="mt-1 text-sm text-stone-600">
-	                          手动触发跟 Vercel Cron 相同的采集流程；失败会自动重试，并记录来源健康状态。
-	                        </p>
-                      </div>
-                      <button
-                        onClick={collectPrices}
-                        disabled={loadingAction === "collect-prices"}
-                        className="inline-flex h-10 items-center justify-center gap-2 bg-stone-900 px-4 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-60"
-                      >
-                        {loadingAction === "collect-prices" ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
-                        立即采集
-                      </button>
-                    </div>
+            {/* Collect tab */}
+            {activeTab === "collect" && (
+              <div role="tabpanel" id="tabpanel-collect" className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+                <section className="space-y-4">
+                  <Panel title="数据同步" icon={<RefreshCcw size={17} />}>
+                    <ActionRow
+                      title="Aibijia 公开报价"
+                      description="从 data.aibijia.org 同步商品、渠道和报价。"
+                      buttonLabel="导入 Aibijia"
+                      buttonIcon={<RefreshCcw size={15} />}
+                      loading={loadingAction === "import-aibijia"}
+                      onClick={importAibijia}
+                      primary
+                    />
+                    <Divider />
+                    <ActionRow
+                      title="重建标准商品分类"
+                      description="按最新粗粒度规则重新归类已有报价。"
+                      buttonLabel="重建分类"
+                      buttonIcon={<Database size={15} />}
+                      loading={loadingAction === "reclassify-offers"}
+                      onClick={reclassifyOffers}
+                    />
+                    <Divider />
+                    <ActionRow
+                      title="立即采集所有卡网"
+                      description="手动触发跟 Vercel Cron 相同的采集流程。"
+                      buttonLabel="立即采集"
+                      buttonIcon={<RefreshCcw size={15} />}
+                      loading={loadingAction === "collect-prices"}
+                      onClick={collectPrices}
+                      primary
+                    />
                   </Panel>
 
-                  <Panel title="自动采集与浏览器兜底" icon={<TerminalSquare size={18} />}>
-                    <p className="text-sm leading-6 text-stone-600">
+                  <Panel title="自动采集与浏览器兜底" icon={<TerminalSquare size={17} />}>
+                    <p className="text-sm leading-6 text-[#5a6061]">
                       部署后由 `/api/cron/collect-prices` 定时采集真实价格和库存；接口失败、WAF 或登录页才切换到本机浏览器半自动采集。
                     </p>
-                    <div className="mt-3 overflow-x-auto whitespace-nowrap border border-stone-200 bg-stone-950 px-3 py-3 font-mono text-xs leading-6 text-stone-100">
-                      GET /api/cron/collect-prices
+                    <div className="mt-3 space-y-2">
+                      <code className="block overflow-x-auto rounded-lg bg-[#202829] px-3 py-2.5 font-mono text-xs leading-6 text-[#f2f4f4]">
+                        GET /api/cron/collect-prices
+                      </code>
+                      <code className="block overflow-x-auto rounded-lg bg-[#202829] px-3 py-2.5 font-mono text-xs leading-6 text-[#f2f4f4]">
+                        {"npm run collect:browser -- --url https://aisou.pro/ --password <后台密码> --post"}
+                      </code>
                     </div>
-                    <div className="mt-2 overflow-x-auto whitespace-nowrap border border-stone-200 bg-stone-950 px-3 py-3 font-mono text-xs leading-6 text-stone-100">
-                      {"npm run collect:browser -- --url https://aisou.pro/ --password <后台密码> --post"}
-                    </div>
-                    <p className="mt-3 text-xs leading-5 text-stone-500">
-                      本页不会显示真实后台密码。生产环境请配置 `CRON_SECRET`，由 Vercel Cron、Supabase Cron 或云服务器 cron 调用接口。
+                    <p className="mt-3 text-xs leading-5 text-[#adb3b4]">
+                      本页不会显示真实后台密码。生产环境请配置 `CRON_SECRET`。
                     </p>
                   </Panel>
                 </section>
 
                 <RecentRunsPanel runs={data.crawlRuns.slice(0, 8)} />
               </div>
-            ) : null}
+            )}
 
-            {activeTab === "sources" ? (
-              <Panel title="总渠道源" icon={<Store size={18} />}>
-                <SourceTable groups={sourceGroups} offerCountBySource={offerCountBySource} />
-              </Panel>
-            ) : null}
+            {/* Sources tab */}
+            {activeTab === "sources" && (
+              <div role="tabpanel" id="tabpanel-sources">
+                <Panel title="总渠道源" icon={<Store size={17} />}>
+                  <SourceTable groups={sourceGroups} offerCountBySource={offerCountBySource} />
+                </Panel>
+              </div>
+            )}
 
-            {activeTab === "manual" ? (
-              <div className="grid gap-5 lg:grid-cols-2">
-                <Panel title="新增来源" icon={<Plus size={18} />}>
+            {/* Manual tab */}
+            {activeTab === "manual" && (
+              <div role="tabpanel" id="tabpanel-manual" className="grid gap-5 lg:grid-cols-2">
+                <Panel title="新增来源" icon={<Plus size={17} />}>
                   <form onSubmit={submitSource} className="space-y-3">
                     <TextInput name="name" label="来源名称" placeholder="例如 Aisou智充" />
                     <TextInput name="entryUrl" label="入口链接" placeholder="https://example.com/" type="url" />
                     <TextInput name="baseUrl" label="主域名" placeholder="https://example.com" type="url" required={false} />
                     <label className="block">
-                      <span className="mb-1 block text-xs font-medium text-stone-500">采集方式</span>
-                      <select name="collectionMethod" className="h-10 w-full border border-stone-300 bg-stone-50 px-3 text-sm outline-none focus:border-emerald-700">
+                      <span className="mb-1 block text-xs font-medium text-[#5a6061]">采集方式</span>
+                      <select name="collectionMethod" className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]">
                         <option value="browser">浏览器采集</option>
                         <option value="http">自动接口采集</option>
                         <option value="aibijia_json">Aibijia 数据</option>
@@ -619,8 +945,8 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   </form>
                 </Panel>
 
-                <Panel title="调试补录报价" icon={<FileInput size={18} />}>
-                  <p className="mb-3 text-xs leading-5 text-stone-500">
+                <Panel title="调试补录报价" icon={<FileInput size={17} />}>
+                  <p className="mb-3 text-xs leading-5 text-[#adb3b4]">
                     仅用于排查分类和展示，不作为渠道长期维护方式。
                   </p>
                   <form onSubmit={submitOffer} className="space-y-3">
@@ -631,12 +957,10 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <div className="grid grid-cols-2 gap-2">
                       <TextInput name="price" label="价格" placeholder="35" type="number" />
                       <label className="block">
-                        <span className="mb-1 block text-xs font-medium text-stone-500">状态</span>
-                        <select name="status" className="h-10 w-full border border-stone-300 bg-stone-50 px-3 text-sm outline-none focus:border-emerald-700">
+                        <span className="mb-1 block text-xs font-medium text-[#5a6061]">状态</span>
+                        <select name="status" className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]">
                           {statusOptions.map(([value, label]) => (
-                            <option key={value} value={value}>
-                              {label}
-                            </option>
+                            <option key={value} value={value}>{label}</option>
                           ))}
                         </select>
                       </label>
@@ -647,232 +971,31 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   </form>
                 </Panel>
               </div>
-            ) : null}
+            )}
 
-            {activeTab === "logs" ? <RecentRunsPanel runs={data.crawlRuns} /> : null}
-          </div>
+            {/* Logs tab */}
+            {activeTab === "logs" && <div role="tabpanel" id="tabpanel-logs"><RecentRunsPanel runs={data.crawlRuns} /></div>}
+          </>
         )}
       </div>
     </main>
   );
 }
 
-async function request(path: string, password: string, body: unknown) {
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-admin-password": password,
-    },
-    body: JSON.stringify(body),
-  });
+/* ─── Shared Components ─── */
 
-  return response.json().catch(() => ({ ok: false, message: response.statusText }));
-}
-
-function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
-  return (
-    <section className="border border-stone-200 bg-white p-4">
-      <div className="mb-4 flex items-center gap-2 text-base font-semibold text-stone-900">
-        {icon}
-        {title}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function MessageBox({ message }: { message: Message }) {
-  const className =
-    message.type === "success"
-      ? "border-emerald-300 bg-emerald-50 text-emerald-950"
-      : message.type === "error"
-        ? "border-red-300 bg-red-50 text-red-950"
-        : "border-blue-300 bg-blue-50 text-blue-950";
-  const Icon = message.type === "success" ? CheckCircle2 : AlertTriangle;
-
-  return (
-    <div className={`mt-4 flex items-start gap-2 border px-4 py-3 text-sm ${className}`}>
-      <Icon size={17} className="mt-0.5 shrink-0" />
-      <span>{message.text}</span>
-    </div>
-  );
-}
-
-function StatTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-stone-200 bg-stone-50 px-3 py-2">
-      <p className="text-xs text-stone-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-stone-950">{value}</p>
-    </div>
-  );
-}
-
-function CollectorTodoPanel({
-  submissions,
-  loadingAction,
-  onRetry,
-}: {
-  submissions: ChannelSubmission[];
-  loadingAction: string | null;
-  onRetry: (submission: ChannelSubmission) => void;
-}) {
-  return (
-    <Panel title={`采集器待办 (${submissions.length})`} icon={<TerminalSquare size={18} />}>
-      {submissions.length ? (
-        <div className="divide-y divide-amber-200 border border-amber-200 bg-amber-50">
-          {submissions.map((submission) => {
-            const meta = submission.parsedMeta || {};
-            const reason = stringMeta(meta, "collector_todo_reason") || stringMeta(meta, "support_reason");
-            const domain = stringMeta(meta, "domain") || safeDomain(submission.url);
-            const probeLoading = loadingAction === `probe-${submission.id}`;
-
-            return (
-              <div key={submission.id} className="px-3 py-3">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <a
-                    href={submission.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium text-stone-950 hover:text-amber-900"
-                  >
-                    {submission.name || submission.parsedTitle || domain || submission.url}
-                  </a>
-                  {domain ? <span className="text-xs text-stone-500">{domain}</span> : null}
-                </div>
-                <p className="mt-1 break-all text-xs text-stone-500">{submission.url}</p>
-                <p className="mt-2 text-xs leading-5 text-amber-950">
-                  {reason || "需要新增解析脚本后重新试采集。"}
-                </p>
-                <button
-                  type="button"
-                  disabled={probeLoading}
-                  onClick={() => onRetry(submission)}
-                  className="mt-3 inline-flex h-8 items-center gap-1.5 border border-amber-300 bg-white px-3 text-xs font-medium text-stone-800 hover:bg-amber-100 disabled:opacity-60"
-                >
-                  {probeLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
-                  重新试采集
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-sm leading-6 text-stone-500">
-          暂无待开发采集器。试采集失败的渠道可以先放到这里，后续新增解析脚本后再重新验证。
-        </p>
-      )}
-    </Panel>
-  );
-}
-
-function SourceTable({
-  groups,
-  offerCountBySource,
-}: {
-  groups: Array<{ label: string; sources: Source[] }>;
-  offerCountBySource: Map<string, number>;
-}) {
-  return (
-    <div className="overflow-hidden border border-stone-200">
-      <div className="hidden grid-cols-[1fr_70px_120px_110px_150px] gap-3 border-b border-stone-200 bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-500 md:grid">
-        <span>来源</span>
-        <span>报价</span>
-        <span>采集方式</span>
-        <span>健康</span>
-        <span>最近采集</span>
-      </div>
-      <div className="divide-y divide-stone-200">
-        {groups.map((group) => (
-          <div key={group.label}>
-            <div className="bg-stone-50 px-3 py-2 text-xs font-semibold text-stone-600">
-              {group.label} · {group.sources.length} 个
-            </div>
-            {group.sources.map((source) => (
-              <div key={source.id} className="grid gap-2 px-3 py-3 md:grid-cols-[1fr_70px_120px_110px_150px] md:items-center">
-                <div className="min-w-0">
-                  <p className="font-medium text-stone-900">{source.name}</p>
-                  <a
-                    href={source.entryUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 block truncate text-xs text-stone-500 hover:text-emerald-800"
-                  >
-                    {source.entryUrl}
-                  </a>
-                  {source.lastError ? (
-                    <p className="mt-1 line-clamp-1 text-xs text-red-700">{source.lastError}</p>
-                  ) : null}
-                </div>
-                <span className="text-sm font-medium text-stone-700">
-                  <span className="mr-1 text-xs text-stone-400 md:hidden">报价</span>
-                  {offerCountBySource.get(source.id) || 0}
-                </span>
-                <span className="text-sm text-stone-600">{collectionMethodLabel(source.collectionMethod)}</span>
-                <span className={sourceHealthClass(source)}>{sourceHealthLabel(source)}</span>
-                <span className="text-xs leading-5 text-stone-500">
-                  {source.lastSuccessAt ? `确认 ${formatRelativeTime(source.lastSuccessAt)}` : source.lastCheckedAt ? "未确认成功" : "未采集"}
-                  {source.lastCheckedAt ? <span className="block">检查 {formatRelativeTime(source.lastCheckedAt)}</span> : null}
-                </span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function RecentRunsPanel({ runs }: { runs: CrawlRun[] }) {
-  return (
-    <Panel title="最近采集记录" icon={<RefreshCcw size={18} />}>
-      {runs.length ? (
-        <div className="divide-y divide-stone-200 border border-stone-200">
-          {runs.map((run) => (
-            <div key={run.id} className="px-3 py-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-medium text-stone-900">{run.sourceName || run.sourceId || "未知来源"}</span>
-                <span className="bg-stone-100 px-2 py-1 text-xs text-stone-600">{collectionMethodLabel(run.mode)}</span>
-                <span className={crawlStatusClass(run.status)}>{crawlStatusLabel(run.status)}</span>
-              </div>
-              <p className="mt-2 text-sm text-stone-600">
-                成功 {run.successCount} 条，失败 {run.failureCount} 条 · {formatRelativeTime(run.finishedAt || run.startedAt)}
-              </p>
-              {run.message ? <p className="mt-1 break-words text-xs leading-5 text-stone-500">{run.message}</p> : null}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-sm text-stone-500">暂无采集记录。</p>
-      )}
-    </Panel>
-  );
-}
-
-function groupSources(sources: Source[]) {
-  const order = ["数据入口", "LDXP 系", "Auto Subscribe 系", "HTTP 优先", "独立渠道", "自有配置"];
-  const groups = new Map<string, Source[]>();
-
-  for (const source of sources) {
-    const label = classifySourceGroup(source);
-    const items = groups.get(label) || [];
-    items.push(source);
-    groups.set(label, items);
-  }
-
-  return order
-    .map((label) => ({
-      label,
-      sources: (groups.get(label) || []).sort((a, b) => a.name.localeCompare(b.name, "zh-CN")),
-    }))
-    .filter((group) => group.sources.length);
-}
-
-function SubmissionRow({
+function SubmissionCard({
   submission,
   existingSource,
   loadingAction,
   probeResult,
+  expanded,
+  focused,
+  selected,
+  selectable,
+  feedback,
+  onToggleExpand,
+  onToggleSelect,
   onApprove,
   onProbe,
   onTodo,
@@ -882,10 +1005,14 @@ function SubmissionRow({
   existingSource?: Source | null;
   loadingAction: string | null;
   probeResult?: ProbeResult;
-  onApprove: (
-    submission: ChannelSubmission,
-    overrides: { name?: string; collectionMethod?: CollectionMethod },
-  ) => void;
+  expanded: boolean;
+  focused: boolean;
+  selected: boolean;
+  selectable: boolean;
+  feedback: RowFeedback | null;
+  onToggleExpand: () => void;
+  onToggleSelect: () => void;
+  onApprove: (submission: ChannelSubmission, overrides: { name?: string; collectionMethod?: CollectionMethod }) => void;
   onProbe: (submission: ChannelSubmission) => void;
   onTodo: (submission: ChannelSubmission, note: string) => void;
   onReject: (submission: ChannelSubmission, note: string) => void;
@@ -913,326 +1040,669 @@ function SubmissionRow({
   const [reviewerNote, setReviewerNote] = useState("");
 
   const recommendedMethod: CollectionMethod = hasSuccessfulProbe ? "http" : suggestedMethod || collectionMethod || "http";
-  const recommendedAction = existingSource
-    ? `合并到已有源：${existingSource.name}`
-    : hasSuccessfulProbe
-      ? `通过并入库 ${currentProbe?.offerCount || 0} 条`
-      : currentProbe
-        ? "加入采集器待办"
-        : "试采集";
   const approveLoading = loadingAction === `approve-${submission.id}`;
   const probeLoading = loadingAction === `probe-${submission.id}`;
   const todoLoading = loadingAction === `todo-${submission.id}`;
   const rejectLoading = loadingAction === `reject-${submission.id}`;
 
+  const probeStatusBadge = currentProbe ? (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+      currentProbe.status === "success"
+        ? "bg-[#e8f3ec] text-[#2f7a4b]"
+        : currentProbe.status === "failed"
+          ? "bg-[#fbe9e7] text-[#9b3328]"
+          : "bg-[#fff7e8] text-[#7a541b]"
+    }`}>
+      {currentProbe.status === "success"
+        ? `可采集 ${currentProbe.offerCount} 条`
+        : currentProbe.status === "empty"
+          ? "未采到报价"
+          : currentProbe.status === "unsupported"
+            ? "暂不支持"
+            : "采集失败"}
+    </span>
+  ) : null;
+
   return (
-    <div className="px-3 py-3">
-      <div className="flex flex-wrap items-baseline gap-2">
-        <a
-          href={submission.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-stone-900 hover:text-emerald-800"
+    <div
+      className={`rounded-lg border bg-white transition-all ${
+        feedback?.type === "success"
+          ? "border-[#2f7a4b]/30 bg-[#e8f3ec]/30"
+          : feedback?.type === "error"
+            ? "border-[#9b3328]/30 bg-[#fbe9e7]/30"
+            : focused
+              ? "border-[#2d3435]/40 ring-1 ring-[#2d3435]/10"
+              : selected
+                ? "border-[#2f7a4b]/30"
+                : "border-[#adb3b4]/20 hover:border-[#adb3b4]/40"
+      }`}
+    >
+      {/* Collapsed header */}
+      <div className="flex items-center gap-3 px-4 py-3">
+        {selectable && (
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={selected}
+            aria-label={`选择 ${submission.parsedTitle || submission.name || submission.url}`}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(); }}
+            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors ${
+              selected
+                ? "border-[#2f7a4b] bg-[#2f7a4b] text-white"
+                : "border-[#adb3b4]/40 hover:border-[#2d3435]"
+            }`}
+          >
+            {selected && <Check size={12} strokeWidth={3} />}
+          </button>
+        )}
+        {!selectable && <div className="w-5 shrink-0" />}
+
+        <button
+          type="button"
+          onClick={onToggleExpand}
+          className="flex min-w-0 flex-1 items-center gap-3 text-left"
         >
-          {submission.parsedTitle || submission.name || suggestedName || domain || submission.url}
-        </a>
-        {domain ? <span className="text-xs text-stone-500">{domain}</span> : null}
-        <span className="text-xs text-stone-400">· {formatRelativeTime(submission.createdAt)}</span>
-      </div>
-      <p className="mt-1 break-all text-xs text-stone-500">{submission.url}</p>
-      <div className="mt-2 flex flex-wrap gap-1">
-        {platform ? <Badge>{platform}</Badge> : null}
-        {productType ? <Badge>{productType}</Badge> : null}
-        {suggestedMethod ? <Badge tone="info">建议: {collectionMethodLabel(suggestedMethod)}</Badge> : null}
-        {suggestedCollector ? <Badge tone="info">采集器: {suggestedCollector}</Badge> : null}
-        {submission.contact ? <Badge tone="info">联系: {submission.contact}</Badge> : null}
-        {parseError ? <Badge tone="warn">解析失败: {parseError}</Badge> : null}
-        {existingSource ? <Badge tone="info">匹配已有源: {existingSource.name}</Badge> : null}
-      </div>
-      <div className="mt-3 grid gap-2 border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600 sm:grid-cols-2">
-        <p>
-          <span className="font-medium text-stone-800">建议渠道名：</span>
-          {suggestedName || submission.name || domain || "未识别"}
-        </p>
-        <p>
-          <span className="font-medium text-stone-800">建议来源 ID：</span>
-          {suggestedSourceId || "自动生成"}
-        </p>
-        <p>
-          <span className="font-medium text-stone-800">建议采集方式：</span>
-          {collectionMethodLabel(suggestedMethod || "browser")}
-        </p>
-        <p>
-          <span className="font-medium text-stone-800">初步判断：</span>
-          {supportReason || "已完成基础链接解析。"}
-        </p>
-        {existingSource ? (
-          <p>
-            <span className="font-medium text-stone-800">合并目标：</span>
-            {existingSource.name}
-          </p>
-        ) : null}
-      </div>
-      {submission.notes ? (
-        <p className="mt-2 text-xs text-stone-600">备注：{submission.notes}</p>
-      ) : null}
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm font-medium text-[#2d3435]">
+                {submission.parsedTitle || submission.name || suggestedName || domain || submission.url}
+              </span>
+              {domain && <span className="text-xs text-[#adb3b4]">{domain}</span>}
+              <span className="text-xs text-[#adb3b4]">{formatRelativeTime(submission.createdAt)}</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {probeStatusBadge}
+              {platform && <Badge>{platform}</Badge>}
+              {productType && <Badge>{productType}</Badge>}
+              {existingSource && <Badge tone="info">已有源: {existingSource.name}</Badge>}
+              {parseError && <Badge tone="warn">解析失败</Badge>}
+            </div>
+          </div>
+          <ChevronDown size={16} className={`shrink-0 text-[#adb3b4] transition-transform ${expanded ? "rotate-180" : ""}`} />
+        </button>
 
-      {currentProbe ? <ProbePreview result={currentProbe} /> : null}
-
-      {mode === "idle" ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={probeLoading || approveLoading || todoLoading}
-            onClick={() => {
-              if (canApprove) {
-                onApprove(submission, { name, collectionMethod: recommendedMethod });
-                return;
-              }
-              if (!currentProbe) {
-                onProbe(submission);
-                return;
-              }
-              setMode("todo");
-            }}
-            className="inline-flex h-9 items-center gap-1.5 bg-stone-900 px-3 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-60"
-          >
-            {probeLoading ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : canApprove ? (
-              <CheckCircle2 size={14} />
+        {/* Quick action in collapsed state */}
+        {!expanded && (
+          <div className="flex shrink-0 gap-1.5">
+            {canApprove ? (
+              <button
+                type="button"
+                disabled={approveLoading}
+                onClick={(e) => { e.stopPropagation(); onApprove(submission, { name, collectionMethod: recommendedMethod }); }}
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#2f7a4b] px-3 text-xs font-medium text-white transition-colors hover:bg-[#256a3d] disabled:opacity-60"
+              >
+                {approveLoading ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                通过
+              </button>
+            ) : !currentProbe ? (
+              <button
+                type="button"
+                disabled={probeLoading}
+                onClick={(e) => { e.stopPropagation(); onProbe(submission); }}
+                className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#2d3435] px-3 text-xs font-medium text-white transition-colors hover:bg-[#202829] disabled:opacity-60"
+              >
+                {probeLoading ? <Loader2 size={13} className="animate-spin" /> : <RefreshCcw size={13} />}
+                试采集
+              </button>
             ) : (
-              <RefreshCcw size={14} />
+              <span className="inline-flex h-8 items-center rounded-lg bg-[#fff7e8] px-3 text-xs font-medium text-[#7a541b]">
+                建议转待办
+              </span>
             )}
-            {recommendedAction}
-          </button>
-          {canApprove ? (
-            <button
-              type="button"
-              onClick={() => setMode("approve")}
-              className="inline-flex h-9 items-center gap-1.5 border border-stone-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50"
-            >
-              <CheckCircle2 size={14} />
-              编辑后通过
-            </button>
-          ) : currentProbe ? (
-            <button
-              type="button"
-              disabled={probeLoading}
-              onClick={() => onProbe(submission)}
-              className="inline-flex h-9 items-center gap-1.5 border border-stone-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
-            >
-              {probeLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
-              重新试采集
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setMode("reject")}
-            className="inline-flex h-9 items-center gap-1.5 border border-stone-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50"
-          >
-            <X size={14} />
-            拒绝
-          </button>
-        </div>
-      ) : null}
-
-      {mode === "approve" ? (
-        <div className="mt-3 space-y-2 border border-stone-200 bg-stone-50 p-3">
-          <p className="text-xs leading-5 text-stone-600">
-            {existingSource
-              ? `该提交会合并到已有源「${existingSource.name}」。`
-              : `该提交会创建渠道，并把试采集结果入库。`}
-          </p>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-stone-500">渠道名称</span>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="h-9 w-full border border-stone-300 bg-white px-2 text-sm outline-none focus:border-emerald-700"
-              placeholder={domain || "渠道名称"}
-            />
-          </label>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-stone-500">采集方式</span>
-            <select
-              value={collectionMethod}
-              onChange={(event) => setCollectionMethod(event.target.value as CollectionMethod)}
-              className="h-9 w-full border border-stone-300 bg-white px-2 text-sm outline-none focus:border-emerald-700"
-            >
-              <option value="http">自动接口采集</option>
-              <option value="browser">浏览器采集</option>
-            </select>
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={approveLoading}
-              onClick={() => onApprove(submission, { name, collectionMethod })}
-              className="inline-flex h-8 items-center gap-1 bg-emerald-700 px-3 text-xs font-medium text-white hover:bg-emerald-600 disabled:opacity-60"
-            >
-              {approveLoading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              确认通过并入库
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("idle")}
-              className="inline-flex h-8 items-center gap-1 border border-stone-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50"
-            >
-              取消
-            </button>
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
 
-      {mode === "todo" ? (
-        <div className="mt-3 space-y-2 border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs leading-5 text-amber-950">
-            这个渠道暂时不进入比价库，保留为采集器待办。补解析脚本后可以重新试采集。
-          </p>
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-amber-900">待办说明</span>
-            <input
-              value={collectorNote}
-              onChange={(event) => setCollectorNote(event.target.value)}
-              className="h-9 w-full border border-amber-300 bg-white px-2 text-sm outline-none focus:border-amber-700"
-              placeholder="如：需要新增该域名解析脚本 / 接口未识别"
-            />
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={todoLoading}
-              onClick={() => onTodo(submission, collectorNote)}
-              className="inline-flex h-8 items-center gap-1 bg-stone-900 px-3 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-60"
-            >
-              {todoLoading ? <Loader2 size={14} className="animate-spin" /> : <TerminalSquare size={14} />}
-              加入采集器待办
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("idle")}
-              className="inline-flex h-8 items-center gap-1 border border-amber-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-amber-100"
-            >
-              取消
-            </button>
-          </div>
+      {/* Row feedback */}
+      {feedback && (
+        <div className={`mx-4 mb-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${
+          feedback.type === "success"
+            ? "bg-[#e8f3ec] text-[#2f7a4b]"
+            : "bg-[#fbe9e7] text-[#9b3328]"
+        }`}>
+          {feedback.type === "success" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+          {feedback.text}
         </div>
-      ) : null}
+      )}
 
-      {mode === "reject" ? (
-        <div className="mt-3 space-y-2 border border-stone-200 bg-stone-50 p-3">
-          <label className="block text-xs">
-            <span className="mb-1 block font-medium text-stone-500">拒绝备注（可选）</span>
-            <input
-              value={reviewerNote}
-              onChange={(event) => setReviewerNote(event.target.value)}
-              className="h-9 w-full border border-stone-300 bg-white px-2 text-sm outline-none focus:border-emerald-700"
-              placeholder="如：重复 / 不相关 / 失效"
-            />
-          </label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={rejectLoading}
-              onClick={() => onReject(submission, reviewerNote)}
-              className="inline-flex h-8 items-center gap-1 bg-stone-900 px-3 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-60"
-            >
-              {rejectLoading ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
-              确认拒绝
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("idle")}
-              className="inline-flex h-8 items-center gap-1 border border-stone-300 bg-white px-3 text-xs font-medium text-stone-700 hover:bg-stone-50"
-            >
-              取消
-            </button>
+      {/* Expanded content */}
+      {expanded && (
+        <div className="border-t border-[#adb3b4]/15 px-4 py-4">
+          <p className="break-all text-xs text-[#adb3b4]">{submission.url}</p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {suggestedMethod && <Badge tone="info">建议: {collectionMethodLabel(suggestedMethod)}</Badge>}
+            {suggestedCollector && <Badge tone="info">采集器: {suggestedCollector}</Badge>}
+            {submission.contact && <Badge tone="info">联系: {submission.contact}</Badge>}
           </div>
+
+          <div className="mt-3 grid gap-2 rounded-lg bg-[#f2f4f4] p-3 text-xs text-[#5a6061] sm:grid-cols-2">
+            <p><span className="font-medium text-[#2d3435]">建议渠道名：</span>{suggestedName || submission.name || domain || "未识别"}</p>
+            <p><span className="font-medium text-[#2d3435]">建议来源 ID：</span>{suggestedSourceId || "自动生成"}</p>
+            <p><span className="font-medium text-[#2d3435]">建议采集方式：</span>{collectionMethodLabel(suggestedMethod || "browser")}</p>
+            <p><span className="font-medium text-[#2d3435]">初步判断：</span>{supportReason || "已完成基础链接解析。"}</p>
+            {existingSource && <p><span className="font-medium text-[#2d3435]">合并目标：</span>{existingSource.name}</p>}
+          </div>
+
+          {submission.notes && <p className="mt-2 text-xs text-[#5a6061]">备注：{submission.notes}</p>}
+
+          {currentProbe && <ProbePreview result={currentProbe} />}
+
+          {/* Next-step recommendation for probe failures */}
+          {currentProbe && currentProbe.status !== "success" && mode === "idle" && (
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-[#fff7e8] px-3 py-2.5 text-xs text-[#7a541b]">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+              <span>该渠道暂不支持自动采集，建议转入采集器待办或拒绝。</span>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          {mode === "idle" && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {canApprove && (
+                <button
+                  type="button"
+                  disabled={approveLoading}
+                  onClick={() => onApprove(submission, { name, collectionMethod: recommendedMethod })}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#2f7a4b] px-4 text-xs font-medium text-white transition-colors hover:bg-[#256a3d] disabled:opacity-60"
+                >
+                  {approveLoading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  {existingSource ? `合并到 ${existingSource.name}` : `通过并入库 ${currentProbe?.offerCount || 0} 条`}
+                </button>
+              )}
+              {canApprove && (
+                <button
+                  type="button"
+                  onClick={() => setMode("approve")}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#2d3435] transition-colors hover:bg-[#f2f4f4]"
+                >
+                  编辑后通过
+                </button>
+              )}
+              {!currentProbe && (
+                <button
+                  type="button"
+                  disabled={probeLoading}
+                  onClick={() => onProbe(submission)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#2d3435] px-4 text-xs font-medium text-white transition-colors hover:bg-[#202829] disabled:opacity-60"
+                >
+                  {probeLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
+                  试采集
+                </button>
+              )}
+              {currentProbe && !canApprove && (
+                <button
+                  type="button"
+                  disabled={probeLoading}
+                  onClick={() => onProbe(submission)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-60"
+                >
+                  {probeLoading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
+                  重新试采集
+                </button>
+              )}
+              {currentProbe && !canApprove && (
+                <button
+                  type="button"
+                  onClick={() => setMode("todo")}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7a541b] px-4 text-xs font-medium text-white transition-colors hover:bg-[#5a3d10] disabled:opacity-60"
+                >
+                  <TerminalSquare size={14} />
+                  转入待办
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMode("reject")}
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7]"
+              >
+                <X size={14} />
+                拒绝
+              </button>
+            </div>
+          )}
+
+          {/* Approve form */}
+          {mode === "approve" && (
+            <div className="mt-4 space-y-3 rounded-lg border border-[#2f7a4b]/20 bg-[#e8f3ec]/20 p-4">
+              <p className="text-xs leading-5 text-[#2f7a4b]">
+                {existingSource ? `合并到已有源「${existingSource.name}」。` : "该提交会创建渠道，并把试采集结果入库。"}
+              </p>
+              <label className="block text-xs">
+                <span className="mb-1 block font-medium text-[#5a6061]">渠道名称</span>
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
+                  placeholder={domain || "渠道名称"}
+                />
+              </label>
+              <label className="block text-xs">
+                <span className="mb-1 block font-medium text-[#5a6061]">采集方式</span>
+                <select
+                  value={collectionMethod}
+                  onChange={(e) => setCollectionMethod(e.target.value as CollectionMethod)}
+                  className="h-9 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
+                >
+                  <option value="http">自动接口采集</option>
+                  <option value="browser">浏览器采集</option>
+                </select>
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={approveLoading}
+                  onClick={() => onApprove(submission, { name, collectionMethod })}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#2f7a4b] px-4 text-xs font-medium text-white transition-colors hover:bg-[#256a3d] disabled:opacity-60"
+                >
+                  {approveLoading ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+                  确认通过并入库
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("idle")}
+                  className="inline-flex h-9 items-center rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Todo form */}
+          {mode === "todo" && (
+            <div className="mt-4 space-y-3 rounded-lg border border-amber-200/40 bg-[#fff7e8]/50 p-4">
+              <p className="text-xs leading-5 text-[#7a541b]">
+                这个渠道暂时不进入比价库，保留为采集器待办。补解析脚本后可以重新试采集。
+              </p>
+              <label className="block text-xs">
+                <span className="mb-1 block font-medium text-[#7a541b]">待办说明</span>
+                <input
+                  value={collectorNote}
+                  onChange={(e) => setCollectorNote(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-amber-200 bg-white px-3 text-sm outline-none transition-colors focus:border-[#7a541b]"
+                  placeholder="如：需要新增该域名解析脚本"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={todoLoading}
+                  onClick={() => onTodo(submission, collectorNote)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#7a541b] px-4 text-xs font-medium text-white transition-colors hover:bg-[#5a3d10] disabled:opacity-60"
+                >
+                  {todoLoading ? <Loader2 size={14} className="animate-spin" /> : <TerminalSquare size={14} />}
+                  加入采集器待办
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("idle")}
+                  className="inline-flex h-9 items-center rounded-lg border border-amber-200 bg-white px-3 text-xs font-medium text-[#7a541b] transition-colors hover:bg-[#fff7e8]"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Reject form */}
+          {mode === "reject" && (
+            <div className="mt-4 space-y-3 rounded-lg border border-[#9b3328]/15 bg-[#fbe9e7]/20 p-4">
+              <label className="block text-xs">
+                <span className="mb-1 block font-medium text-[#9b3328]">拒绝备注（可选）</span>
+                <input
+                  value={reviewerNote}
+                  onChange={(e) => setReviewerNote(e.target.value)}
+                  className="h-9 w-full rounded-lg border border-[#9b3328]/20 bg-white px-3 text-sm outline-none transition-colors focus:border-[#9b3328]"
+                  placeholder="如：重复 / 不相关 / 失效"
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={rejectLoading}
+                  onClick={() => onReject(submission, reviewerNote)}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#9b3328] px-4 text-xs font-medium text-white transition-colors hover:bg-[#7d2820] disabled:opacity-60"
+                >
+                  {rejectLoading ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                  确认拒绝
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode("idle")}
+                  className="inline-flex h-9 items-center rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
 
 function ProbePreview({ result }: { result: ProbeResult }) {
-  const statusClass =
-    result.status === "success"
-      ? "bg-emerald-50 text-emerald-800"
-      : result.status === "failed"
-        ? "bg-red-50 text-red-800"
-        : "bg-amber-50 text-amber-900";
-  const statusLabel =
-    result.status === "success"
-      ? "可自动采集"
-      : result.status === "empty"
-        ? "未采到报价"
-        : result.status === "unsupported"
-          ? "暂不支持"
-          : "采集失败";
-  const nextAction =
-    result.status === "success"
-      ? "建议通过并把本次试采集报价写入正式报价库。"
-      : "当前不进入比价库；建议加入采集器待办，补解析脚本后重新试采集。";
-
   return (
-    <div className="mt-3 border border-stone-200 bg-white p-3">
+    <div className="mt-3 rounded-lg border border-[#adb3b4]/20 bg-white p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`px-2 py-1 text-xs font-medium ${statusClass}`}>{statusLabel}</span>
-        <span className="text-xs text-stone-500">采集器：{result.kind || "无"}</span>
-        <span className="text-xs text-stone-500">报价：{result.offerCount} 条</span>
-        {typeof result.ms === "number" ? <span className="text-xs text-stone-500">耗时：{result.ms}ms</span> : null}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+          result.status === "success"
+            ? "bg-[#e8f3ec] text-[#2f7a4b]"
+            : result.status === "failed"
+              ? "bg-[#fbe9e7] text-[#9b3328]"
+              : "bg-[#fff7e8] text-[#7a541b]"
+        }`}>
+          {result.status === "success" ? "可自动采集" : result.status === "empty" ? "未采到报价" : result.status === "unsupported" ? "暂不支持" : "采集失败"}
+        </span>
+        <span className="text-xs text-[#adb3b4]">采集器：{result.kind || "无"}</span>
+        <span className="text-xs text-[#adb3b4]">报价：{result.offerCount} 条</span>
+        {typeof result.ms === "number" && <span className="text-xs text-[#adb3b4]">耗时：{result.ms}ms</span>}
       </div>
-      {result.message ? <p className="mt-2 text-xs leading-5 text-stone-600">{result.message}</p> : null}
-      <p className="mt-1 text-xs leading-5 text-stone-500">{nextAction}</p>
+      {result.message && <p className="mt-2 text-xs leading-5 text-[#5a6061]">{result.message}</p>}
 
-      {result.offers.length ? (
-        <div className="mt-3 overflow-hidden border border-stone-200">
-          <div className="grid grid-cols-[1fr_86px_64px] gap-2 border-b border-stone-200 bg-stone-50 px-2 py-2 text-xs font-medium text-stone-500">
+      {result.offers.length > 0 && (
+        <div className="mt-3 overflow-hidden rounded-lg border border-[#adb3b4]/20">
+          <div className="grid grid-cols-[1fr_86px_64px] gap-2 border-b border-[#adb3b4]/20 bg-[#f2f4f4] px-3 py-2 text-xs font-medium text-[#5a6061]">
             <span>商品预览</span>
             <span>价格</span>
             <span>状态</span>
           </div>
-          <div className="divide-y divide-stone-200">
+          <div className="divide-y divide-[#adb3b4]/15">
             {result.offers.slice(0, 8).map((offer, index) => (
               <a
                 key={`${offer.url}-${offer.sourceTitle}-${index}`}
                 href={offer.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="grid grid-cols-[1fr_86px_64px] gap-2 px-2 py-2 text-xs hover:bg-stone-50"
+                className="grid grid-cols-[1fr_86px_64px] gap-2 px-3 py-2 text-xs transition-colors hover:bg-[#f2f4f4]"
               >
                 <span className="min-w-0">
-                  <span className="block truncate font-medium text-stone-800">{offer.sourceTitle}</span>
-                  <span className="mt-1 flex flex-wrap gap-1 text-stone-500">
-                    {offer.sourceStoreName ? <span>{offer.sourceStoreName}</span> : null}
-                    {typeof offer.stockCount === "number" ? <span>库存 {offer.stockCount}</span> : null}
-                    {(offer.tags || []).slice(0, 2).map((tag) => (
-                      <span key={tag}>{tag}</span>
-                    ))}
+                  <span className="block truncate font-medium text-[#2d3435]">{offer.sourceTitle}</span>
+                  <span className="mt-0.5 flex flex-wrap gap-1 text-[#adb3b4]">
+                    {offer.sourceStoreName && <span>{offer.sourceStoreName}</span>}
+                    {typeof offer.stockCount === "number" && <span>库存 {offer.stockCount}</span>}
+                    {(offer.tags || []).slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}
                   </span>
                 </span>
-                <span className="font-medium text-stone-900">{formatCurrency(offer.price, offer.currency)}</span>
-                <span className={`h-fit w-fit px-2 py-1 font-medium ${offerStatusClass(offer.status)}`}>
+                <span className="font-medium text-[#2d3435]">{formatCurrency(offer.price, offer.currency)}</span>
+                <span className={`h-fit w-fit rounded-full px-2 py-0.5 font-medium ${
+                  offer.status === "out_of_stock"
+                    ? "bg-[#fbe9e7] text-[#9b3328]"
+                    : "bg-[#e8f3ec] text-[#2f7a4b]"
+                }`}>
                   {offer.status === "out_of_stock" ? "缺货" : "有货"}
                 </span>
               </a>
             ))}
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
 
+function Panel({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+  return (
+    <section className="rounded-lg border border-[#adb3b4]/20 bg-white p-5">
+      <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-[#202829]">
+        {icon}
+        {title}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MessageBox({ message, onDismiss }: { message: Message; onDismiss?: () => void }) {
+  const styles =
+    message.type === "success"
+      ? "border-[#2f7a4b]/20 bg-[#e8f3ec] text-[#2f7a4b]"
+      : message.type === "error"
+        ? "border-[#9b3328]/20 bg-[#fbe9e7] text-[#9b3328]"
+        : "border-[#47657a]/20 bg-[#eef3f8] text-[#47657a]";
+  const Icon = message.type === "success" ? CheckCircle2 : AlertTriangle;
+
+  return (
+    <div className={`flex items-start gap-2 rounded-lg border px-4 py-3 text-sm ${styles}`}>
+      <Icon size={17} className="mt-0.5 shrink-0" />
+      <span className="flex-1">{message.text}</span>
+      {onDismiss && (
+        <button type="button" onClick={onDismiss} className="shrink-0 opacity-60 transition-opacity hover:opacity-100">
+          <X size={15} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function EmptyState({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-[#adb3b4]/30 py-12">
+      {icon}
+      <p className="mt-3 text-sm font-medium text-[#2d3435]">{title}</p>
+      <p className="mt-1 text-xs text-[#adb3b4]">{description}</p>
+    </div>
+  );
+}
+
+function ActionRow({
+  title,
+  description,
+  buttonLabel,
+  buttonIcon,
+  loading,
+  onClick,
+  primary,
+}: {
+  title: string;
+  description: string;
+  buttonLabel: string;
+  buttonIcon: ReactNode;
+  loading: boolean;
+  onClick: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-medium text-[#2d3435]">{title}</p>
+        <p className="mt-1 text-sm text-[#5a6061]">{description}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={loading}
+        className={`inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-4 text-sm font-medium transition-colors disabled:opacity-60 ${
+          primary
+            ? "bg-[#2d3435] text-white hover:bg-[#202829]"
+            : "border border-[#adb3b4]/30 bg-white text-[#2d3435] hover:bg-[#f2f4f4]"
+        }`}
+      >
+        {loading ? <Loader2 size={15} className="animate-spin" /> : buttonIcon}
+        {buttonLabel}
+      </button>
+    </div>
+  );
+}
+
+function Divider() {
+  return <div className="my-4 border-t border-[#adb3b4]/15" />;
+}
+
 function Badge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "info" | "warn" }) {
-  const className =
+  const styles =
     tone === "info"
-      ? "bg-blue-50 text-blue-800"
+      ? "bg-[#eef3f8] text-[#47657a]"
       : tone === "warn"
-        ? "bg-amber-50 text-amber-900"
-        : "bg-stone-100 text-stone-700";
-  return <span className={`px-2 py-0.5 text-xs ${className}`}>{children}</span>;
+        ? "bg-[#fff7e8] text-[#7a541b]"
+        : "bg-[#f2f4f4] text-[#5a6061]";
+  return <span className={`rounded-full px-2 py-0.5 text-xs ${styles}`}>{children}</span>;
+}
+
+function SourceTable({
+  groups,
+  offerCountBySource,
+}: {
+  groups: Array<{ label: string; sources: Source[] }>;
+  offerCountBySource: Map<string, number>;
+}) {
+  return (
+    <div className="overflow-hidden rounded-lg border border-[#adb3b4]/20">
+      <div className="hidden grid-cols-[1fr_70px_120px_110px_150px] gap-3 border-b border-[#adb3b4]/20 bg-[#f2f4f4] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#5a6061] md:grid">
+        <span>来源</span>
+        <span>报价</span>
+        <span>采集方式</span>
+        <span>健康</span>
+        <span>最近采集</span>
+      </div>
+      <div className="divide-y divide-[#adb3b4]/15">
+        {groups.map((group) => (
+          <div key={group.label}>
+            <div className="bg-[#f2f4f4] px-3 py-2 text-xs font-semibold text-[#5a6061]">
+              {group.label} · {group.sources.length} 个
+            </div>
+            {group.sources.map((source) => (
+              <div key={source.id} className="grid gap-2 bg-white px-3 py-3 md:grid-cols-[1fr_70px_120px_110px_150px] md:items-center">
+                <div className="min-w-0">
+                  <p className="font-medium text-[#2d3435]">{source.name}</p>
+                  <a
+                    href={source.entryUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 block truncate text-xs text-[#adb3b4] transition-colors hover:text-[#47657a]"
+                  >
+                    {source.entryUrl}
+                  </a>
+                  {source.lastError && <p className="mt-1 line-clamp-1 text-xs text-[#9b3328]">{source.lastError}</p>}
+                </div>
+                <span className="text-sm font-medium text-[#5a6061]">
+                  <span className="mr-1 text-xs text-[#adb3b4] md:hidden">报价</span>
+                  {offerCountBySource.get(source.id) || 0}
+                </span>
+                <span className="text-sm text-[#5a6061]">{collectionMethodLabel(source.collectionMethod)}</span>
+                <span className={sourceHealthClass(source)}>{sourceHealthLabel(source)}</span>
+                <span className="text-xs leading-5 text-[#adb3b4]">
+                  {source.lastSuccessAt ? `确认 ${formatRelativeTime(source.lastSuccessAt)}` : source.lastCheckedAt ? "未确认成功" : "未采集"}
+                  {source.lastCheckedAt && <span className="block">检查 {formatRelativeTime(source.lastCheckedAt)}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RecentRunsPanel({ runs }: { runs: CrawlRun[] }) {
+  return (
+    <Panel title="最近采集记录" icon={<RefreshCcw size={17} />}>
+      {runs.length ? (
+        <div className="divide-y divide-[#adb3b4]/15 rounded-lg border border-[#adb3b4]/20">
+          {runs.map((run) => (
+            <div key={run.id} className="px-4 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium text-[#2d3435]">{run.sourceName || run.sourceId || "未知来源"}</span>
+                <Badge>{collectionMethodLabel(run.mode)}</Badge>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${crawlStatusClass(run.status)}`}>
+                  {crawlStatusLabel(run.status)}
+                </span>
+              </div>
+              <p className="mt-2 text-sm text-[#5a6061]">
+                成功 {run.successCount} 条，失败 {run.failureCount} 条 · {formatRelativeTime(run.finishedAt || run.startedAt)}
+              </p>
+              {run.message && <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">{run.message}</p>}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <EmptyState
+          icon={<Clock size={32} className="text-[#adb3b4]" />}
+          title="暂无采集记录"
+          description="采集完成后记录会出现在这里。"
+        />
+      )}
+    </Panel>
+  );
+}
+
+function TextInput({
+  label,
+  name,
+  placeholder,
+  type = "text",
+  required = true,
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-[#5a6061]">{label}</span>
+      <input
+        name={name}
+        required={required}
+        type={type}
+        step={type === "number" ? "0.01" : undefined}
+        min={type === "number" ? "0" : undefined}
+        placeholder={placeholder}
+        className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
+      />
+    </label>
+  );
+}
+
+function TextArea({
+  label,
+  name,
+  placeholder,
+  required = true,
+}: {
+  label: string;
+  name: string;
+  placeholder: string;
+  required?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-[#5a6061]">{label}</span>
+      <textarea
+        name={name}
+        required={required}
+        rows={3}
+        placeholder={placeholder}
+        className="w-full resize-y rounded-lg border border-[#adb3b4]/40 bg-white px-3 py-2 text-sm outline-none transition-colors focus:border-[#2d3435]"
+      />
+    </label>
+  );
+}
+
+function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
+  return (
+    <button type="submit" disabled={loading} className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2d3435] px-4 text-sm font-medium text-white transition-colors hover:bg-[#202829] disabled:opacity-60">
+      {loading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
+      {label}
+    </button>
+  );
+}
+
+/* ─── Helpers ─── */
+
+async function request(path: string, password: string, body: unknown) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-password": password,
+    },
+    body: JSON.stringify(body),
+  });
+  return response.json().catch(() => ({ ok: false, message: response.statusText }));
 }
 
 function safeDomain(url: string): string | null {
@@ -1250,9 +1720,7 @@ function stringMeta(meta: Record<string, unknown>, key: string): string | null {
 
 function collectionMethodMeta(meta: Record<string, unknown>, key: string): CollectionMethod | null {
   const value = stringMeta(meta, key);
-  return value === "aibijia_json" || value === "browser" || value === "http" || value === "manual"
-    ? value
-    : null;
+  return value === "aibijia_json" || value === "browser" || value === "http" || value === "manual" ? value : null;
 }
 
 function collectionMethodLabel(value: string): string {
@@ -1271,9 +1739,9 @@ function crawlStatusLabel(value: CrawlRun["status"]): string {
 }
 
 function crawlStatusClass(value: CrawlRun["status"]): string {
-  if (value === "success") return "bg-emerald-50 px-2 py-1 text-xs text-emerald-900";
-  if (value === "partial") return "bg-amber-50 px-2 py-1 text-xs text-amber-900";
-  return "bg-red-50 px-2 py-1 text-xs text-red-800";
+  if (value === "success") return "bg-[#e8f3ec] text-[#2f7a4b]";
+  if (value === "partial") return "bg-[#fff7e8] text-[#7a541b]";
+  return "bg-[#fbe9e7] text-[#9b3328]";
 }
 
 function sourceHealthLabel(source: Source): string {
@@ -1286,19 +1754,12 @@ function sourceHealthLabel(source: Source): string {
 }
 
 function sourceHealthClass(source: Source): string {
-  if (!source.enabled) return "w-fit bg-stone-100 px-2 py-1 text-xs font-medium text-stone-700";
-  if (source.healthStatus === "healthy") return "w-fit bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900";
-  if (source.healthStatus === "partial" || source.healthStatus === "retrying") {
-    return "w-fit bg-amber-50 px-2 py-1 text-xs font-medium text-amber-900";
-  }
-  if (source.healthStatus === "failing") return "w-fit bg-red-50 px-2 py-1 text-xs font-medium text-red-800";
-  return "w-fit bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-900";
-}
-
-function offerStatusClass(status: OfferStatus): string {
-  return status === "out_of_stock"
-    ? "bg-red-50 text-red-800"
-    : "bg-emerald-50 text-emerald-800";
+  const base = "w-fit rounded-full px-2 py-0.5 text-xs font-medium";
+  if (!source.enabled) return `${base} bg-[#f2f4f4] text-[#5a6061]`;
+  if (source.healthStatus === "healthy") return `${base} bg-[#e8f3ec] text-[#2f7a4b]`;
+  if (source.healthStatus === "partial" || source.healthStatus === "retrying") return `${base} bg-[#fff7e8] text-[#7a541b]`;
+  if (source.healthStatus === "failing") return `${base} bg-[#fbe9e7] text-[#9b3328]`;
+  return `${base} bg-[#e8f3ec] text-[#2f7a4b]`;
 }
 
 function omitKey<T>(record: Record<string, T>, key: string): Record<string, T> {
@@ -1332,13 +1793,9 @@ function suggestedSourceIdForSubmission(submission: ChannelSubmission): string |
 function probeResultFromMeta(meta: Record<string, unknown>): ProbeResult | null {
   const value = meta.probe_result;
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-
   const record = value as Record<string, unknown>;
   const status = stringMeta(record, "status");
-  if (status !== "success" && status !== "empty" && status !== "failed" && status !== "unsupported") {
-    return null;
-  }
-
+  if (status !== "success" && status !== "empty" && status !== "failed" && status !== "unsupported") return null;
   return {
     sourceId: stringMeta(record, "sourceId") || undefined,
     sourceName: stringMeta(record, "sourceName") || undefined,
@@ -1348,7 +1805,7 @@ function probeResultFromMeta(meta: Record<string, unknown>): ProbeResult | null 
     status,
     offerCount: numberMeta(record, "offerCount") || 0,
     offers: Array.isArray(record.offers)
-      ? record.offers.map(mapProbeOffer).filter((offer): offer is ProbeOffer => Boolean(offer))
+      ? record.offers.map(mapProbeOffer).filter((o): o is ProbeOffer => Boolean(o))
       : [],
     ms: numberMeta(record, "ms") || undefined,
     message: stringMeta(record, "message") || undefined,
@@ -1362,7 +1819,6 @@ function mapProbeOffer(value: unknown): ProbeOffer | null {
   const sourceTitle = stringMeta(record, "sourceTitle");
   const url = stringMeta(record, "url");
   if (!sourceTitle || !url) return null;
-
   return {
     sourceStoreName: stringMeta(record, "sourceStoreName"),
     sourceTitle,
@@ -1392,7 +1848,6 @@ function offerStatusMeta(meta: Record<string, unknown>, key: string): OfferStatu
 
 function classifySourceGroup(source: Source): string {
   const text = `${source.id} ${source.name} ${source.baseUrl || ""} ${source.entryUrl} ${source.notes || ""}`.toLowerCase();
-
   if (source.id === "aibijia" || source.collectionMethod === "aibijia_json") return "数据入口";
   if (text.includes("ldxp") || text.includes("pay.ldxp.cn")) return "LDXP 系";
   if (
@@ -1401,73 +1856,25 @@ function classifySourceGroup(source: Source): string {
     text.includes("aitonse") ||
     text.includes("makelove") ||
     text.includes("kxandyou")
-  ) {
-    return "Auto Subscribe 系";
-  }
+  ) return "Auto Subscribe 系";
   if (source.collectionMethod === "http") return "HTTP 优先";
   if (text.includes("aibijia 已发现")) return "独立渠道";
   return "自有配置";
 }
 
-function TextInput({
-  label,
-  name,
-  placeholder,
-  type = "text",
-  required = true,
-}: {
-  label: string;
-  name: string;
-  placeholder: string;
-  type?: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-stone-500">{label}</span>
-      <input
-        name={name}
-        required={required}
-        type={type}
-        step={type === "number" ? "0.01" : undefined}
-        min={type === "number" ? "0" : undefined}
-        placeholder={placeholder}
-        className="h-10 w-full border border-stone-300 bg-stone-50 px-3 text-sm outline-none focus:border-emerald-700"
-      />
-    </label>
-  );
-}
-
-function TextArea({
-  label,
-  name,
-  placeholder,
-  required = true,
-}: {
-  label: string;
-  name: string;
-  placeholder: string;
-  required?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-stone-500">{label}</span>
-      <textarea
-        name={name}
-        required={required}
-        rows={3}
-        placeholder={placeholder}
-        className="w-full resize-y border border-stone-300 bg-stone-50 px-3 py-2 text-sm outline-none focus:border-emerald-700"
-      />
-    </label>
-  );
-}
-
-function SubmitButton({ loading, label }: { loading: boolean; label: string }) {
-  return (
-    <button className="inline-flex h-10 w-full items-center justify-center gap-2 bg-stone-900 px-4 text-sm font-medium text-white hover:bg-emerald-800">
-      {loading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-      {label}
-    </button>
-  );
+function groupSources(sources: Source[]) {
+  const order = ["数据入口", "LDXP 系", "Auto Subscribe 系", "HTTP 优先", "独立渠道", "自有配置"];
+  const groups = new Map<string, Source[]>();
+  for (const source of sources) {
+    const label = classifySourceGroup(source);
+    const items = groups.get(label) || [];
+    items.push(source);
+    groups.set(label, items);
+  }
+  return order
+    .map((label) => ({
+      label,
+      sources: (groups.get(label) || []).sort((a, b) => a.name.localeCompare(b.name, "zh-CN")),
+    }))
+    .filter((group) => group.sources.length);
 }
