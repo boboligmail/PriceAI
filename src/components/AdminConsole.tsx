@@ -1330,7 +1330,22 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                               <TerminalSquare size={14} />
                               复制上下文
                             </button>
+                            <button
+                              type="button"
+                              disabled={loadingAction === `reject-${submission.id}`}
+                              onClick={() => rejectSubmission(submission, "不符合 PriceAI 当前定位，已从采集器待办移除。")}
+                              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
+                            >
+                              {loadingAction === `reject-${submission.id}` ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                              移除待办
+                            </button>
                           </div>
+                          {rowFeedback?.id === submission.id && (
+                            <div className={`mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${rowFeedbackClass(rowFeedback.type)}`}>
+                              {rowFeedback.type === "success" ? <CheckCircle2 size={14} /> : rowFeedback.type === "info" ? <Clock size={14} /> : <AlertTriangle size={14} />}
+                              {rowFeedback.text}
+                            </div>
+                          )}
                         </div>
                       );
                     })
