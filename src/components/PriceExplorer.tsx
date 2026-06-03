@@ -629,11 +629,6 @@ export function PriceExplorer({
             <EmptyState text={offersError} />
           ) : platformOffers.length ? (
             <>
-              {offerResponse?.limited ? (
-                <div className="mb-4 rounded-lg bg-[#fff7e8] px-4 py-3 text-sm text-[#6a4b16]">
-                  当前筛选命中 {offerResponse.total} 条报价，已显示 {platformOffers.length} 条。
-                </div>
-              ) : null}
               <PlatformOfferTable rows={platformOffers} />
               {hasMoreOffers ? (
                 <div ref={offerLoadMoreRef} className="mt-4 flex justify-center">
