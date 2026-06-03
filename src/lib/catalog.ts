@@ -7,6 +7,7 @@ export const platformOptions = [
   "Grok",
   "API/CDK",
   "邮箱",
+  "接码",
   "其他",
 ] as const;
 
@@ -176,14 +177,44 @@ export const canonicalCatalog: CanonicalProduct[] = [
     aliases: ["grok 普号", "grok 体验", "直登成品"],
   },
   {
-    id: "email-account",
-    slug: "email-account",
-    displayName: "邮箱账号",
+    id: "gmail-account",
+    slug: "gmail-account",
+    displayName: "Gmail / Google 邮箱",
     platform: "邮箱",
     productType: "邮箱/账号",
-    spec: "邮箱",
-    summary: "纯邮箱商品，包括 Gmail、Google 邮箱、Outlook、Hotmail 或 Microsoft 邮箱。",
-    aliases: ["gmail", "google 邮箱", "outlook", "hotmail", "微软邮箱", "域名邮箱"],
+    spec: "Gmail / Google",
+    summary: "纯 Gmail、Google 邮箱、谷歌邮箱、Google 账号等邮箱商品。",
+    aliases: ["gmail", "google 邮箱", "谷歌邮箱", "google 账号", "谷歌账号", "gmail 邮箱"],
+  },
+  {
+    id: "outlook-account",
+    slug: "outlook-account",
+    displayName: "Outlook / Hotmail 邮箱",
+    platform: "邮箱",
+    productType: "邮箱/账号",
+    spec: "Outlook / Hotmail / Microsoft",
+    summary: "纯 Outlook、Hotmail、Microsoft、微软邮箱、OAuth2 邮箱商品。",
+    aliases: ["outlook", "hotmail", "微软邮箱", "microsoft 邮箱", "oauth2", "graph 令牌"],
+  },
+  {
+    id: "education-email",
+    slug: "education-email",
+    displayName: "教育邮箱",
+    platform: "邮箱",
+    productType: "邮箱/账号",
+    spec: "Edu",
+    summary: "教育邮箱、学校邮箱、edu 邮箱等商品。",
+    aliases: ["教育邮箱", "edu 邮箱", "学校邮箱", "edu mail", ".edu"],
+  },
+  {
+    id: "email-account",
+    slug: "email-account",
+    displayName: "其他邮箱",
+    platform: "邮箱",
+    productType: "邮箱/账号",
+    spec: "其他邮箱",
+    summary: "域名邮箱、自建邮箱、无法进一步确认类型的纯邮箱商品。",
+    aliases: ["邮箱账号", "域名邮箱", "企业邮箱", "其他邮箱"],
   },
   {
     id: "virtual-card",
@@ -196,14 +227,94 @@ export const canonicalCatalog: CanonicalProduct[] = [
     aliases: ["visa", "mastercard", "虚拟卡", "虚拟信用卡", "0刀卡", "1刀卡", "bin 卡", "485954", "paypal 虚拟卡"],
   },
   {
+    id: "openai-phone-verification",
+    slug: "openai-phone-verification",
+    displayName: "OpenAI / ChatGPT 接码",
+    platform: "接码",
+    productType: "接码/验证",
+    spec: "OpenAI / ChatGPT",
+    summary: "OpenAI、ChatGPT、Codex、GPT 注册或登录相关手机接码服务。",
+    aliases: ["openai 接码", "chatgpt 接码", "gpt 接码", "codex 接码"],
+  },
+  {
+    id: "google-phone-verification",
+    slug: "google-phone-verification",
+    displayName: "Google / Gemini 接码",
+    platform: "接码",
+    productType: "接码/验证",
+    spec: "Google / Gemini",
+    summary: "Google、Gmail、Gemini、Pixel 等 Google 相关手机接码服务。",
+    aliases: ["google 接码", "gmail 接码", "gemini 接码", "谷歌接码"],
+  },
+  {
+    id: "paypal-phone-verification",
+    slug: "paypal-phone-verification",
+    displayName: "PayPal 接码",
+    platform: "接码",
+    productType: "接码/验证",
+    spec: "PayPal",
+    summary: "PayPal 注册或验证相关手机接码服务。",
+    aliases: ["paypal 接码", "paypal 验证", "paypal 手机验证"],
+  },
+  {
     id: "phone-verification",
     slug: "phone-verification",
-    displayName: "接码 / 验证服务",
-    platform: "其他",
+    displayName: "通用接码",
+    platform: "接码",
     productType: "接码/验证",
     spec: "短信 / 手机号验证",
-    summary: "手机接码、短信验证码、一次性验证、注册辅助验证等服务。",
-    aliases: ["接码", "手机接码", "短信验证", "验证码", "一次性接码", "手机号验证"],
+    summary: "无法确认具体平台的手机接码、短信验证码、一次性验证、注册辅助验证等服务。",
+    aliases: ["接码", "手机接码", "短信验证", "验证码", "一次性接码", "手机号验证", "通用接码"],
+  },
+  {
+    id: "cursor-account",
+    slug: "cursor-account",
+    displayName: "Cursor 账号",
+    platform: "其他",
+    productType: "工具账号",
+    spec: "Cursor",
+    summary: "Cursor Pro、Cursor 账号、Cursor 成品号或相关权益。",
+    aliases: ["cursor", "cursor pro", "cursor 账号", "cursor 成品号"],
+  },
+  {
+    id: "kiro-account",
+    slug: "kiro-account",
+    displayName: "Kiro 账号",
+    platform: "其他",
+    productType: "工具账号",
+    spec: "Kiro",
+    summary: "Kiro Pro、Kiro 积分、Kiro 成品号或相关权益。",
+    aliases: ["kiro", "kiro pro", "kiro 积分", "kiro 成品号"],
+  },
+  {
+    id: "windsurf-account",
+    slug: "windsurf-account",
+    displayName: "Windsurf 账号",
+    platform: "其他",
+    productType: "工具账号",
+    spec: "Windsurf",
+    summary: "Windsurf 账号、Windsurf 会员或相关权益。",
+    aliases: ["windsurf", "wind surf", "windsurf 账号"],
+  },
+  {
+    id: "perplexity-account",
+    slug: "perplexity-account",
+    displayName: "Perplexity 账号",
+    platform: "其他",
+    productType: "工具账号",
+    spec: "Perplexity",
+    summary: "Perplexity Pro、Perplexity 账号或相关权益。",
+    aliases: ["perplexity", "perplexity pro", "perplexity 账号"],
+  },
+  {
+    id: "suno-account",
+    slug: "suno-account",
+    displayName: "Suno 账号",
+    platform: "其他",
+    productType: "工具账号",
+    spec: "Suno",
+    summary: "Suno Pro、Suno 账号或相关权益。",
+    aliases: ["suno", "suno pro", "suno 账号"],
   },
   {
     id: "other-tool-account",
@@ -212,8 +323,8 @@ export const canonicalCatalog: CanonicalProduct[] = [
     platform: "其他",
     productType: "工具账号",
     spec: "AI / SaaS 工具账号",
-    summary: "Windsurf、Kiro、Cursor、Suno、OpenClaw 等非主平台工具账号或权益。",
-    aliases: ["cursor", "kiro", "windsurf", "suno", "openclaw", "工具账号"],
+    summary: "OpenClaw、GitHub Copilot、Canva、Runway 等非主平台工具账号或权益。",
+    aliases: ["openclaw", "open claw", "copilot", "canva", "runway", "工具账号"],
   },
   {
     id: "other-product",
@@ -231,6 +342,9 @@ const catalogById = new Map(canonicalCatalog.map((item) => [item.id, item]));
 const legacyCanonicalIdMap: Record<string, string> = {
   "chatgpt-plus-month": "chatgpt-plus",
   "chatgpt-plus-account": "chatgpt-plus",
+  "email-account": "email-account",
+  "phone-verification": "phone-verification",
+  "other-tool-account": "other-tool-account",
 };
 
 export function getCanonicalProduct(id: string): CanonicalProduct {
@@ -263,7 +377,7 @@ export function classifyOffer(
   const contextValue = normalizeTitle([normalizeTags(context.tags), context.categorySlug].filter(Boolean).join(" "));
 
   if (isVerificationService(value)) {
-    return getCanonicalProduct("phone-verification");
+    return getCanonicalProduct(classifyVerificationService(value));
   }
 
   if (isVirtualCardProduct(value)) {
@@ -275,7 +389,7 @@ export function classifyOffer(
   }
 
   if (isOtherTool(value)) {
-    return getCanonicalProduct("other-tool-account");
+    return getCanonicalProduct(classifyOtherTool(value));
   }
 
   if (isApiProduct(value)) {
@@ -283,7 +397,7 @@ export function classifyOffer(
   }
 
   if (isPureEmail(value)) {
-    return getCanonicalProduct("email-account");
+    return getCanonicalProduct(classifyPureEmail(value));
   }
 
   if (isClaudeProduct(value)) {
@@ -349,7 +463,7 @@ export function classifyOffer(
   }
 
   if (matches(value, ["gmail", "google 邮箱", "谷歌邮箱", "hotmail", "outlook", "微软邮箱", "邮箱"])) {
-    return getCanonicalProduct("email-account");
+    return getCanonicalProduct(classifyPureEmail(value));
   }
 
   if (contextValue && matches(contextValue, ["chatgpt", "openai"]) && matches(value, ["plus"])) {
@@ -549,6 +663,14 @@ function isVerificationService(value: string): boolean {
   return matches(value, ["验证"]) && matches(value, ["手机号", "手机号码", "短信", "接码"]);
 }
 
+function classifyVerificationService(value: string): string {
+  if (matches(value, ["paypal"])) return "paypal-phone-verification";
+  if (matches(value, ["google", "谷歌", "gmail", "gemini", "pixel"])) return "google-phone-verification";
+  if (matches(value, ["openai", "chatgpt", "gpt", "codex"])) return "openai-phone-verification";
+
+  return "phone-verification";
+}
+
 function isOtherTool(value: string): boolean {
   return matches(value, [
     "suno",
@@ -558,6 +680,7 @@ function isOtherTool(value: string): boolean {
     "wind surf",
     "openclaw",
     "open claw",
+    "perplexity",
     "x premium",
     "twitter premium",
     "telegram",
@@ -565,6 +688,16 @@ function isOtherTool(value: string): boolean {
     "苹果 id",
     "apple id",
   ]);
+}
+
+function classifyOtherTool(value: string): string {
+  if (matches(value, ["cursor"])) return "cursor-account";
+  if (matches(value, ["kiro"])) return "kiro-account";
+  if (matches(value, ["windsurf", "wind surf"])) return "windsurf-account";
+  if (matches(value, ["perplexity"])) return "perplexity-account";
+  if (matches(value, ["suno"])) return "suno-account";
+
+  return "other-tool-account";
 }
 
 function isNegatedPlus(value: string): boolean {
@@ -593,7 +726,22 @@ function isVirtualCardProduct(value: string): boolean {
 }
 
 function isPureEmail(value: string): boolean {
-  const explicitEmail = matches(value, ["gmail", "谷歌邮箱", "google 邮箱", "hotmail", "outlook", "微软邮箱"]);
+  const explicitEmail = matches(value, [
+    "gmail",
+    "谷歌邮箱",
+    "google 邮箱",
+    "google邮箱",
+    "谷歌账号",
+    "google 账号",
+    "hotmail",
+    "outlook",
+    "微软邮箱",
+    "microsoft 邮箱",
+    "教育邮箱",
+    "edu 邮箱",
+    "学校邮箱",
+    ".edu",
+  ]);
   if (!explicitEmail) return false;
   if (matches(value, ["跑gemini", "跑 gemini", "失败的号", "包gcp", "带gcp"])) return true;
 
@@ -610,6 +758,14 @@ function isPureEmail(value: string): boolean {
     "gemini ultra",
     "grok",
   ]);
+}
+
+function classifyPureEmail(value: string): string {
+  if (matches(value, ["教育邮箱", "edu 邮箱", "学校邮箱", ".edu"])) return "education-email";
+  if (matches(value, ["outlook", "hotmail", "微软邮箱", "microsoft 邮箱", "oauth2", "graph"])) return "outlook-account";
+  if (matches(value, ["gmail", "谷歌邮箱", "google 邮箱", "google邮箱", "谷歌账号", "google 账号"])) return "gmail-account";
+
+  return "email-account";
 }
 
 function isClaudeProduct(value: string): boolean {
