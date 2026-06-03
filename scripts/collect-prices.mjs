@@ -57,7 +57,7 @@ export async function runPriceCollection(options = {}) {
       if (logger) printOfferPreview(offers);
 
       if (options.post) {
-        const posted = await postCrawlLog(target, offers, status, message, options, {
+        const posted = await postCrawlLogBatched(target, offers, status, message, options, {
           attempts: collection.attempts,
           maxAttempts: collection.maxAttempts,
         });
@@ -856,6 +856,64 @@ async function postCrawlLog(target, offers, status, message, options = {}, detai
   return payload;
 }
 
+async function postCrawlLogBatched(target, offers, status, message, options = {}, details = {}) {
+  if (status !== "success" || offers.length <= postBatchSizeFor(options)) {
+    return postCrawlLog(target, offers, status, message, options, {
+      ...details,
+      fullSnapshot: status === "success",
+      seenOfferIds: status === "success" ? offerIdsForSnapshot(offers) : undefined,
+    });
+  }
+
+  let successCount = 0;
+  const batches = chunks(offers, postBatchSizeFor(options));
+  const seenOfferIds = offerIdsForSnapshot(offers);
+
+  for (let index = 0; index < batches.length; index += 1) {
+    const batch = batches[index];
+    const isLast = index === batches.length - 1;
+    const posted = await postCrawlLog(
+      target,
+      batch,
+      isLast ? "success" : "partial",
+      `${message} 分批写入 ${index + 1}/${batches.length}。`,
+      options,
+      {
+        ...details,
+        batchIndex: index + 1,
+        batchCount: batches.length,
+        originalOfferCount: offers.length,
+        fullSnapshot: isLast,
+        seenOfferIds: isLast ? seenOfferIds : undefined,
+      },
+    );
+    successCount += Number(posted.successCount || 0);
+  }
+
+  return { ok: true, successCount };
+}
+
+function postBatchSizeFor(options = {}) {
+  const value = Number(options.postBatchSize || options["post-batch-size"] || 200);
+  if (!Number.isFinite(value)) return 200;
+  return Math.max(50, Math.min(Math.trunc(value), 500));
+}
+
+function offerIdsForSnapshot(offers) {
+  return offers.map((offer) => stableId(offer.sourceName, offer.sourceStoreName, offer.sourceTitle, offer.url));
+}
+
+function stableId(...parts) {
+  const input = parts.filter((part) => part !== null && part !== undefined).join("|");
+  let hash = 5381;
+
+  for (let index = 0; index < input.length; index += 1) {
+    hash = (hash * 33) ^ input.charCodeAt(index);
+  }
+
+  return `id-${(hash >>> 0).toString(36)}`;
+}
+
 function selectTargets(targets, options) {
   const selected = options.source || options.id || options.name;
   const runnable = (target) => target.kind;
@@ -1093,6 +1151,14 @@ function dedupeOffers(offers) {
     map.set(key, offer);
   }
   return Array.from(map.values());
+}
+
+function chunks(values, size) {
+  const output = [];
+  for (let index = 0; index < values.length; index += size) {
+    output.push(values.slice(index, index + size));
+  }
+  return output;
 }
 
 function absolutize(value, baseUrl) {

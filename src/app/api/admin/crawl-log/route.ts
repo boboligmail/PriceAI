@@ -58,7 +58,8 @@ export async function POST(request: Request) {
     }));
     const successCount = await upsertRawOffers(offers, { collectionMethod: payload.mode });
     const finishedAt = new Date().toISOString();
-    const seenOfferIds = offers.map(rawOfferInputId);
+    const seenOfferIds = seenOfferIdsFromDetails(payload.details) || offers.map(rawOfferInputId);
+    const fullSnapshot = fullSnapshotFromDetails(payload.details, payload.status);
 
     await recordSourceCollectionResult({
       sourceId: source.id,
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       checkedAt: finishedAt,
       message: payload.message || null,
       seenOfferIds,
-      fullSnapshot: payload.status === "success",
+      fullSnapshot,
     });
 
     const { error } = await supabase.from("crawl_runs").insert({
@@ -114,4 +115,15 @@ function collectorKindFromDetails(details: Record<string, unknown> | undefined) 
     return value;
   }
   return null;
+}
+
+function fullSnapshotFromDetails(details: Record<string, unknown> | undefined, status: string): boolean {
+  if (typeof details?.fullSnapshot === "boolean") return status === "success" && details.fullSnapshot;
+  return status === "success";
+}
+
+function seenOfferIdsFromDetails(details: Record<string, unknown> | undefined): string[] | null {
+  const value = details?.seenOfferIds;
+  if (!Array.isArray(value)) return null;
+  return value.map((item) => String(item)).filter(Boolean);
 }
