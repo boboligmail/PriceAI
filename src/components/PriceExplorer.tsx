@@ -6,6 +6,7 @@ import {
   Bot,
   CheckCircle2,
   ChevronRight,
+  X,
   Code2,
   CreditCard,
   Database,
@@ -144,6 +145,7 @@ export function PriceExplorer({
   useEffect(() => {
     if (!restoreStateFromUrl || typeof window === "undefined") return;
 
+    let readyFrameId: number | null = null;
     const frameId = window.requestAnimationFrame(() => {
       const nextState = parseExplorerInitialState(new URLSearchParams(window.location.search));
       setQuery(nextState.query ?? "");
@@ -155,10 +157,13 @@ export function PriceExplorer({
       setMaxPrice(nextState.maxPrice ?? "");
       setViewMode(nextState.viewMode ?? "table");
       setScopeMode(nextState.scopeMode ?? "products");
-      setUrlStateReady(true);
+      readyFrameId = window.requestAnimationFrame(() => setUrlStateReady(true));
     });
 
-    return () => window.cancelAnimationFrame(frameId);
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (readyFrameId !== null) window.cancelAnimationFrame(readyFrameId);
+    };
   }, [restoreStateFromUrl]);
 
   const products = useMemo(() => {
@@ -344,6 +349,18 @@ export function PriceExplorer({
     trackAnalyticsEvent("filters_reset");
   }
 
+  function closeFilters() {
+    setFiltersOpen(false);
+  }
+
+  function resetAdvancedFilters() {
+    setProductType("全部");
+    setStock("all");
+    setMinPrice("");
+    setMaxPrice("");
+    trackAnalyticsEvent("advanced_filters_reset");
+  }
+
   useEffect(() => {
     if (!urlStateReady) return;
     if (window.location.pathname !== "/") return;
@@ -489,26 +506,26 @@ export function PriceExplorer({
         </section>
       </div>
 
-      <main className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 lg:py-12">
+      <main className="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 md:py-10 lg:py-12">
         {!dataLoading && !explorerData.configured ? (
           <div className="mb-8 rounded-lg bg-[#fff7e8] px-5 py-4 text-sm text-[#6a4b16] shadow-[0_18px_50px_rgba(45,52,53,0.04)]">
             当前使用内置演示数据。配置 Supabase 后，可在后台维护渠道并保存真实采集结果。
           </div>
         ) : null}
 
-        <div className="mb-9 space-y-5">
+        <div className="mb-6 space-y-4 md:mb-9 md:space-y-5">
           <div>
-            <h1 className="font-serif text-3xl font-semibold tracking-normal text-[#202829] md:text-4xl">
+            <h1 className="font-serif text-2xl font-semibold tracking-normal text-[#202829] md:text-4xl">
               {title}
             </h1>
-            <div className="mt-4 flex flex-wrap items-center gap-3 text-[0.72rem] font-medium text-[#5a6061]">
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[0.72rem] font-medium text-[#5a6061] md:mt-4 md:gap-3">
               <span>
                 最近更新：{dataLoading ? "正在同步" : <RelativeTime value={explorerData.generatedAt} />}
               </span>
               <span className="h-1 w-1 rounded-full bg-[#adb3b4]" />
               <span>{dataLoading && !showingOffers ? "正在加载" : resultCount} {showingOffers ? "条报价" : "个商品"}</span>
-              <span className="h-1 w-1 rounded-full bg-[#adb3b4]" />
-              <span>主价格优先取有货最低价，缺货会明显标注</span>
+              <span className="hidden h-1 w-1 rounded-full bg-[#adb3b4] md:inline-block" />
+              <span className="hidden md:inline">主价格优先取有货最低价，缺货会明显标注</span>
             </div>
             <button
               type="button"
@@ -520,7 +537,71 @@ export function PriceExplorer({
             </button>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="space-y-3 md:hidden">
+            <label className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-white px-4 shadow-[0_16px_45px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15 sm:w-[360px]">
+              <Search size={16} className="shrink-0 text-[#5a6061]" />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索 ChatGPT、Gemini、邮箱"
+                className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9aa2a3]"
+              />
+            </label>
+            <div className="-mx-5 overflow-x-auto px-5">
+              <div className="flex w-max gap-2 pb-1">
+                {["全部", ...platformOptions].map((item) => (
+                  <TabPill
+                    key={item}
+                    active={platform === item}
+                    icon={platformIcon(item)}
+                    label={item}
+                    onClick={() => changePlatform(item)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
+              <div className="inline-flex h-11 min-w-0 items-center rounded-full bg-[#e4e9ea] p-1">
+                <ViewToggleButton
+                  active={scopeMode === "products"}
+                  icon={<PackageCheck size={16} />}
+                  label="标准"
+                  onClick={() => changeScope("products")}
+                />
+                <ViewToggleButton
+                  active={scopeMode === "offers"}
+                  icon={<Database size={16} />}
+                  label="报价"
+                  onClick={() => changeScope("offers")}
+                />
+              </div>
+              <label className="relative inline-flex h-11 min-w-0 items-center justify-center gap-1.5 overflow-hidden whitespace-nowrap rounded-full bg-[#e4e9ea] px-3 text-sm font-semibold text-[#2d3435]">
+                <ArrowUpDown size={16} className="shrink-0" />
+                <span className="truncate">{mobileSortLabel(sort, showingOffers)}</span>
+                <select
+                  aria-label="排序"
+                  value={sort}
+                  onChange={(event) => setSort(event.target.value as SortMode)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                >
+                  <option value="available_price">有货 + 低价</option>
+                  <option value="price">价格从低到高</option>
+                  <option value="updated">最近更新</option>
+                  <option value="channels">{showingOffers ? "渠道名称" : "渠道数量"}</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                onClick={() => setFiltersOpen(true)}
+                className="inline-flex h-11 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#e4e9ea] px-3 text-sm font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
+              >
+                <Filter size={16} />
+                筛选{advancedFilterCount({ productType, stock, minPrice, maxPrice }) ? ` ${advancedFilterCount({ productType, stock, minPrice, maxPrice })}` : ""}
+              </button>
+            </div>
+          </div>
+
+          <div className="hidden flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center md:flex">
             <label className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-white px-4 shadow-[0_16px_45px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15 sm:w-[360px]">
               <Search size={16} className="shrink-0 text-[#5a6061]" />
               <input
@@ -538,21 +619,7 @@ export function PriceExplorer({
               <Filter size={17} />
               筛选{activeFilters.length ? ` ${activeFilters.length}` : ""}
             </button>
-            <div className="inline-flex h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1 md:hidden">
-              <ViewToggleButton
-                active={scopeMode === "products"}
-                icon={<PackageCheck size={16} />}
-                label="标准"
-                onClick={() => changeScope("products")}
-              />
-              <ViewToggleButton
-                active={scopeMode === "offers"}
-                icon={<Database size={16} />}
-                label="报价"
-                onClick={() => changeScope("offers")}
-              />
-            </div>
-            <div className="hidden h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1 md:inline-flex">
+            <div className="inline-flex h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1">
               <ViewToggleButton
                 active={scopeMode === "products"}
                 icon={<PackageCheck size={16} />}
@@ -567,7 +634,7 @@ export function PriceExplorer({
               />
             </div>
             {scopeMode === "products" ? (
-              <div className="hidden h-11 shrink-0 items-center rounded-full bg-[#edf0f1] p-1 md:inline-flex">
+              <div className="h-11 shrink-0 items-center rounded-full bg-[#edf0f1] p-1 md:inline-flex">
                 <ViewToggleButton
                   active={viewMode === "cards"}
                   icon={<LayoutGrid size={16} />}
@@ -605,7 +672,7 @@ export function PriceExplorer({
             </button>
           </div>
           {activeFilters.length ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden flex-wrap items-center gap-2 md:flex">
               {activeFilters.map((filter) => (
                 <span
                   key={filter}
@@ -619,7 +686,7 @@ export function PriceExplorer({
         </div>
 
         {filtersOpen ? (
-          <div className="mb-8 grid gap-3 rounded-lg bg-[#f2f4f4] p-4 shadow-[0_18px_50px_rgba(45,52,53,0.04)] sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mb-8 hidden gap-3 rounded-lg bg-[#f2f4f4] p-4 shadow-[0_18px_50px_rgba(45,52,53,0.04)] sm:grid-cols-2 md:grid lg:grid-cols-4">
             <div className="sm:col-span-2 md:hidden">
               <FilterSelect
                 label="平台"
@@ -658,6 +725,20 @@ export function PriceExplorer({
           </div>
         ) : null}
 
+        <MobileFilterSheet
+          open={filtersOpen}
+          productType={productType}
+          stock={stock}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
+          onProductTypeChange={setProductType}
+          onStockChange={setStock}
+          onMinPriceChange={setMinPrice}
+          onMaxPriceChange={setMaxPrice}
+          onReset={resetAdvancedFilters}
+          onClose={closeFilters}
+        />
+
         {dataError ? (
           <div className="mb-6 rounded-lg bg-[#fff7e8] px-4 py-3 text-sm text-[#6a4b16] shadow-[0_16px_45px_rgba(45,52,53,0.04)] ring-1 ring-[#efdfbd]">
             {dataError}。页面已保留基础操作区，请稍后刷新或切换到全部报价视图。
@@ -693,7 +774,7 @@ export function PriceExplorer({
         ) : products.length ? (
           <>
             <div
-              className={`grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 ${
+              className={`grid grid-cols-1 gap-3 md:gap-6 md:grid-cols-2 xl:grid-cols-3 ${
                 viewMode === "table" ? "md:hidden" : ""
               }`}
             >
@@ -1054,7 +1135,9 @@ function ProductCard({
   const productHref = productDetailHref(product.slug, returnQuery);
 
   return (
-    <article className="group relative flex min-h-[340px] flex-col overflow-hidden rounded-lg bg-white p-6 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(45,52,53,0.07)]">
+    <>
+      <MobileProductCard product={product} returnQuery={returnQuery} onIntent={onIntent} />
+      <article className="group relative hidden min-h-[340px] flex-col overflow-hidden rounded-lg bg-white p-6 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(45,52,53,0.07)] md:flex">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5e5e5e]">
@@ -1128,6 +1211,70 @@ function ProductCard({
           <ChevronRight size={17} />
         </Link>
       </div>
+      </article>
+    </>
+  );
+}
+
+function MobileProductCard({
+  product,
+  returnQuery,
+  onIntent,
+}: {
+  product: ExplorerProductSummary;
+  returnQuery: string;
+  onIntent: (href: string) => void;
+}) {
+  const previewOffer = product.lowestOffer;
+  const available = product.inStockCount > 0;
+  const productHref = productDetailHref(product.slug, returnQuery);
+
+  return (
+    <article className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.04)] ring-1 ring-[#adb3b4]/15 md:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5a6061]">
+            {productIcon(product)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-base font-semibold text-[#202829]">{product.displayName}</p>
+            <p className="mt-1 line-clamp-1 text-sm text-[#5a6061]">{product.spec || product.platform}</p>
+          </div>
+        </div>
+        <OfferStatusBadge available={available} />
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-4">
+        <div className="min-w-0">
+          <p className={`text-3xl font-bold tracking-normal ${available ? "text-[#202829]" : "text-[#9b3328]"}`}>
+            {formatCurrency(product.lowestPrice, previewOffer?.currency)}
+          </p>
+          <p className="mt-1 truncate text-xs text-[#5a6061]">
+            {previewOffer?.sourceStoreName || previewOffer?.sourceName || "暂无最低渠道"} · <RelativeTime value={product.latestSeenAt} />
+          </p>
+        </div>
+        <Link
+          href={productHref}
+          prefetch={false}
+          onMouseEnter={() => onIntent(productHref)}
+          onFocus={() => onIntent(productHref)}
+          onClick={() => trackProductDetailOpen(product)}
+          className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-4 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+        >
+          查看
+          <ChevronRight size={15} />
+        </Link>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        <CountBadge tone="good">有货 {product.inStockCount}</CountBadge>
+        <CountBadge tone="danger">缺货 {product.outOfStockCount}</CountBadge>
+        <CountBadge tone="muted">渠道 {product.offerCount}</CountBadge>
+      </div>
+
+      {previewOffer?.sourceTitle ? (
+        <p className="mt-3 line-clamp-1 text-xs leading-5 text-[#5a6061]">{previewOffer.sourceTitle}</p>
+      ) : null}
     </article>
   );
 }
@@ -1200,6 +1347,102 @@ function TabPill({
       {icon}
       {label}
     </button>
+  );
+}
+
+function MobileFilterSheet({
+  open,
+  productType,
+  stock,
+  minPrice,
+  maxPrice,
+  onProductTypeChange,
+  onStockChange,
+  onMinPriceChange,
+  onMaxPriceChange,
+  onReset,
+  onClose,
+}: {
+  open: boolean;
+  productType: string;
+  stock: string;
+  minPrice: string;
+  maxPrice: string;
+  onProductTypeChange: (value: string) => void;
+  onStockChange: (value: string) => void;
+  onMinPriceChange: (value: string) => void;
+  onMaxPriceChange: (value: string) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="高级筛选">
+      <button
+        type="button"
+        aria-label="关闭筛选"
+        onClick={onClose}
+        className="absolute inset-0 bg-[#202829]/28"
+      />
+      <div className="absolute inset-x-0 bottom-0 max-h-[82vh] overflow-y-auto rounded-t-[24px] bg-[#f9f9f9] px-5 pb-[calc(env(safe-area-inset-bottom)+20px)] pt-4 shadow-[0_-24px_70px_rgba(45,52,53,0.18)]">
+        <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-[#c8ced0]" />
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-lg font-bold text-[#202829]">高级筛选</p>
+            <p className="mt-1 text-xs text-[#5a6061]">平台、搜索和排序已放在首页常驻区</p>
+          </div>
+          <button
+            type="button"
+            aria-label="关闭"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#e4e9ea] text-[#2d3435]"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-4 rounded-lg bg-[#f2f4f4] p-4">
+          <FilterSelect
+            label="商品类型"
+            value={productType}
+            onChange={onProductTypeChange}
+            options={["全部", ...productTypeOptions].map((item) => [item, productTypeLabels[item] || item] as [string, string])}
+          />
+          <FilterSelect
+            label="库存"
+            value={stock}
+            onChange={onStockChange}
+            options={[
+              ["all", "全部库存"],
+              ["available", "有货"],
+              ["out_of_stock", "缺货"],
+            ]}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <PriceInput label="最低价" value={minPrice} onChange={onMinPriceChange} />
+            <PriceInput label="最高价" value={maxPrice} onChange={onMaxPriceChange} />
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onReset}
+            className="h-12 rounded-full bg-[#e4e9ea] px-4 text-sm font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
+          >
+            重置
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-full bg-[#2d3435] px-4 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+          >
+            完成
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1355,6 +1598,13 @@ function metricValue(value: number, loading: boolean): string {
   return loading ? "--" : value.toString();
 }
 
+function mobileSortLabel(sort: SortMode, showingOffers: boolean): string {
+  if (sort === "available_price") return "低价";
+  if (sort === "price") return "价格";
+  if (sort === "updated") return "最新";
+  return showingOffers ? "渠道" : "数量";
+}
+
 function buildExplorerSearchParams({
   query,
   platform,
@@ -1465,6 +1715,24 @@ function buildActiveFilters({
   if (stock === "out_of_stock") filters.push("缺货");
   if (minPrice || maxPrice) filters.push(`¥${minPrice || "0"}-${maxPrice || "不限"}`);
   return filters;
+}
+
+function advancedFilterCount({
+  productType,
+  stock,
+  minPrice,
+  maxPrice,
+}: {
+  productType: string;
+  stock: string;
+  minPrice: string;
+  maxPrice: string;
+}): number {
+  let count = 0;
+  if (productType !== "全部") count += 1;
+  if (stock !== "all") count += 1;
+  if (minPrice || maxPrice) count += 1;
+  return count;
 }
 
 function buildTitle(platform: string, productType: string, showingOffers = false): string {
