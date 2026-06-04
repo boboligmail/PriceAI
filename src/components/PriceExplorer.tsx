@@ -107,6 +107,22 @@ const EMPTY_EXPLORER_DATA: ExplorerData = {
 let explorerMemoryCache: ExplorerData | null = null;
 const offerListMemoryCache = new Map<string, OfferListResponse>();
 
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const updateMatches = () => setMatches(mediaQuery.matches);
+
+    updateMatches();
+    mediaQuery.addEventListener("change", updateMatches);
+
+    return () => mediaQuery.removeEventListener("change", updateMatches);
+  }, [query]);
+
+  return matches;
+}
+
 export function PriceExplorer({
   data,
   initialState = {},
@@ -139,6 +155,7 @@ export function PriceExplorer({
   const [offersError, setOffersError] = useState<string | null>(null);
   const offerLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const prefetchedDetailHrefsRef = useRef<Set<string>>(new Set());
+  const isDesktopViewport = useMediaQuery("(min-width: 768px)");
 
   useEffect(() => {
     if (!restoreStateFromUrl || typeof window === "undefined") return;
@@ -240,6 +257,9 @@ export function PriceExplorer({
   const platformOffers = offerResponse?.rows ?? [];
   const resultCount = showingOffers ? offerResponse?.total ?? 0 : products.length;
   const hasMoreOffers = showingOffers && Boolean(offerResponse) && platformOffers.length < (offerResponse?.total ?? 0);
+  const renderMobileProductList = isDesktopViewport !== true;
+  const renderDesktopProductTable = viewMode === "table" && isDesktopViewport !== false;
+  const renderDesktopProductCards = viewMode === "cards" && isDesktopViewport !== false;
   const explorerQueryString = useMemo(
     () =>
       buildExplorerSearchParams({
@@ -796,16 +816,21 @@ export function PriceExplorer({
           <ProductTableSkeleton viewMode={viewMode} />
         ) : products.length ? (
           <>
-            <div
-              className={`grid grid-cols-1 gap-3 md:gap-6 md:grid-cols-2 xl:grid-cols-3 ${
-                viewMode === "table" ? "md:hidden" : ""
-              }`}
-            >
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} returnQuery={explorerQueryString} onIntent={warmProductDetail} />
-              ))}
-            </div>
-            {viewMode === "table" ? (
+            {renderMobileProductList ? (
+              <div className="grid grid-cols-1 gap-3 md:hidden">
+                {products.map((product) => (
+                  <MobileProductCard key={product.id} product={product} returnQuery={explorerQueryString} onIntent={warmProductDetail} />
+                ))}
+              </div>
+            ) : null}
+            {renderDesktopProductCards ? (
+              <div className="hidden gap-6 md:grid md:grid-cols-2 xl:grid-cols-3">
+                {products.map((product) => (
+                  <ProductCard key={product.id} product={product} returnQuery={explorerQueryString} onIntent={warmProductDetail} />
+                ))}
+              </div>
+            ) : null}
+            {renderDesktopProductTable ? (
               <div className="hidden md:block">
                 <ProductTable products={products} returnQuery={explorerQueryString} onIntent={warmProductDetail} />
               </div>
@@ -1158,9 +1183,7 @@ function ProductCard({
   const productHref = productDetailHref(product.slug, returnQuery);
 
   return (
-    <>
-      <MobileProductCard product={product} returnQuery={returnQuery} onIntent={onIntent} />
-      <article className="group relative hidden min-h-[340px] flex-col overflow-hidden rounded-lg bg-white p-6 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(45,52,53,0.07)] md:flex">
+      <article className="group relative flex min-h-[340px] flex-col overflow-hidden rounded-lg bg-white p-6 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(45,52,53,0.07)]">
       <div className="mb-5 flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5e5e5e]">
@@ -1235,7 +1258,6 @@ function ProductCard({
         </Link>
       </div>
       </article>
-    </>
   );
 }
 

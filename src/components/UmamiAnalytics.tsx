@@ -10,7 +10,7 @@ export function UmamiAnalytics() {
     <Script
       src={scriptUrl}
       data-website-id={websiteId}
-      strategy="afterInteractive"
+      strategy="lazyOnload"
       defer
     />
   );
