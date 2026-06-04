@@ -1,10 +1,16 @@
 import { PriceExplorer } from "@/components/PriceExplorer";
 import { SubmissionFloater } from "@/components/SubmissionFloater";
+import { getExplorerData } from "@/lib/data";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+export default async function Home() {
+  const data = await getExplorerData();
+
   return (
     <>
-      <PriceExplorer restoreStateFromUrl />
+      <PriceExplorer data={data} restoreStateFromUrl />
       <SubmissionFloater />
     </>
   );
