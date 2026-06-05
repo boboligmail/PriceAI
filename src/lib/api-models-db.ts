@@ -19,9 +19,22 @@ import type {
   ApiModelAdminPlan,
   ApiModelAdminProvider,
   ApiModelCollectRun,
+  ApiProviderSubmission,
+  ApiProviderSubmissionParseStatus,
+  ApiProviderSubmissionStatus,
 } from "@/lib/types";
+import { stableId } from "@/lib/utils";
 
 type DbRow = Record<string, unknown>;
+
+type ApiProviderCandidate = {
+  id: string;
+  name: string;
+  type: ApiProviderType;
+  url: string;
+  pricingUrl: string | null;
+  persisted: boolean;
+};
 
 const API_MODEL_CACHE_TTL_MS = 30_000;
 
@@ -67,7 +80,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
   }
 
   try {
-    const [familiesResult, modelsResult, providersResult, plansResult, planModelsResult, offersResult, runsResult] = await Promise.all([
+    const [familiesResult, modelsResult, providersResult, plansResult, planModelsResult, offersResult, runsResult, submissionsResult] = await Promise.all([
       supabase
         .from("api_model_families")
         .select("id,name,sort_order,updated_at")
@@ -93,6 +106,12 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
         .select("id,provider_id,collector_kind,status,model_count,offer_count,error_message,started_at,finished_at")
         .order("started_at", { ascending: false })
         .limit(20),
+      supabase
+        .from("api_provider_submissions")
+        .select("id,submitted_url,submitted_name,submitted_contact,submitted_note,parsed_provider_url,parsed_provider_name,parsed_type,parse_status,probe_status,review_status,admin_note,provider_id,parsed_meta,submitter_ip,created_at,updated_at")
+        .in("review_status", ["pending", "collector_todo"])
+        .order("created_at", { ascending: false })
+        .limit(200),
     ]);
 
     const error =
@@ -102,7 +121,8 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
       plansResult.error ||
       planModelsResult.error ||
       offersResult.error ||
-      runsResult.error;
+      runsResult.error ||
+      submissionsResult.error;
     if (error) throw error;
 
     const familyRows = dbRows(familiesResult.data);
@@ -112,6 +132,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
     const planModelRows = dbRows(planModelsResult.data);
     const offerRows = dbRows(offersResult.data);
     const runRows = dbRows(runsResult.data);
+    const submissionRows = dbRows(submissionsResult.data);
 
     if (!familyRows.length && !modelRows.length && !providerRows.length) {
       return buildStaticApiModelAdminData({
@@ -247,6 +268,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
         finishedAt: nullableString(row.finished_at),
       };
     });
+    const providerSubmissions = submissionRows.map(mapApiProviderSubmission);
 
     return {
       configured: true,
@@ -264,6 +286,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
       plans,
       offers,
       collectRuns,
+      providerSubmissions,
     };
   } catch (error) {
     console.warn("Falling back to static API model admin data because Supabase read failed:", error);
@@ -488,6 +511,299 @@ function buildStaticApiModelAdminData({
     plans,
     offers,
     collectRuns: [],
+    providerSubmissions: [],
+  };
+}
+
+export async function createApiProviderSubmission(input: {
+  url: string;
+  name?: string | null;
+  contact?: string | null;
+  notes?: string | null;
+  honeypot?: string | null;
+  submitterIp?: string | null;
+  rateLimitPerHour?: number;
+}): Promise<{ id: string; reviewStatus: ApiProviderSubmissionStatus } | { ignored: true }> {
+  if (input.honeypot) return { ignored: true };
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase 尚未配置，无法接受 API 渠道提交。");
+
+  const normalizedUrl = normalizeSubmissionUrl(input.url);
+  const ip = input.submitterIp || null;
+  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+
+  const { data: duplicateRows } = await supabase
+    .from("api_provider_submissions")
+    .select("id")
+    .eq("submitted_url", normalizedUrl)
+    .gte("created_at", fiveMinAgo)
+    .limit(1);
+  if (duplicateRows?.length) {
+    throw new Error("该 API 渠道链接刚刚被提交过，请稍后再试。");
+  }
+
+  if (ip) {
+    const rateLimitPerHour = input.rateLimitPerHour ?? 12;
+    const { count } = await supabase
+      .from("api_provider_submissions")
+      .select("id", { count: "exact", head: true })
+      .eq("submitter_ip", ip)
+      .gte("created_at", oneHourAgo);
+    if ((count || 0) >= rateLimitPerHour) {
+      throw new Error("提交过于频繁，请稍后再试。");
+    }
+  }
+
+  const providers = await readProviderCandidatesForSubmission();
+  const parsed = parseApiProviderSubmission(normalizedUrl, providers, input.name || null);
+  const id = stableId("api-provider-submission", normalizedUrl, ip || "", Date.now().toString());
+
+  const { error } = await supabase.from("api_provider_submissions").insert({
+    id,
+    submitted_url: normalizedUrl,
+    submitted_name: input.name?.trim() || null,
+    submitted_contact: input.contact?.trim() || null,
+    submitted_note: input.notes?.trim() || null,
+    parsed_provider_url: parsed.providerUrl,
+    parsed_provider_name: parsed.providerName,
+    parsed_type: parsed.type,
+    parse_status: parsed.parseStatus,
+    probe_status: "pending",
+    review_status: "pending",
+    provider_id: parsed.providerId,
+    parsed_meta: parsed.meta,
+    submitter_ip: ip,
+  });
+  if (error) throw error;
+
+  return { id, reviewStatus: "pending" };
+}
+
+export async function listApiProviderSubmissions(
+  status: ApiProviderSubmissionStatus = "pending",
+): Promise<ApiProviderSubmission[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("api_provider_submissions")
+    .select("id,submitted_url,submitted_name,submitted_contact,submitted_note,parsed_provider_url,parsed_provider_name,parsed_type,parse_status,probe_status,review_status,admin_note,provider_id,parsed_meta,submitter_ip,created_at,updated_at")
+    .eq("review_status", status)
+    .order("created_at", { ascending: false })
+    .limit(300);
+  if (error) throw error;
+  return (data || []).map((row) => mapApiProviderSubmission(row as DbRow));
+}
+
+export async function updateApiProviderSubmissionReview(input: {
+  id: string;
+  reviewStatus: ApiProviderSubmissionStatus;
+  adminNote?: string | null;
+}): Promise<ApiProviderSubmission> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase 尚未配置，无法更新 API 渠道提交。");
+
+  const { data: existing, error: readError } = await supabase
+    .from("api_provider_submissions")
+    .select("*")
+    .eq("id", input.id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!existing) throw new Error("API 渠道提交不存在。");
+
+  const current = mapApiProviderSubmission(existing as DbRow);
+  if (current.reviewStatus !== "pending" && current.reviewStatus !== "collector_todo") {
+    throw new Error("该 API 渠道提交已被处理。");
+  }
+  if (input.reviewStatus === "approved" && !current.providerId) {
+    throw new Error("该提交尚未匹配到现有 API 来源，请先加入采集器待办。");
+  }
+
+  const now = new Date().toISOString();
+  const nextMeta: Record<string, unknown> = {
+    ...current.parsedMeta,
+    review_stage: input.reviewStatus,
+    reviewed_at: now,
+  };
+  if (input.adminNote?.trim()) nextMeta.admin_note = input.adminNote.trim();
+
+  const { data, error } = await supabase
+    .from("api_provider_submissions")
+    .update({
+      review_status: input.reviewStatus,
+      admin_note: input.adminNote?.trim() || null,
+      parsed_meta: nextMeta,
+      updated_at: now,
+    })
+    .eq("id", input.id)
+    .select("*")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("API 渠道提交不存在或已被处理。");
+
+  return mapApiProviderSubmission(data as DbRow);
+}
+
+async function readProviderCandidatesForSubmission(): Promise<ApiProviderCandidate[]> {
+  const supabase = getSupabaseServerClient();
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from("api_providers")
+        .select("id,name,type,official_url,pricing_url")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      const rows = dbRows(data);
+      if (rows.length) {
+        return rows
+          .map((row): ApiProviderCandidate | null => {
+            const type = providerType(row.type);
+            const url = nullableString(row.official_url);
+            if (!type || !url) return null;
+            return {
+              id: stringValue(row.id),
+              name: stringValue(row.name),
+              type,
+              url,
+              pricingUrl: nullableString(row.pricing_url),
+              persisted: true,
+            };
+          })
+          .filter((provider): provider is ApiProviderCandidate => Boolean(provider));
+      }
+    } catch (error) {
+      console.warn("Falling back to static API provider candidates:", error);
+    }
+  }
+
+  return staticApiModelDataset.providers.map((provider) => ({
+    id: provider.id,
+    name: provider.name,
+    type: provider.type,
+    url: provider.url,
+    pricingUrl: provider.pricingUrl || null,
+    persisted: false,
+  }));
+}
+
+function parseApiProviderSubmission(
+  url: string,
+  providers: ApiProviderCandidate[],
+  submittedName: string | null,
+): {
+  providerId: string | null;
+  providerUrl: string | null;
+  providerName: string | null;
+  type: ApiProviderType | null;
+  parseStatus: ApiProviderSubmissionParseStatus;
+  meta: Record<string, unknown>;
+} {
+  const parsed = new URL(url);
+  const domain = normalizeHost(parsed.hostname);
+  const matched = providers.find((provider) => providerHosts(provider).some((host) => hostMatches(domain, host))) || null;
+  const providerUrl = matched?.url || `${parsed.protocol}//${parsed.host}`;
+  const submittedUrlType = parsed.pathname.replace(/\/+$/, "") ? "detail_or_documentation_page" : "provider_home";
+  const providerId = matched?.persisted ? matched.id : null;
+  const parseStatus: ApiProviderSubmissionParseStatus = matched
+    ? "matched_existing"
+    : submittedName?.trim()
+      ? "parsed"
+      : "needs_review";
+  const inferredType = matched?.type || inferProviderTypeFromUrl(parsed);
+
+  return {
+    providerId,
+    providerUrl,
+    providerName: matched?.name || submittedName?.trim() || parsed.hostname.replace(/^www\./, ""),
+    type: inferredType,
+    parseStatus,
+    meta: {
+      domain,
+      submitted_url_type: submittedUrlType,
+      matched_provider_id: matched?.id || null,
+      matched_provider_name: matched?.name || null,
+      matched_provider_persisted: Boolean(matched?.persisted),
+      matched_provider_url: matched?.url || null,
+      matched_provider_pricing_url: matched?.pricingUrl || null,
+      suggested_action: providerId ? "approve_existing_provider" : "collector_todo",
+      support_status: providerId ? "matched_existing_provider" : "needs_api_provider_collector",
+      support_reason: providerId
+        ? `已匹配到现有 API 来源「${matched?.name}」，审核通过后保留在现有渠道下。`
+        : "没有匹配到现有 API 来源，需要补充 API 模型数据或采集脚本后再收录。",
+    },
+  };
+}
+
+function normalizeSubmissionUrl(value: string): string {
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new Error("仅支持 http/https 链接。");
+    }
+    parsed.hash = "";
+    return parsed.toString();
+  } catch {
+    throw new Error("URL 格式不正确。");
+  }
+}
+
+function providerHosts(provider: ApiProviderCandidate): string[] {
+  return [provider.url, provider.pricingUrl]
+    .map((value) => hostFromUrl(value))
+    .filter((host): host is string => Boolean(host));
+}
+
+function hostFromUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return normalizeHost(new URL(value).hostname);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeHost(value: string): string {
+  return value.toLowerCase().replace(/^www\./, "");
+}
+
+function hostMatches(submittedHost: string, providerHost: string): boolean {
+  return (
+    submittedHost === providerHost ||
+    submittedHost.endsWith(`.${providerHost}`) ||
+    providerHost.endsWith(`.${submittedHost}`)
+  );
+}
+
+function inferProviderTypeFromUrl(parsed: URL): ApiProviderType | null {
+  const text = `${parsed.hostname} ${parsed.pathname}`.toLowerCase();
+  if (text.includes("openrouter") || text.includes("router")) return "router";
+  if (text.includes("free") || text.includes("nim")) return "free";
+  if (text.includes("plan") || text.includes("pricing") || text.includes("go")) return "subscription";
+  if (text.includes("api") || text.includes("docs") || text.includes("console")) return "official";
+  return null;
+}
+
+function mapApiProviderSubmission(row: DbRow): ApiProviderSubmission {
+  return {
+    id: stringValue(row.id),
+    submittedUrl: stringValue(row.submitted_url),
+    submittedName: nullableString(row.submitted_name),
+    submittedContact: nullableString(row.submitted_contact),
+    submittedNote: nullableString(row.submitted_note),
+    parsedProviderUrl: nullableString(row.parsed_provider_url),
+    parsedProviderName: nullableString(row.parsed_provider_name),
+    parsedType: providerType(row.parsed_type),
+    parseStatus: apiSubmissionParseStatus(row.parse_status),
+    probeStatus: apiSubmissionProbeStatus(row.probe_status),
+    reviewStatus: apiSubmissionReviewStatus(row.review_status),
+    adminNote: nullableString(row.admin_note),
+    providerId: nullableString(row.provider_id),
+    parsedMeta: recordValue(row.parsed_meta),
+    submitterIp: nullableString(row.submitter_ip),
+    createdAt: timestampValue(row.created_at),
+    updatedAt: timestampValue(row.updated_at),
   };
 }
 
@@ -601,6 +917,29 @@ function apiRunStatus(value: unknown): "success" | "partial" | "failed" {
   return "failed";
 }
 
+function apiSubmissionParseStatus(value: unknown): ApiProviderSubmissionParseStatus {
+  if (
+    value === "pending" ||
+    value === "matched_existing" ||
+    value === "parsed" ||
+    value === "needs_review" ||
+    value === "invalid"
+  ) {
+    return value;
+  }
+  return "pending";
+}
+
+function apiSubmissionProbeStatus(value: unknown): ApiProviderSubmission["probeStatus"] {
+  if (value === "success" || value === "failed" || value === "unsupported") return value;
+  return "pending";
+}
+
+function apiSubmissionReviewStatus(value: unknown): ApiProviderSubmissionStatus {
+  if (value === "approved" || value === "collector_todo" || value === "rejected") return value;
+  return "pending";
+}
+
 function booleanValue(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -645,6 +984,10 @@ function nullableString(value: unknown): string | null {
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.map((item) => stringValue(item).trim()).filter(Boolean) : [];
+}
+
+function recordValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
 function groupRowsBy(rows: DbRow[], key: string): Map<string, DbRow[]> {

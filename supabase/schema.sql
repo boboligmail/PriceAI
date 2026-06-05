@@ -660,6 +660,7 @@ create table if not exists api_provider_submissions (
   id text primary key,
   submitted_url text not null,
   submitted_name text,
+  submitted_contact text,
   submitted_note text,
   parsed_provider_url text,
   parsed_provider_name text,
@@ -668,6 +669,8 @@ create table if not exists api_provider_submissions (
   probe_status text not null default 'pending',
   review_status text not null default 'pending' check (review_status in ('pending', 'approved', 'collector_todo', 'rejected')),
   admin_note text,
+  provider_id text references api_providers(id) on delete set null,
+  parsed_meta jsonb not null default '{}'::jsonb,
   submitter_ip text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -696,6 +699,8 @@ create index if not exists api_model_offers_model_id_idx on api_model_offers(mod
 create index if not exists api_model_offers_provider_id_idx on api_model_offers(provider_id);
 create index if not exists api_model_offers_status_idx on api_model_offers(status);
 create index if not exists api_collection_runs_started_at_idx on api_collection_runs(started_at desc);
+create index if not exists api_provider_submissions_review_status_idx on api_provider_submissions(review_status);
+create index if not exists api_provider_submissions_created_at_idx on api_provider_submissions(created_at desc);
 
 drop trigger if exists api_model_families_set_updated_at on api_model_families;
 create trigger api_model_families_set_updated_at

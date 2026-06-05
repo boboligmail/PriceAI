@@ -63,6 +63,7 @@ type ApiModelAdminData = AdminSummary["apiModels"];
 type ApiModelAdminProvider = ApiModelAdminData["providers"][number];
 type ApiModelAdminOffer = ApiModelAdminData["offers"][number];
 type ApiModelAdminPlan = ApiModelAdminData["plans"][number];
+type ApiProviderSubmission = ApiModelAdminData["providerSubmissions"][number];
 
 type ProbeOffer = {
   sourceStoreName?: string | null;
@@ -166,6 +167,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [officialProbeResult, setOfficialProbeResult] = useState<OfficialProbeResult | null>(null);
   const [apiProviderPatches, setApiProviderPatches] = useState<Record<string, Partial<ApiModelAdminProvider>>>({});
   const [apiOfferPatches, setApiOfferPatches] = useState<Record<string, Partial<ApiModelAdminOffer>>>({});
+  const [apiProviderSubmissions, setApiProviderSubmissions] = useState<ApiProviderSubmission[]>(data.apiModels.providerSubmissions || []);
   const [activeTab, setActiveTab] = useState<AdminTab>("review");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -228,8 +230,9 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         ...offer,
         ...(apiOfferPatches[offer.id] || {}),
       })),
+      providerSubmissions: apiProviderSubmissions,
     }),
-    [apiOfferPatches, apiProviderPatches, data.apiModels],
+    [apiOfferPatches, apiProviderPatches, apiProviderSubmissions, data.apiModels],
   );
 
   const filteredReview = useMemo(() => {
@@ -535,6 +538,34 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       router.refresh();
     } else {
       setGlobalMessage({ type: "error", text: result.message || "更新 API 模型报价失败。" });
+    }
+  }
+
+  async function reviewApiProviderSubmission(
+    submission: ApiProviderSubmission,
+    reviewStatus: ApiProviderSubmission["reviewStatus"],
+  ) {
+    const actionKey = `api-submission-${submission.id}-${reviewStatus}`;
+    setLoadingAction(actionKey);
+    const result = await requestWithMethod("/api/admin/api-models", "PATCH", password, {
+      target: "submission",
+      id: submission.id,
+      reviewStatus,
+      adminNote: defaultApiSubmissionAdminNote(submission, reviewStatus),
+    });
+    setLoadingAction(null);
+
+    if (result.ok && result.submission) {
+      const next = result.submission as ApiProviderSubmission;
+      setApiProviderSubmissions((prev) =>
+        reviewStatus === "collector_todo"
+          ? replaceApiProviderSubmission(prev, next)
+          : prev.filter((item) => item.id !== submission.id),
+      );
+      setGlobalMessage({ type: "success", text: apiSubmissionActionSuccessText(next, reviewStatus) });
+      router.refresh();
+    } else {
+      setGlobalMessage({ type: "error", text: result.message || "更新 API 渠道提交失败。" });
     }
   }
 
@@ -1917,6 +1948,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   onCopyImportCommand={copyApiModelImportCommand}
                   onToggleProviderEnabled={toggleApiProviderEnabled}
                   onToggleOfferStatus={toggleApiOfferStatus}
+                  onReviewProviderSubmission={reviewApiProviderSubmission}
                 />
               </div>
             )}
@@ -3601,18 +3633,22 @@ function ApiModelsAdminPanel({
   onCopyImportCommand,
   onToggleProviderEnabled,
   onToggleOfferStatus,
+  onReviewProviderSubmission,
 }: {
   data: ApiModelAdminData;
   loadingAction: string | null;
   onCopyImportCommand: () => void;
   onToggleProviderEnabled: (provider: ApiModelAdminProvider, enabled: boolean) => void;
   onToggleOfferStatus: (offer: ApiModelAdminOffer, status: ApiModelAdminOffer["status"]) => void;
+  onReviewProviderSubmission: (submission: ApiProviderSubmission, reviewStatus: ApiProviderSubmission["reviewStatus"]) => void;
 }) {
   const inactiveProviderCount = data.providers.filter((provider) => !provider.enabled).length;
   const inactiveOfferCount = data.offers.filter((offer) => offer.status !== "active").length;
   const latestOffers = data.offers.slice(0, 80);
   const latestPlans = data.plans.slice(0, 24);
   const latestRuns = data.collectRuns.slice(0, 8);
+  const pendingApiSubmissions = data.providerSubmissions.filter((submission) => submission.reviewStatus === "pending");
+  const todoApiSubmissions = data.providerSubmissions.filter((submission) => submission.reviewStatus === "collector_todo");
 
   return (
     <div className="space-y-5">
@@ -3630,7 +3666,7 @@ function ApiModelsAdminPanel({
           <OfficialMetric label="来源渠道" value={String(data.providers.length)} tone={inactiveProviderCount ? "warn" : "default"} />
           <OfficialMetric label="套餐" value={String(data.plans.length)} />
           <OfficialMetric label="报价" value={String(data.offers.length)} tone={inactiveOfferCount ? "warn" : "default"} />
-          <OfficialMetric label="最近更新" value={formatRelativeTime(data.generatedAt)} />
+          <OfficialMetric label="渠道提交" value={String(data.providerSubmissions.length)} tone={todoApiSubmissions.length ? "warn" : "default"} />
         </div>
 
         <Divider />
@@ -3660,6 +3696,137 @@ function ApiModelsAdminPanel({
             </button>
           </div>
         </div>
+      </Panel>
+
+      <Panel title="API 渠道提交" icon={<Inbox size={17} />}>
+        {data.providerSubmissions.length ? (
+          <div className="overflow-x-auto rounded-lg border border-[#adb3b4]/20">
+            <table className="min-w-[1180px] w-full divide-y divide-[#adb3b4]/15 text-left text-sm">
+              <thead className="bg-[#f2f4f4] text-xs font-semibold text-[#5a6061]">
+                <tr>
+                  <th className="px-4 py-3">提交链接</th>
+                  <th className="px-4 py-3">解析结果</th>
+                  <th className="px-4 py-3">状态</th>
+                  <th className="px-4 py-3">说明</th>
+                  <th className="px-4 py-3">提交时间</th>
+                  <th className="px-4 py-3">操作</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
+                {data.providerSubmissions.map((submission) => {
+                  const meta = submission.parsedMeta || {};
+                  const approveLoading = loadingAction === `api-submission-${submission.id}-approved`;
+                  const todoLoading = loadingAction === `api-submission-${submission.id}-collector_todo`;
+                  const rejectLoading = loadingAction === `api-submission-${submission.id}-rejected`;
+                  const supportReason = stringMeta(meta, "support_reason") || "等待管理员确认是否纳入 API 模型渠道。";
+                  return (
+                    <tr key={submission.id} className="align-top">
+                      <td className="max-w-[320px] px-4 py-3">
+                        <a
+                          href={submission.submittedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="break-all font-medium text-[#2d3435] transition-colors hover:text-[#2f7a4b]"
+                        >
+                          {submission.submittedName || submission.parsedProviderName || safeDomain(submission.submittedUrl) || submission.submittedUrl}
+                        </a>
+                        <p className="mt-1 break-all text-xs leading-5 text-[#5a6061]">{submission.submittedUrl}</p>
+                        {submission.submittedContact ? <p className="mt-1 text-xs text-[#adb3b4]">联系方式：{submission.submittedContact}</p> : null}
+                      </td>
+                      <td className="max-w-[300px] px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-[#2d3435]">{submission.parsedProviderName || "待确认来源"}</span>
+                          {submission.parsedType ? <Badge>{apiProviderTypeLabels[submission.parsedType]}</Badge> : null}
+                          {submission.providerId ? <Badge tone="info">已匹配已有来源</Badge> : null}
+                        </div>
+                        {submission.parsedProviderUrl ? (
+                          <a
+                            href={submission.parsedProviderUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-2 inline-flex items-center gap-1 break-all text-xs font-medium text-[#47657a] transition-colors hover:text-[#2d3435]"
+                          >
+                            {submission.parsedProviderUrl}
+                            <ExternalLink size={12} />
+                          </a>
+                        ) : null}
+                        {submission.submittedNote ? <p className="mt-2 text-xs leading-5 text-[#5a6061]">{submission.submittedNote}</p> : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col items-start gap-1.5">
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${apiSubmissionParseStatusClass(submission.parseStatus)}`}>
+                            {apiSubmissionParseStatusLabel(submission.parseStatus)}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${apiSubmissionReviewStatusClass(submission.reviewStatus)}`}>
+                            {apiSubmissionReviewStatusLabel(submission.reviewStatus)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="max-w-[280px] px-4 py-3 text-sm leading-6 text-[#5a6061]">{supportReason}</td>
+                      <td className="px-4 py-3 text-[#5a6061]">{formatRelativeTime(submission.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {submission.providerId && submission.reviewStatus === "pending" ? (
+                            <button
+                              type="button"
+                              disabled={approveLoading}
+                              onClick={() => onReviewProviderSubmission(submission, "approved")}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#2f7a4b]/20 bg-white px-3 text-xs font-medium text-[#2f7a4b] transition-colors hover:bg-[#e8f3ec] disabled:opacity-60"
+                            >
+                              {approveLoading ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                              通过
+                            </button>
+                          ) : null}
+                          {submission.reviewStatus === "pending" ? (
+                            <button
+                              type="button"
+                              disabled={todoLoading}
+                              onClick={() => onReviewProviderSubmission(submission, "collector_todo")}
+                              className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#7a541b]/20 bg-white px-3 text-xs font-medium text-[#7a541b] transition-colors hover:bg-[#fff7e8] disabled:opacity-60"
+                            >
+                              {todoLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardList size={13} />}
+                              待办
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(buildApiProviderSubmissionContext(submission));
+                            }}
+                            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                          >
+                            <Copy size={13} />
+                            复制上下文
+                          </button>
+                          <button
+                            type="button"
+                            disabled={rejectLoading}
+                            onClick={() => onReviewProviderSubmission(submission, "rejected")}
+                            className="inline-flex h-8 items-center justify-center gap-1 rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7] disabled:opacity-60"
+                          >
+                            {rejectLoading ? <Loader2 size={13} className="animate-spin" /> : <X size={13} />}
+                            拒绝
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            icon={<Inbox size={32} className="text-[#adb3b4]" />}
+            title="暂无 API 渠道提交"
+            description="用户在 API 模型页提交官方文档、价格页或公开套餐页后，会出现在这里。"
+          />
+        )}
+        {pendingApiSubmissions.length || todoApiSubmissions.length ? (
+          <p className="mt-3 text-xs leading-5 text-[#adb3b4]">
+            待审核 {pendingApiSubmissions.length} 条，采集器待办 {todoApiSubmissions.length} 条。未匹配到已有 API 来源的提交不会自动通过，避免产生空渠道。
+          </p>
+        ) : null}
       </Panel>
 
       <Panel title="API 来源渠道" icon={<Store size={17} />}>
@@ -4315,6 +4482,65 @@ function apiProviderTypeLabel(value: ApiModelAdminProvider["type"] | ApiModelAdm
   return apiProviderTypeLabels[value] || value;
 }
 
+function apiSubmissionParseStatusLabel(value: ApiProviderSubmission["parseStatus"]): string {
+  if (value === "matched_existing") return "已匹配";
+  if (value === "parsed") return "已解析";
+  if (value === "needs_review") return "待确认";
+  if (value === "invalid") return "无效";
+  return "待解析";
+}
+
+function apiSubmissionParseStatusClass(value: ApiProviderSubmission["parseStatus"]): string {
+  if (value === "matched_existing") return "bg-[#e8f3ec] text-[#2f7a4b]";
+  if (value === "parsed") return "bg-[#eef3f8] text-[#47657a]";
+  if (value === "invalid") return "bg-[#fbe9e7] text-[#9b3328]";
+  return "bg-[#fff7e8] text-[#7a541b]";
+}
+
+function apiSubmissionReviewStatusLabel(value: ApiProviderSubmission["reviewStatus"]): string {
+  if (value === "approved") return "已通过";
+  if (value === "collector_todo") return "采集待办";
+  if (value === "rejected") return "已拒绝";
+  return "待审核";
+}
+
+function apiSubmissionReviewStatusClass(value: ApiProviderSubmission["reviewStatus"]): string {
+  if (value === "approved") return "bg-[#e8f3ec] text-[#2f7a4b]";
+  if (value === "collector_todo") return "bg-[#fff7e8] text-[#7a541b]";
+  if (value === "rejected") return "bg-[#fbe9e7] text-[#9b3328]";
+  return "bg-[#eef3f8] text-[#47657a]";
+}
+
+function defaultApiSubmissionAdminNote(
+  submission: ApiProviderSubmission,
+  reviewStatus: ApiProviderSubmission["reviewStatus"],
+): string {
+  if (reviewStatus === "approved") {
+    return submission.providerId
+      ? `已匹配到现有 API 来源：${submission.parsedProviderName || submission.providerId}`
+      : "审核通过。";
+  }
+  if (reviewStatus === "collector_todo") {
+    return "真实 API 渠道，但当前没有完整数据/采集支持，加入采集器待办。";
+  }
+  if (reviewStatus === "rejected") {
+    return "不符合当前 API 模型收录边界，暂不收录。";
+  }
+  return "";
+}
+
+function apiSubmissionActionSuccessText(
+  submission: ApiProviderSubmission,
+  reviewStatus: ApiProviderSubmission["reviewStatus"],
+): string {
+  if (reviewStatus === "approved") {
+    return `已通过 API 渠道提交：${submission.parsedProviderName || submission.submittedName || safeDomain(submission.submittedUrl) || submission.submittedUrl}`;
+  }
+  if (reviewStatus === "collector_todo") return "已加入 API 采集器待办。";
+  if (reviewStatus === "rejected") return "已拒绝该 API 渠道提交。";
+  return "API 渠道提交已更新。";
+}
+
 function apiProviderStatusClass(enabled: boolean): string {
   return enabled ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#f2f4f4] text-[#5a6061]";
 }
@@ -4709,6 +4935,36 @@ function replaceSubmission(items: ChannelSubmission[], next: ChannelSubmission):
     return next;
   });
   return replaced ? updated : [next, ...items];
+}
+
+function replaceApiProviderSubmission(items: ApiProviderSubmission[], next: ApiProviderSubmission): ApiProviderSubmission[] {
+  let replaced = false;
+  const updated = items.map((item) => {
+    if (item.id !== next.id) return item;
+    replaced = true;
+    return next;
+  });
+  return replaced ? updated : [next, ...items];
+}
+
+function buildApiProviderSubmissionContext(submission: ApiProviderSubmission): string {
+  const meta = submission.parsedMeta || {};
+  const domain = stringMeta(meta, "domain") || safeDomain(submission.submittedUrl) || "未识别";
+  const reason = stringMeta(meta, "support_reason") || submission.adminNote || "需要确认是否新增 API 模型数据源。";
+  return [
+    "请为 PriceAI API 模型模块新增或修复公开 API 渠道数据：",
+    `- 提交链接：${submission.submittedUrl}`,
+    `- 域名：${domain}`,
+    `- 解析来源名：${submission.parsedProviderName || submission.submittedName || "待确认"}`,
+    `- 解析来源入口：${submission.parsedProviderUrl || "待确认"}`,
+    `- 解析类型：${submission.parsedType ? apiProviderTypeLabels[submission.parsedType] : "待确认"}`,
+    `- 已匹配来源 ID：${submission.providerId || "未匹配"}`,
+    `- 当前状态：${apiSubmissionReviewStatusLabel(submission.reviewStatus)}`,
+    `- 待处理原因：${reason}`,
+    "- 收录边界：只收官方 API、公开文档可验证套餐、模型路由或免费测试入口；不收灰色中转。",
+    "- 期望输出字段：provider, models, offers, plans, limits, pricingUrl, sourceLabel, updatedAt",
+    "- 验证方式：npm run import:api-models -- --dry-run --post",
+  ].join("\n");
 }
 
 function isCollectorTodo(submission: ChannelSubmission): boolean {

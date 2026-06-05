@@ -6,12 +6,15 @@ import {
   Database,
   Info,
   Layers3,
+  Loader2,
   PackageCheck,
   Search,
+  Send,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ApiModelIcon } from "@/components/ApiModelIcon";
 import {
   apiProviderTypeLabels,
@@ -49,6 +52,13 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
   const [query, setQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [currency, setCurrency] = useState<ApiCurrency>("CNY");
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitUrls, setSubmitUrls] = useState("");
+  const [submitName, setSubmitName] = useState("");
+  const [submitContact, setSubmitContact] = useState("");
+  const [submitNotes, setSubmitNotes] = useState("");
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const familyOptions = useMemo(() => getApiModelFamilyOptions(dataset), [dataset]);
   const allModelCount = useMemo(() => getApiModelSummaries("all", dataset).length, [dataset]);
@@ -82,6 +92,50 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
       : scopeMode === "offers"
         ? offerRows.length
         : providerSummaries.length;
+
+  async function handleApiProviderSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const urls = parseSubmittedUrls(submitUrls);
+    if (!urls.length) {
+      setSubmitMessage({ type: "error", text: "请至少填写一个 API 渠道链接。" });
+      return;
+    }
+
+    setSubmitLoading(true);
+    setSubmitMessage(null);
+    try {
+      const response = await fetch("/api/api-model-submissions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          urls,
+          name: submitName.trim() || null,
+          contact: submitContact.trim() || null,
+          notes: submitNotes.trim() || null,
+          website: "",
+        }),
+      });
+      const json = await response.json().catch(() => ({ ok: false, message: response.statusText }));
+      if (json.ok) {
+        const summary = json.summary || { accepted: urls.length, failed: 0, total: urls.length };
+        setSubmitMessage({
+          type: "success",
+          text: `已接收 ${summary.accepted}/${summary.total} 个 API 渠道链接${summary.failed ? `，${summary.failed} 个未通过格式或频率检查` : ""}。`,
+        });
+        if (!summary.failed) {
+          setSubmitUrls("");
+          setSubmitName("");
+          setSubmitNotes("");
+        }
+      } else {
+        setSubmitMessage({ type: "error", text: json.message || "提交失败，请稍后再试。" });
+      }
+    } catch (error) {
+      setSubmitMessage({ type: "error", text: error instanceof Error ? error.message : "网络错误，请稍后再试。" });
+    } finally {
+      setSubmitLoading(false);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 md:py-10 lg:py-12">
@@ -117,8 +171,83 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
               </p>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setSubmitOpen((value) => !value)}
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2d3435] px-4 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#202829]"
+          >
+            {submitOpen ? <X size={16} /> : <Send size={16} />}
+            {submitOpen ? "收起提交入口" : "提交 API 渠道"}
+          </button>
         </div>
       </div>
+
+      {submitOpen ? (
+        <section className="mb-6 rounded-lg bg-white p-4 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
+          <form onSubmit={handleApiProviderSubmit} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <label className="block">
+              <span className="mb-1 block text-xs font-semibold text-[#5a6061]">API 渠道链接</span>
+              <textarea
+                value={submitUrls}
+                onChange={(event) => setSubmitUrls(event.target.value)}
+                rows={4}
+                required
+                placeholder={"每行一个链接，优先提交官方文档、价格页、公开套餐页，例如：\nhttps://openrouter.ai/models\nhttps://api-docs.deepseek.com/quick_start/pricing/"}
+                className="w-full resize-y rounded-lg border border-[#adb3b4]/30 bg-[#fbfcfc] px-3 py-2 text-sm leading-6 text-[#202829] outline-none transition focus:border-[#2d3435]"
+              />
+            </label>
+            <div className="space-y-3">
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[#5a6061]">渠道名（可选）</span>
+                <input
+                  value={submitName}
+                  onChange={(event) => setSubmitName(event.target.value)}
+                  placeholder="例如 OpenCode Go"
+                  className="h-10 w-full rounded-lg border border-[#adb3b4]/30 bg-[#fbfcfc] px-3 text-sm outline-none transition focus:border-[#2d3435]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[#5a6061]">联系方式（可选）</span>
+                <input
+                  value={submitContact}
+                  onChange={(event) => setSubmitContact(event.target.value)}
+                  placeholder="邮箱 / GitHub / Telegram"
+                  className="h-10 w-full rounded-lg border border-[#adb3b4]/30 bg-[#fbfcfc] px-3 text-sm outline-none transition focus:border-[#2d3435]"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-semibold text-[#5a6061]">备注（可选）</span>
+                <input
+                  value={submitNotes}
+                  onChange={(event) => setSubmitNotes(event.target.value)}
+                  placeholder="模型覆盖、免费额度或套餐说明"
+                  className="h-10 w-full rounded-lg border border-[#adb3b4]/30 bg-[#fbfcfc] px-3 text-sm outline-none transition focus:border-[#2d3435]"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={submitLoading}
+                className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2f7a4b] px-4 text-sm font-semibold text-white transition hover:bg-[#256a3d] disabled:opacity-60"
+              >
+                {submitLoading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                提交给管理员审核
+              </button>
+            </div>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs leading-5 text-[#5a6061]">
+            <span>暂不收录灰色中转 API。</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#adb3b4] sm:inline-block" />
+            <span>管理员会在后台看到解析结果并决定通过、加入采集器待办或拒绝。</span>
+          </div>
+          {submitMessage ? (
+            <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+              submitMessage.type === "success" ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"
+            }`}>
+              {submitMessage.text}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="mb-6 space-y-3">
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -697,4 +826,12 @@ function matchesOffer(offer: ApiModelOfferWithRelations, query: string) {
 
 function PriceText({ value }: { value: string }) {
   return <p className="max-w-[190px] font-semibold leading-6 text-[#202829]">{value}</p>;
+}
+
+function parseSubmittedUrls(value: string): string[] {
+  return Array.from(new Set(value
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)))
+    .slice(0, 10);
 }

@@ -1,5 +1,5 @@
 import { getAdminPasswordFromRequest } from "@/lib/admin";
-import { clearApiModelDatasetCache } from "@/lib/api-models-db";
+import { clearApiModelDatasetCache, updateApiProviderSubmissionReview } from "@/lib/api-models-db";
 import { clearAdminDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase";
@@ -17,6 +17,12 @@ const patchSchema = z.discriminatedUnion("target", [
     id: z.string().min(1),
     status: z.enum(["active", "inactive", "needs_review"]),
   }),
+  z.object({
+    target: z.literal("submission"),
+    id: z.string().min(1),
+    reviewStatus: z.enum(["pending", "approved", "collector_todo", "rejected"]),
+    adminNote: z.string().trim().max(500).optional().nullable(),
+  }),
 ]);
 
 export async function PATCH(request: Request) {
@@ -25,6 +31,16 @@ export async function PATCH(request: Request) {
     const payload = patchSchema.parse(await request.json());
     const supabase = getSupabaseServerClient();
     if (!supabase) throw new Error("Supabase 尚未配置，无法更新 API 模型数据。");
+
+    if (payload.target === "submission") {
+      const submission = await updateApiProviderSubmissionReview({
+        id: payload.id,
+        reviewStatus: payload.reviewStatus,
+        adminNote: payload.adminNote ?? null,
+      });
+      clearApiModelCaches();
+      return Response.json({ ok: true, submission });
+    }
 
     if (payload.target === "provider") {
       const { data, error } = await supabase

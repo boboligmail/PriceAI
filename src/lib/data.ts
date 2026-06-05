@@ -340,6 +340,7 @@ export function getEmptyAdminSummary(isAuthenticated = false): AdminSummary {
       plans: [],
       offers: [],
       collectRuns: [],
+      providerSubmissions: [],
     },
     pendingSubmissions: [],
     pendingOfferFeedback: [],
@@ -464,6 +465,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       plans: [],
       offers: [],
       collectRuns: [],
+      providerSubmissions: [],
     })),
   ]);
 
