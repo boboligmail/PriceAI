@@ -36,6 +36,7 @@ import {
 } from "@/lib/api-models";
 
 const typeFilters = ["all", "official", "subscription", "router", "free"] as const;
+const INITIAL_TABLE_ROWS = 8;
 type TypeFilter = (typeof typeFilters)[number];
 type ScopeMode = "models" | "offers" | "providers";
 type FamilyFilter = "all" | string;
@@ -549,6 +550,9 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
 }
 
 function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[]; currency: ApiCurrency }) {
+  const rowKey = useMemo(() => rows.map((row) => row.id).join("|"), [rows]);
+  const { visibleRows, expanded, canToggle, toggleLabel, statusLabel, toggle } = useExpandableRows(rows, rowKey);
+
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
       <div className="overflow-x-auto">
@@ -569,7 +573,7 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
-            {rows.map((offer) => {
+            {visibleRows.map((offer) => {
               const sourceHref = offer.pricingUrl ?? offer.provider.pricingUrl ?? offer.provider.url;
 
               return (
@@ -635,11 +639,15 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
           </tbody>
         </table>
       </div>
+      {canToggle ? <TablePager label={statusLabel} buttonLabel={toggleLabel} onToggle={toggle} expanded={expanded} /> : null}
     </section>
   );
 }
 
 function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSummary[]; currency: ApiCurrency }) {
+  const rowKey = useMemo(() => summaries.map((summary) => summary.id).join("|"), [summaries]);
+  const { visibleRows, expanded, canToggle, toggleLabel, statusLabel, toggle } = useExpandableRows(summaries, rowKey);
+
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
       <div className="overflow-x-auto">
@@ -656,7 +664,7 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
-            {summaries.map((summary) => {
+            {visibleRows.map((summary) => {
               const href = `/api-models/${summary.id}`;
               const primaryOffer = summary.primaryOffer;
 
@@ -713,11 +721,15 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
           </tbody>
         </table>
       </div>
+      {canToggle ? <TablePager label={statusLabel} buttonLabel={toggleLabel} onToggle={toggle} expanded={expanded} /> : null}
     </section>
   );
 }
 
 function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProviderSummary[]; currency: ApiCurrency }) {
+  const rowKey = useMemo(() => summaries.map((summary) => summary.id).join("|"), [summaries]);
+  const { visibleRows, expanded, canToggle, toggleLabel, statusLabel, toggle } = useExpandableRows(summaries, rowKey);
+
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
       <div className="overflow-x-auto">
@@ -734,7 +746,7 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
-            {summaries.map((summary) => {
+            {visibleRows.map((summary) => {
               const href = `/api-models/providers/${summary.id}`;
               const provider = summary.provider;
 
@@ -783,7 +795,54 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
           </tbody>
         </table>
       </div>
+      {canToggle ? <TablePager label={statusLabel} buttonLabel={toggleLabel} onToggle={toggle} expanded={expanded} /> : null}
     </section>
+  );
+}
+
+function useExpandableRows<T>(rows: T[], resetKey: string) {
+  const [expandState, setExpandState] = useState({ resetKey: "", expanded: false });
+  const expanded = expandState.resetKey === resetKey ? expandState.expanded : false;
+  const canToggle = rows.length > INITIAL_TABLE_ROWS;
+  const visibleRows = expanded || !canToggle ? rows : rows.slice(0, INITIAL_TABLE_ROWS);
+
+  return {
+    visibleRows,
+    expanded,
+    canToggle,
+    statusLabel: `已显示 ${visibleRows.length} / ${rows.length}`,
+    toggleLabel: expanded ? "收起" : "展开全部",
+    toggle: () =>
+      setExpandState((state) => ({
+        resetKey,
+        expanded: state.resetKey === resetKey ? !state.expanded : true,
+      })),
+  };
+}
+
+function TablePager({
+  label,
+  buttonLabel,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  buttonLabel: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f1] bg-[#fbfcfc] px-5 py-3 text-xs text-[#5a6061]">
+      <span className="font-medium">{label}</span>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={onToggle}
+        className="inline-flex h-9 items-center justify-center rounded-full bg-[#e4e9ea] px-3.5 text-xs font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
+      >
+        {buttonLabel}
+      </button>
+    </div>
   );
 }
 

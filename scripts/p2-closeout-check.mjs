@@ -78,9 +78,9 @@ function buildP2Status(candidates, officialSnapshot, apiImport, apiCollection) {
     status: "closeout_ready",
     completed: [
       "API 正式数据 dry-run 可重复生成，不写远端也能看到 families/models/providers/plans/offers 摘要。",
-      "API 候选渠道有证据状态、下一步和复制上下文；火山/腾讯已归入后台候选。",
+      "API 候选渠道有证据状态、下一步和复制上下文；P3 已把可核验候选以前台待解析口径展示。",
       "官方地区价保留最近一次全量采集摘要，并能区分 available、missing、needs_review、parse_failed。",
-      "P2 默认不做每日自动调度，不把未结构化解析的火山/腾讯直接放进前台。",
+      "P2 默认不做每日自动调度；P3 前台展示待解析候选时保留明确来源和待解析提示。",
     ],
     stillOpen: [
       `${openCandidateWork.length} 个 API 候选渠道仍需按优先级补解析器或人工核验。`,
@@ -90,7 +90,7 @@ function buildP2Status(candidates, officialSnapshot, apiImport, apiCollection) {
       "Kimi/GLM/MiMo/StepFun 等官方价格页仍以官方入口和待解析口径为主，未硬填不可核验单价。",
     ],
     needsUserDecision: [
-      "是否允许把火山/腾讯 Coding Plan 在解析出完整价格前放到前台：建议否。",
+      "是否继续把未结构化价格的候选展示在前台：当前 P3 口径为允许，但必须明确标注待解析并保留官方来源。",
       "是否现在做每日自动调度/VPS worker：建议否，等 P3 再做。",
       "是否把官方地区价失败地区逐个修到 0：建议暂不作为 P2 阻塞。",
     ],

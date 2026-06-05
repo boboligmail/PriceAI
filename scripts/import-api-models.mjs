@@ -73,7 +73,7 @@ export async function importApiModelDataset(options = {}) {
       type: plan.type,
       price_label: plan.priceLabel,
       price_usd_monthly: plan.priceUsdMonthly ?? null,
-      price_cny_monthly: null,
+      price_cny_monthly: plan.priceCnyMonthly ?? null,
       quota_summary: plan.quotaSummary,
       reset_summary: plan.resetSummary,
       limit_summary: plan.limitSummary,

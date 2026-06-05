@@ -17,13 +17,20 @@ const DEFAULT_TIMEOUT_MS = 15000;
 
 const collectorKindByProviderId = {
   "alibaba-coding-plan": "alibaba_coding_plan",
+  "baidu-qianfan": "baidu_qianfan",
+  "ctyun-xirang": "ctyun_xirang",
   "deepseek-official": "deepseek_pricing",
+  "huaweicloud-modelarts-maas": "huaweicloud_maas",
+  "jdcloud-joyai": "jdcloud_joybuilder",
   "kimi-official": "kimi_pricing",
   "minimax-official": "minimax_pricing",
   "nvidia-nim": "nvidia_nim",
   "opencode-go": "opencode_go",
   openrouter: "openrouter",
   "stepfun-official": "stepfun_pricing",
+  "tencent-hunyuan-coding-plan": "tencent_tokenhub_coding_plan",
+  "unicom-yuanjing": "unicom_yuanjing",
+  "volcengine-ark-coding-plan": "volcengine_ark_coding_plan",
   "xiaomi-mimo": "xiaomi_mimo_pricing",
   "zhipu-bigmodel": "bigmodel_pricing",
 };
@@ -169,6 +176,7 @@ async function collectProviderSnapshot({ dataset, provider, generatedAt, noFetch
       name: plan.name,
       priceLabel: plan.priceLabel,
       priceUsdMonthly: plan.priceUsdMonthly ?? null,
+      priceCnyMonthly: plan.priceCnyMonthly ?? null,
       quotaSummary: plan.quotaSummary,
       resetSummary: plan.resetSummary,
       limitSummary: plan.limitSummary,

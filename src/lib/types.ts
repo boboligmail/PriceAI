@@ -315,6 +315,8 @@ export type ApiModelAdminPlan = {
   name: string;
   type: ApiProviderType;
   priceLabel: string;
+  priceUsdMonthly: number | null;
+  priceCnyMonthly: number | null;
   modelCount: number;
   enabled: boolean;
   quotaSummary: string;

@@ -96,7 +96,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
         .order("name", { ascending: true }),
       supabase
         .from("api_plans")
-        .select("id,provider_id,name,type,price_label,quota_summary,limit_summary,source_url,source_label,enabled,data_updated_at,updated_at"),
+        .select("id,provider_id,name,type,price_label,price_usd_monthly,price_cny_monthly,quota_summary,limit_summary,source_url,source_label,enabled,data_updated_at,updated_at"),
       supabase
         .from("api_plan_models")
         .select("plan_id,model_id"),
@@ -217,6 +217,8 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
           name: stringValue(row.name),
           type,
           priceLabel: stringValue(row.price_label),
+          priceUsdMonthly: numberValue(row.price_usd_monthly),
+          priceCnyMonthly: numberValue(row.price_cny_monthly),
           modelCount: (planModelsByPlanId.get(id) || []).length,
           enabled: booleanValue(row.enabled, true),
           quotaSummary: stringValue(row.quota_summary),
@@ -321,7 +323,7 @@ async function readApiModelDataset(): Promise<ApiModelDataset> {
         .eq("enabled", true),
       supabase
         .from("api_plans")
-        .select("id,provider_id,name,type,price_label,price_usd_monthly,quota_summary,reset_summary,limit_summary,limitations,coverage_label,compatibility,suitable_tools,source_url,source_label,enabled,data_updated_at,updated_at")
+        .select("id,provider_id,name,type,price_label,price_usd_monthly,price_cny_monthly,quota_summary,reset_summary,limit_summary,limitations,coverage_label,compatibility,suitable_tools,source_url,source_label,enabled,data_updated_at,updated_at")
         .eq("enabled", true),
       supabase
         .from("api_plan_models")
@@ -466,6 +468,8 @@ function buildStaticApiModelAdminData({
     name: plan.name,
     type: plan.type,
     priceLabel: plan.priceLabel,
+    priceUsdMonthly: plan.priceUsdMonthly ?? null,
+    priceCnyMonthly: plan.priceCnyMonthly ?? null,
     modelCount: plan.modelIds.length,
     enabled: true,
     quotaSummary: plan.quotaSummary,
@@ -887,6 +891,7 @@ function mapApiPlan(row: DbRow, providerNameById: Map<string, string>, planModel
     type,
     priceLabel: stringValue(row.price_label),
     priceUsdMonthly: numberValue(row.price_usd_monthly) ?? undefined,
+    priceCnyMonthly: numberValue(row.price_cny_monthly) ?? undefined,
     url: stringValue(row.source_url),
     quotaSummary: stringValue(row.quota_summary),
     resetSummary: stringValue(row.reset_summary),

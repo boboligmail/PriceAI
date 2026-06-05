@@ -4599,7 +4599,7 @@ function ApiPlanRow({ plan }: { plan: ApiModelAdminPlan }) {
         </span>
       </div>
       <p className="mt-2 text-sm text-[#5a6061]">
-        {plan.priceLabel || "未记录价格"} · 覆盖 {plan.modelCount} 个模型
+        {formatApiPlanAdminPrice(plan)} · 覆盖 {plan.modelCount} 个模型
       </p>
       <p className="mt-1 text-xs leading-5 text-[#adb3b4]">
         {plan.quotaSummary || "未记录额度"}
@@ -4616,6 +4616,19 @@ function ApiPlanRow({ plan }: { plan: ApiModelAdminPlan }) {
       </a>
     </div>
   );
+}
+
+function formatApiPlanAdminPrice(plan: ApiModelAdminPlan) {
+  if (typeof plan.priceCnyMonthly === "number") return `¥${formatCompactNumber(plan.priceCnyMonthly)}/月 · ${plan.priceLabel || "人民币月费"}`;
+  if (typeof plan.priceUsdMonthly === "number") return `$${formatCompactNumber(plan.priceUsdMonthly)}/月 · ${plan.priceLabel || "美元月费"}`;
+  return plan.priceLabel || "未记录价格";
+}
+
+function formatCompactNumber(value: number) {
+  return value.toLocaleString("zh-CN", {
+    minimumFractionDigits: value % 1 === 0 ? 0 : 1,
+    maximumFractionDigits: 2,
+  });
 }
 
 function OfficialMetric({
