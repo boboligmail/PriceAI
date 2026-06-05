@@ -78,6 +78,8 @@ type ApiModelAdminPlan = ApiModelAdminData["plans"][number];
 type ApiProviderCandidate = ApiModelAdminData["providerCandidates"][number];
 type ApiProviderSubmission = ApiModelAdminData["providerSubmissions"][number];
 
+const ADMIN_LIST_PREVIEW_ROWS = 8;
+
 type ProbeOffer = {
   sourceStoreName?: string | null;
   sourceTitle: string;
@@ -3693,7 +3695,8 @@ function OfficialPricesAdminPanel({
   onToggleRegionEnabled: (region: OfficialAdminRegion, enabled: boolean) => void;
   onUpdatePriceStatus: (price: OfficialAdminPrice, status: OfficialAdminPrice["status"]) => void;
 }) {
-  const latestPrices = data.currentPrices.slice(0, 80);
+  const officialPriceRowsKey = useMemo(() => data.currentPrices.map((price) => price.id).join("|"), [data.currentPrices]);
+  const officialPriceRows = useAdminExpandableRows(data.currentPrices, `official-prices:${officialPriceRowsKey}`);
   const latestRuns = data.collectRuns.slice(0, 8);
   const unmatchedItems = data.unmatchedItems.slice(0, 8);
   const failedCount = data.currentPrices.filter((price) => price.status !== "available" && price.status !== "stale").length;
@@ -3779,7 +3782,7 @@ function OfficialPricesAdminPanel({
         <Panel title="应用管理" icon={<Database size={17} />}>
           <OfficialConfigList
             emptyText="暂无官方应用配置。"
-            items={data.apps.slice(0, 12)}
+            items={data.apps}
             getKey={(app) => app.id}
             renderTitle={(app) => app.displayName}
             renderMeta={(app) => `${app.provider} · App Store ${app.appStoreId}`}
@@ -3793,7 +3796,7 @@ function OfficialPricesAdminPanel({
         <Panel title="计划管理" icon={<ClipboardList size={17} />}>
           <OfficialConfigList
             emptyText="暂无官方计划配置。"
-            items={data.plans.slice(0, 18)}
+            items={data.plans}
             getKey={(plan) => plan.id}
             renderTitle={(plan) => plan.label}
             renderMeta={(plan) => `${plan.appSlug} · ${officialBillingPeriodLabel(plan.billingPeriod)}`}
@@ -3820,7 +3823,7 @@ function OfficialPricesAdminPanel({
       </div>
 
       <Panel title="当前官方地区价" icon={<ClipboardList size={17} />}>
-        {latestPrices.length ? (
+        {data.currentPrices.length ? (
           <div className="overflow-x-auto rounded-lg border border-[#adb3b4]/20">
             <table className="min-w-[1120px] w-full divide-y divide-[#adb3b4]/15 text-left text-sm">
               <thead className="bg-[#f2f4f4] text-xs font-semibold text-[#5a6061]">
@@ -3836,7 +3839,7 @@ function OfficialPricesAdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
-                {latestPrices.map((price) => {
+                {officialPriceRows.visibleItems.map((price) => {
                   const reviewLoading = loadingAction === `official-price-${price.id}-needs_review`;
                   const missingLoading = loadingAction === `official-price-${price.id}-missing`;
                   const restoreLoading = loadingAction === `official-price-${price.id}-available`;
@@ -3930,8 +3933,13 @@ function OfficialPricesAdminPanel({
             description="应用 migration 并执行 collect:official 后，当前价会出现在这里。"
           />
         )}
-        {data.currentPrices.length > latestPrices.length ? (
-          <p className="mt-3 text-xs text-[#adb3b4]">当前仅展示前 {latestPrices.length} 条，完整数据可在 Supabase 表或前台官方地区价页面查看。</p>
+        {officialPriceRows.canToggle ? (
+          <AdminListPager
+            expanded={officialPriceRows.expanded}
+            label={officialPriceRows.statusLabel}
+            buttonLabel={officialPriceRows.toggleLabel}
+            onToggle={officialPriceRows.toggle}
+          />
         ) : null}
       </Panel>
 
@@ -4030,8 +4038,16 @@ function ApiModelsAdminPanel({
 }) {
   const inactiveProviderCount = data.providers.filter((provider) => !provider.enabled).length;
   const inactiveOfferCount = data.offers.filter((offer) => offer.status !== "active").length;
-  const latestOffers = data.offers.slice(0, 80);
-  const latestPlans = data.plans.slice(0, 24);
+  const apiSubmissionRowsKey = useMemo(() => data.providerSubmissions.map((submission) => submission.id).join("|"), [data.providerSubmissions]);
+  const apiCandidateRowsKey = useMemo(() => data.providerCandidates.map((candidate) => candidate.id).join("|"), [data.providerCandidates]);
+  const apiProviderRowsKey = useMemo(() => data.providers.map((provider) => provider.id).join("|"), [data.providers]);
+  const apiOfferRowsKey = useMemo(() => data.offers.map((offer) => offer.id).join("|"), [data.offers]);
+  const apiPlanRowsKey = useMemo(() => data.plans.map((plan) => plan.id).join("|"), [data.plans]);
+  const apiSubmissionRows = useAdminExpandableRows(data.providerSubmissions, `api-submissions:${apiSubmissionRowsKey}`);
+  const apiCandidateRows = useAdminExpandableRows(data.providerCandidates, `api-candidates:${apiCandidateRowsKey}`);
+  const apiProviderRows = useAdminExpandableRows(data.providers, `api-providers:${apiProviderRowsKey}`);
+  const apiOfferRows = useAdminExpandableRows(data.offers, `api-offers:${apiOfferRowsKey}`);
+  const apiPlanRows = useAdminExpandableRows(data.plans, `api-plans:${apiPlanRowsKey}`);
   const latestRuns = data.collectRuns.slice(0, 8);
   const pendingApiSubmissions = data.providerSubmissions.filter((submission) => submission.reviewStatus === "pending");
   const todoApiSubmissions = data.providerSubmissions.filter((submission) => submission.reviewStatus === "collector_todo");
@@ -4143,7 +4159,7 @@ function ApiModelsAdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
-                {data.providerSubmissions.map((submission) => {
+                {apiSubmissionRows.visibleItems.map((submission) => {
                   const meta = submission.parsedMeta || {};
                   const approveLoading = loadingAction === `api-submission-${submission.id}-approved`;
                   const todoLoading = loadingAction === `api-submission-${submission.id}-collector_todo`;
@@ -4252,6 +4268,14 @@ function ApiModelsAdminPanel({
             description="用户在 API 模型页提交官方文档、价格页或公开套餐页后，会出现在这里。"
           />
         )}
+        {apiSubmissionRows.canToggle ? (
+          <AdminListPager
+            expanded={apiSubmissionRows.expanded}
+            label={apiSubmissionRows.statusLabel}
+            buttonLabel={apiSubmissionRows.toggleLabel}
+            onToggle={apiSubmissionRows.toggle}
+          />
+        ) : null}
         {pendingApiSubmissions.length || todoApiSubmissions.length ? (
           <p className="mt-3 text-xs leading-5 text-[#adb3b4]">
             待审核 {pendingApiSubmissions.length} 条，采集器待办 {todoApiSubmissions.length} 条。未匹配到已有 API 来源的提交不会自动通过，避免产生空渠道。
@@ -4275,7 +4299,7 @@ function ApiModelsAdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
-                {data.providerCandidates.map((candidate) => (
+                {apiCandidateRows.visibleItems.map((candidate) => (
                   <tr key={candidate.id} className="align-top">
                     <td className="max-w-[280px] px-4 py-3">
                       <div className="font-medium text-[#2d3435]">{candidate.name}</div>
@@ -4353,6 +4377,14 @@ function ApiModelsAdminPanel({
             description="待核验的官方 API、公开套餐和云厂商线索会先沉淀在这里，不直接进入前台报价。"
           />
         )}
+        {apiCandidateRows.canToggle ? (
+          <AdminListPager
+            expanded={apiCandidateRows.expanded}
+            label={apiCandidateRows.statusLabel}
+            buttonLabel={apiCandidateRows.toggleLabel}
+            onToggle={apiCandidateRows.toggle}
+          />
+        ) : null}
         <p className="mt-3 text-xs leading-5 text-[#adb3b4]">
           候选池只服务后台审核和采集器扩展。没有核验价格、模型覆盖和限制前，不会作为正式 API 模型报价展示给用户。
         </p>
@@ -4374,7 +4406,7 @@ function ApiModelsAdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
-                {data.providers.map((provider) => {
+                {apiProviderRows.visibleItems.map((provider) => {
                   const loading = loadingAction === `api-provider-${provider.id}`;
                   return (
                     <tr key={provider.id} className="align-top">
@@ -4445,10 +4477,18 @@ function ApiModelsAdminPanel({
             description="导入 api_* 静态数据后，来源渠道会出现在这里。"
           />
         )}
+        {apiProviderRows.canToggle ? (
+          <AdminListPager
+            expanded={apiProviderRows.expanded}
+            label={apiProviderRows.statusLabel}
+            buttonLabel={apiProviderRows.toggleLabel}
+            onToggle={apiProviderRows.toggle}
+          />
+        ) : null}
       </Panel>
 
       <Panel title="API 模型报价" icon={<ClipboardList size={17} />}>
-        {latestOffers.length ? (
+        {data.offers.length ? (
           <div className="overflow-x-auto rounded-lg border border-[#adb3b4]/20">
             <table className="min-w-[1120px] w-full divide-y divide-[#adb3b4]/15 text-left text-sm">
               <thead className="bg-[#f2f4f4] text-xs font-semibold text-[#5a6061]">
@@ -4464,7 +4504,7 @@ function ApiModelsAdminPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#adb3b4]/15 bg-white">
-                {latestOffers.map((offer) => {
+                {apiOfferRows.visibleItems.map((offer) => {
                   const loading = loadingAction === `api-offer-${offer.id}`;
                   const isActive = offer.status === "active";
                   return (
@@ -4533,16 +4573,21 @@ function ApiModelsAdminPanel({
             description="导入 api_model_offers 后，模型报价会出现在这里。"
           />
         )}
-        {data.offers.length > latestOffers.length ? (
-          <p className="mt-3 text-xs text-[#adb3b4]">当前仅展示前 {latestOffers.length} 条，完整数据可在 Supabase 表或前台 API 模型页查看。</p>
+        {apiOfferRows.canToggle ? (
+          <AdminListPager
+            expanded={apiOfferRows.expanded}
+            label={apiOfferRows.statusLabel}
+            buttonLabel={apiOfferRows.toggleLabel}
+            onToggle={apiOfferRows.toggle}
+          />
         ) : null}
       </Panel>
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Panel title="API 套餐摘要" icon={<Database size={17} />}>
-          {latestPlans.length ? (
+          {data.plans.length ? (
             <div className="divide-y divide-[#adb3b4]/15 rounded-lg border border-[#adb3b4]/20">
-              {latestPlans.map((plan) => (
+              {apiPlanRows.visibleItems.map((plan) => (
                 <ApiPlanRow key={plan.id} plan={plan} />
               ))}
             </div>
@@ -4553,6 +4598,14 @@ function ApiModelsAdminPanel({
               description="订阅套餐、免费额度和模型路由套餐会在这里汇总。"
             />
           )}
+          {apiPlanRows.canToggle ? (
+            <AdminListPager
+              expanded={apiPlanRows.expanded}
+              label={apiPlanRows.statusLabel}
+              buttonLabel={apiPlanRows.toggleLabel}
+              onToggle={apiPlanRows.toggle}
+            />
+          ) : null}
         </Panel>
 
         <Panel title="最近 API 采集" icon={<RefreshCcw size={17} />}>
@@ -4631,6 +4684,52 @@ function formatCompactNumber(value: number) {
   });
 }
 
+function useAdminExpandableRows<T>(items: T[], resetKey: string, initialCount = ADMIN_LIST_PREVIEW_ROWS) {
+  const [expandState, setExpandState] = useState({ resetKey: "", expanded: false });
+  const expanded = expandState.resetKey === resetKey ? expandState.expanded : false;
+  const canToggle = items.length > initialCount;
+  const visibleItems = expanded || !canToggle ? items : items.slice(0, initialCount);
+
+  return {
+    visibleItems,
+    expanded,
+    canToggle,
+    statusLabel: `已显示 ${visibleItems.length} / ${items.length}`,
+    toggleLabel: expanded ? "收起" : "展开全部",
+    toggle: () =>
+      setExpandState((state) => ({
+        resetKey,
+        expanded: state.resetKey === resetKey ? !state.expanded : true,
+      })),
+  };
+}
+
+function AdminListPager({
+  label,
+  buttonLabel,
+  expanded,
+  onToggle,
+}: {
+  label: string;
+  buttonLabel: string;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#adb3b4]/20 bg-[#f8f8f8] px-4 py-3 text-xs text-[#5a6061]">
+      <span className="font-medium">{label}</span>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={onToggle}
+        className="inline-flex h-8 items-center justify-center rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#2d3435] transition-colors hover:bg-[#f2f4f4]"
+      >
+        {buttonLabel}
+      </button>
+    </div>
+  );
+}
+
 function OfficialMetric({
   label,
   value,
@@ -4658,6 +4757,7 @@ function OfficialConfigList<T>({
   getLoading,
   canMutate,
   onToggle,
+  initialCount = ADMIN_LIST_PREVIEW_ROWS,
 }: {
   items: T[];
   emptyText: string;
@@ -4668,41 +4768,55 @@ function OfficialConfigList<T>({
   getLoading: (item: T) => boolean;
   canMutate: boolean;
   onToggle: (item: T) => void;
+  initialCount?: number;
 }) {
+  const rowsKey = useMemo(() => items.map(getKey).join("|"), [getKey, items]);
+  const rows = useAdminExpandableRows(items, `official-config:${rowsKey}`, initialCount);
+
   if (!items.length) {
     return <div className="rounded-lg border border-dashed border-[#adb3b4]/30 px-3 py-8 text-center text-sm text-[#adb3b4]">{emptyText}</div>;
   }
 
   return (
-    <div className="divide-y divide-[#adb3b4]/15 rounded-lg border border-[#adb3b4]/20">
-      {items.map((item) => {
-        const enabled = getEnabled(item);
-        const loading = getLoading(item);
+    <>
+      <div className="divide-y divide-[#adb3b4]/15 rounded-lg border border-[#adb3b4]/20">
+        {rows.visibleItems.map((item) => {
+          const enabled = getEnabled(item);
+          const loading = getLoading(item);
 
-        return (
-          <div key={getKey(item)} className="flex items-start justify-between gap-3 px-3 py-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="truncate text-sm font-medium text-[#2d3435]">{renderTitle(item)}</span>
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${enabled ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"}`}>
-                  {enabled ? "启用" : "停用"}
-                </span>
+          return (
+            <div key={getKey(item)} className="flex items-start justify-between gap-3 px-3 py-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-sm font-medium text-[#2d3435]">{renderTitle(item)}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${enabled ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"}`}>
+                    {enabled ? "启用" : "停用"}
+                  </span>
+                </div>
+                <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">{renderMeta(item)}</p>
               </div>
-              <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">{renderMeta(item)}</p>
+              <button
+                type="button"
+                disabled={!canMutate || loading}
+                onClick={() => onToggle(item)}
+                className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
+              >
+                {loading ? <Loader2 size={13} className="animate-spin" /> : null}
+                {enabled ? "停用" : "启用"}
+              </button>
             </div>
-            <button
-              type="button"
-              disabled={!canMutate || loading}
-              onClick={() => onToggle(item)}
-              className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
-            >
-              {loading ? <Loader2 size={13} className="animate-spin" /> : null}
-              {enabled ? "停用" : "启用"}
-            </button>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {rows.canToggle ? (
+        <AdminListPager
+          expanded={rows.expanded}
+          label={rows.statusLabel}
+          buttonLabel={rows.toggleLabel}
+          onToggle={rows.toggle}
+        />
+      ) : null}
+    </>
   );
 }
 

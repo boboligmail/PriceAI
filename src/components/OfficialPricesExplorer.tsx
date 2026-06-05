@@ -27,7 +27,6 @@ import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 type ScopeMode = "products" | "offers";
 type PlatformFilter = "all" | OfficialPriceAppSlug;
-const INITIAL_TABLE_ROWS = 8;
 
 export function OfficialPricesExplorer({ dataset }: { dataset: OfficialPricesDataset }) {
   const [platform, setPlatform] = useState<PlatformFilter>("all");
@@ -201,9 +200,6 @@ export function OfficialPricesExplorer({ dataset }: { dataset: OfficialPricesDat
 }
 
 function OfficialPlanTable({ summaries }: { summaries: OfficialPricePlanSummary[] }) {
-  const rowKey = useMemo(() => summaries.map((summary) => summary.id).join("|"), [summaries]);
-  const { visibleRows, expanded, canToggle, toggleLabel, statusLabel, toggle } = useExpandableRows(summaries, rowKey);
-
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
       <div className="overflow-x-auto">
@@ -221,7 +217,7 @@ function OfficialPlanTable({ summaries }: { summaries: OfficialPricePlanSummary[
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
-            {visibleRows.map((summary) => {
+            {summaries.map((summary) => {
               const href = `/official-prices/${summary.id}`;
 
               return (
@@ -267,15 +263,11 @@ function OfficialPlanTable({ summaries }: { summaries: OfficialPricePlanSummary[
           </tbody>
         </table>
       </div>
-      {canToggle ? <TablePager label={statusLabel} buttonLabel={toggleLabel} onToggle={toggle} expanded={expanded} /> : null}
     </section>
   );
 }
 
 function OfficialOfferTable({ rows }: { rows: OfficialPriceOfferRow[] }) {
-  const rowKey = useMemo(() => rows.map((row) => row.id).join("|"), [rows]);
-  const { visibleRows, expanded, canToggle, toggleLabel, statusLabel, toggle } = useExpandableRows(rows, rowKey);
-
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
       <div className="overflow-x-auto">
@@ -293,7 +285,7 @@ function OfficialOfferTable({ rows }: { rows: OfficialPriceOfferRow[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
-            {visibleRows.map((row) => (
+            {rows.map((row) => (
               <tr key={row.id} className="transition hover:bg-[#f7f9f9]">
                 <td className="px-5 py-4">
                   <span className="inline-flex items-center gap-2 font-semibold text-[#202829]">
@@ -336,54 +328,7 @@ function OfficialOfferTable({ rows }: { rows: OfficialPriceOfferRow[] }) {
           </tbody>
         </table>
       </div>
-      {canToggle ? <TablePager label={statusLabel} buttonLabel={toggleLabel} onToggle={toggle} expanded={expanded} /> : null}
     </section>
-  );
-}
-
-function useExpandableRows<T>(rows: T[], resetKey: string) {
-  const [expandState, setExpandState] = useState({ resetKey: "", expanded: false });
-  const expanded = expandState.resetKey === resetKey ? expandState.expanded : false;
-  const canToggle = rows.length > INITIAL_TABLE_ROWS;
-  const visibleRows = expanded || !canToggle ? rows : rows.slice(0, INITIAL_TABLE_ROWS);
-
-  return {
-    visibleRows,
-    expanded,
-    canToggle,
-    statusLabel: `已显示 ${visibleRows.length} / ${rows.length}`,
-    toggleLabel: expanded ? "收起" : "展开全部",
-    toggle: () =>
-      setExpandState((state) => ({
-        resetKey,
-        expanded: state.resetKey === resetKey ? !state.expanded : true,
-      })),
-  };
-}
-
-function TablePager({
-  label,
-  buttonLabel,
-  expanded,
-  onToggle,
-}: {
-  label: string;
-  buttonLabel: string;
-  expanded: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#edf0f1] bg-[#fbfcfc] px-5 py-3 text-xs text-[#5a6061]">
-      <span className="font-medium">{label}</span>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        onClick={onToggle}
-        className="inline-flex h-9 items-center justify-center rounded-full bg-[#e4e9ea] px-3.5 text-xs font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
-      >
-        {buttonLabel}
-      </button>
-    </div>
   );
 }
 
