@@ -249,7 +249,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
         </section>
       ) : null}
 
-      <section className="mb-6 space-y-3">
+      <section className="mb-6 space-y-4">
         <div className="flex gap-2 overflow-x-auto pb-1">
           <FilterPill active={family === "all"} icon={<Layers3 size={17} />} label="全部" onClick={() => setFamily("all")} />
           {familyOptions.map((option) => (
@@ -263,16 +263,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-          <label className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-white px-4 shadow-[0_16px_45px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15 md:w-[430px]">
-            <Search size={16} className="shrink-0 text-[#5a6061]" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder={searchPlaceholder(scopeMode)}
-              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9aa2a3]"
-            />
-          </label>
+        <div className="flex gap-2 overflow-x-auto pb-1">
           <div className="inline-flex h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1">
             <ViewToggleButton
               active={scopeMode === "models"}
@@ -293,6 +284,18 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
               onClick={() => setScopeMode("providers")}
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+          <label className="flex h-11 min-w-0 items-center gap-2 rounded-full bg-white px-4 shadow-[0_16px_45px_rgba(45,52,53,0.05)] ring-1 ring-[#adb3b4]/15 md:w-[430px]">
+            <Search size={16} className="shrink-0 text-[#5a6061]" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={searchPlaceholder(scopeMode)}
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-[#9aa2a3]"
+            />
+          </label>
           <div className="inline-flex h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1">
             {(["CNY", "USD"] as ApiCurrency[]).map((item) => (
               <button
@@ -384,7 +387,7 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
               <TableHead>限制</TableHead>
               <TableHead>来源</TableHead>
               <TableHead>更新时间</TableHead>
-              <TableHead>操作</TableHead>
+              <TableHead className="w-[120px] text-center">操作</TableHead>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
@@ -439,10 +442,10 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
                     </a>
                   </td>
                   <td className="px-5 py-4 text-[#5a6061]">{offer.updatedAt}</td>
-                  <td className="px-5 py-4">
+                  <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={`/api-models/${offer.modelId}`}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+                      className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
                       <ChevronRight size={14} />
@@ -471,7 +474,7 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
               <TableHead>价格/套餐</TableHead>
               <TableHead>限制</TableHead>
               <TableHead>最近更新</TableHead>
-              <TableHead>操作</TableHead>
+              <TableHead className="w-[120px] text-center">操作</TableHead>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
@@ -517,10 +520,10 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
                   </td>
                   <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{primaryOffer?.limitSummary ?? "未公开固定 RPM/TPM，以官方控制台为准。"}</td>
                   <td className="px-5 py-4 text-[#5a6061]">{summary.latestUpdatedAt}</td>
-                  <td className="px-5 py-4">
+                  <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={href}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+                      className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
                       <ChevronRight size={14} />
@@ -549,7 +552,7 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
               <TableHead>价格/套餐</TableHead>
               <TableHead>限制</TableHead>
               <TableHead>最近更新</TableHead>
-              <TableHead>操作</TableHead>
+              <TableHead className="w-[120px] text-center">操作</TableHead>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#edf0f1]">
@@ -587,10 +590,10 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
                   </td>
                   <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{summary.primaryPlan?.limitSummary ?? provider.limitSummary}</td>
                   <td className="px-5 py-4 text-[#5a6061]">{summary.latestUpdatedAt}</td>
-                  <td className="px-5 py-4">
+                  <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={href}
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
+                      className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
                       <ChevronRight size={14} />
@@ -727,8 +730,8 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function TableHead({ children }: { children: ReactNode }) {
-  return <th className="px-5 py-3 font-semibold">{children}</th>;
+function TableHead({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return <th className={`px-5 py-3 font-semibold ${className}`}>{children}</th>;
 }
 
 function buildTitle(family: ApiModelScope, scopeMode: ScopeMode, familyOptions: { id: string; label: string }[]) {

@@ -24,12 +24,12 @@ export function SiteHeader({
 
   return (
     <header>
-      <div className={`mx-auto flex ${maxWidthClassName} items-center justify-between gap-4 px-5 py-4 sm:px-8`}>
-        <Link href="/" aria-label="PriceAI 首页" className="shrink-0">
+      <div className={`relative mx-auto flex ${maxWidthClassName} items-center justify-between gap-4 px-5 py-4 sm:px-8`}>
+        <Link href="/" aria-label="PriceAI 首页" className="relative z-10 shrink-0">
           <AppLogo compact={logoCompact} />
         </Link>
 
-        <nav className="hidden shrink-0 items-center rounded-full bg-[#e4e9ea] p-1 text-sm font-semibold text-[#5a6061] lg:flex">
+        <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center rounded-full bg-[#e4e9ea] p-1 text-sm font-semibold text-[#5a6061] xl:flex">
           {navItems.map((item) => {
             const active = item.match(pathname);
 
@@ -50,7 +50,7 @@ export function SiteHeader({
           })}
         </nav>
 
-        <div className="flex min-w-0 items-center justify-end gap-2 sm:gap-3">
+        <div className="relative z-10 flex min-w-0 items-center justify-end gap-2 sm:gap-3">
           <Link
             href="/about"
             className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 ${
@@ -68,7 +68,7 @@ export function SiteHeader({
         </div>
       </div>
 
-      <div className="border-t border-[#dfe4e5] px-5 pb-3 sm:px-8 lg:hidden">
+      <div className="border-t border-[#dfe4e5] px-5 pb-3 sm:px-8 xl:hidden">
         <nav className={`mx-auto flex ${maxWidthClassName} gap-2 overflow-x-auto pt-3 text-sm font-semibold text-[#5a6061]`}>
           {navItems.map((item) => {
             const active = item.match(pathname);
