@@ -2,6 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { collectOfficialPrices } from "./collect-official-prices.mjs";
 import { runPriceCollection } from "./collect-prices.mjs";
 
 const env = readEnvFile(".env.local");
@@ -58,24 +59,13 @@ async function claimJob() {
 async function runJob(job) {
   const startedAt = new Date().toISOString();
   const sourceId = job.source_id ? String(job.source_id) : null;
-  const jobLabel = sourceId || "all";
+  const jobLabel = job.job_type === "official_prices" ? "official-prices" : sourceId || "all";
   console.log(`Running collection job ${job.id} (${job.job_type}:${jobLabel})`);
 
   try {
-    const result = await runPriceCollection({
-      all: job.job_type === "all",
-      source: sourceId || undefined,
-      post: true,
-      endpoint,
-      password,
-      silent: Boolean(args.silent),
-      force: true,
-      "collector-node-id": workerId,
-      "collector-node-name": args["worker-name"] || env.PRICEAI_COLLECTOR_NODE_NAME || "国内 VPS Worker",
-      "collector-node-type": args["worker-type"] || env.PRICEAI_COLLECTOR_NODE_TYPE || "vps",
-      "collector-node-runtime": args["worker-runtime"] || env.PRICEAI_COLLECTOR_NODE_RUNTIME || "worker",
-      "collector-node-region": args["worker-region"] || env.PRICEAI_COLLECTOR_NODE_REGION || null,
-    });
+    const result = job.job_type === "official_prices"
+      ? await runOfficialPriceJob()
+      : await runChannelPriceJob(sourceId);
     const status = jobStatusForResult(job, result);
     await updateJob(job.id, {
       status,
@@ -110,6 +100,37 @@ async function runJob(job) {
   }
 }
 
+async function runChannelPriceJob(sourceId) {
+  return runPriceCollection({
+    all: !sourceId,
+    source: sourceId || undefined,
+    post: true,
+    endpoint,
+    password,
+    silent: Boolean(args.silent),
+    force: true,
+    "collector-node-id": workerId,
+    "collector-node-name": args["worker-name"] || env.PRICEAI_COLLECTOR_NODE_NAME || "国内 VPS Worker",
+    "collector-node-type": args["worker-type"] || env.PRICEAI_COLLECTOR_NODE_TYPE || "vps",
+    "collector-node-runtime": args["worker-runtime"] || env.PRICEAI_COLLECTOR_NODE_RUNTIME || "worker",
+    "collector-node-region": args["worker-region"] || env.PRICEAI_COLLECTOR_NODE_REGION || null,
+  });
+}
+
+async function runOfficialPriceJob() {
+  const app = args["official-app"] || env.PRICEAI_OFFICIAL_PRICE_APP || undefined;
+  const regions = args["official-regions"] || env.PRICEAI_OFFICIAL_PRICE_REGIONS || undefined;
+
+  return collectOfficialPrices({
+    all: !app,
+    app,
+    regions,
+    post: true,
+    mode: "worker",
+    timeoutMs: args["official-timeout-ms"] || env.PRICEAI_OFFICIAL_PRICE_TIMEOUT_MS,
+  });
+}
+
 async function updateJob(id, patch) {
   const { error } = await supabase
     .from("collection_jobs")
@@ -123,6 +144,10 @@ async function updateJob(id, patch) {
 }
 
 function jobStatusForResult(job, result) {
+  if (job.job_type === "official_prices") {
+    return result?.run?.status === "failed" ? "failed" : "success";
+  }
+
   const summary = Array.isArray(result?.summary) ? result.summary : [];
   if (job.job_type === "source") {
     return summary[0]?.status === "success" ? "success" : "failed";
@@ -131,6 +156,11 @@ function jobStatusForResult(job, result) {
 }
 
 function firstFailureMessage(result) {
+  if (result?.run) {
+    const failures = Array.isArray(result.failures) ? result.failures : [];
+    return failures[0]?.failureReason || "官方地区价采集任务未成功完成。";
+  }
+
   const summary = Array.isArray(result?.summary) ? result.summary : [];
   const failed = summary.find((item) => item.status !== "success" && item.status !== "skipped");
   return failed?.message || "采集任务未成功完成。";

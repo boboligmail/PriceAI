@@ -6,7 +6,7 @@ import { stableId } from "@/lib/utils";
 import { z } from "zod";
 
 const schema = z.object({
-  jobType: z.enum(["all", "source"]).default("source"),
+  jobType: z.enum(["all", "source", "official_prices"]).default("source"),
   sourceIds: z.array(z.string().min(1)).optional(),
   priority: z.number().int().min(0).max(100).default(10),
   maxAttempts: z.number().int().min(1).max(5).default(1),
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const payload = schema.parse(await request.json());
     const now = new Date().toISOString();
 
-    const sourceIds = payload.jobType === "all"
+    const sourceIds = payload.jobType === "all" || payload.jobType === "official_prices"
       ? [null]
       : Array.from(new Set(payload.sourceIds || [])).filter(Boolean);
 
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         id: stableId("collection-job", payload.jobType, sourceId || "all", now),
         job_type: payload.jobType,
         source_id: sourceId,
-        source_name: source?.name || (payload.jobType === "all" ? "全部渠道" : sourceId),
+        source_name: source?.name || collectionJobFallbackName(payload.jobType, sourceId),
         status: "pending",
         priority: payload.priority,
         attempts: 0,
@@ -80,4 +80,10 @@ export async function POST(request: Request) {
       { status: error instanceof z.ZodError ? 400 : 500 },
     );
   }
+}
+
+function collectionJobFallbackName(jobType: "all" | "source" | "official_prices", sourceId: string | null): string | null {
+  if (jobType === "all") return "全部渠道";
+  if (jobType === "official_prices") return "官方地区价";
+  return sourceId;
 }

@@ -438,6 +438,29 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     }
   }
 
+  async function enqueueOfficialPriceCollection() {
+    setLoadingAction("official-enqueue");
+    setGlobalMessage({ type: "info", text: "正在创建官方地区价采集任务..." });
+
+    try {
+      const result = await request("/api/admin/collection-jobs", password, {
+        jobType: "official_prices",
+        priority: 25,
+        maxAttempts: 2,
+      });
+      if (result.ok) {
+        setGlobalMessage({ type: "success", text: "已创建官方地区价采集任务，等待 worker 领取。" });
+        router.refresh();
+      } else {
+        setGlobalMessage({ type: "error", text: result.message || "创建官方地区价任务失败。" });
+      }
+    } catch (error) {
+      setGlobalMessage({ type: "error", text: error instanceof Error ? error.message : "网络错误。" });
+    } finally {
+      setLoadingAction(null);
+    }
+  }
+
   const copyOfficialCollectorCommand = () => {
     const command = "npm run collect:official -- --all --dry-run --post";
     void navigator.clipboard.writeText(command);
@@ -1808,6 +1831,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   loadingAction={loadingAction}
                   probeResult={officialProbeResult}
                   onProbe={probeOfficialPrices}
+                  onEnqueueCollection={enqueueOfficialPriceCollection}
                   onCopyCommand={copyOfficialCollectorCommand}
                 />
               </div>
@@ -3253,12 +3277,14 @@ function OfficialPricesAdminPanel({
   loadingAction,
   probeResult,
   onProbe,
+  onEnqueueCollection,
   onCopyCommand,
 }: {
   data: OfficialAdminData;
   loadingAction: string | null;
   probeResult: OfficialProbeResult | null;
   onProbe: () => void;
+  onEnqueueCollection: () => void;
   onCopyCommand: () => void;
 }) {
   const latestPrices = data.currentPrices.slice(0, 80);
@@ -3295,6 +3321,15 @@ function OfficialPricesAdminPanel({
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={onEnqueueCollection}
+              disabled={loadingAction === "official-enqueue"}
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#2f7a4b] px-4 text-sm font-medium text-white transition-colors hover:bg-[#256a3d] disabled:opacity-60"
+            >
+              {loadingAction === "official-enqueue" ? <Loader2 size={15} className="animate-spin" /> : <ClipboardList size={15} />}
+              加入采集队列
+            </button>
             <button
               type="button"
               onClick={onProbe}
@@ -3502,9 +3537,9 @@ function CollectionJobsPanel({ jobs }: { jobs: CollectionJob[] }) {
             <div key={job.id} className="px-4 py-3">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium text-[#2d3435]">
-                  {job.jobType === "all" ? "全部渠道" : job.sourceName || job.sourceId || "未知渠道"}
+                  {collectionJobName(job)}
                 </span>
-                <Badge>{job.jobType === "all" ? "全量" : "单渠道"}</Badge>
+                <Badge>{collectionJobTypeLabel(job.jobType)}</Badge>
                 <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${collectionJobStatusClass(job.status)}`}>
                   {collectionJobStatusLabel(job.status)}
                 </span>
@@ -3955,6 +3990,18 @@ function collectionJobStatusLabel(value: CollectionJob["status"]): string {
     cancelled: "已取消",
   };
   return labels[value] || value;
+}
+
+function collectionJobName(job: CollectionJob): string {
+  if (job.jobType === "all") return "全部渠道";
+  if (job.jobType === "official_prices") return job.sourceName || "官方地区价";
+  return job.sourceName || job.sourceId || "未知渠道";
+}
+
+function collectionJobTypeLabel(value: CollectionJob["jobType"]): string {
+  if (value === "all") return "全量";
+  if (value === "official_prices") return "官方价";
+  return "单渠道";
 }
 
 function collectionJobStatusClass(value: CollectionJob["status"]): string {

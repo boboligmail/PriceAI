@@ -156,7 +156,7 @@ export type CrawlRun = {
 
 export type CollectionJob = {
   id: string;
-  jobType: "all" | "source";
+  jobType: "all" | "source" | "official_prices";
   sourceId?: string | null;
   sourceName?: string | null;
   status: "pending" | "running" | "success" | "failed" | "cancelled";
