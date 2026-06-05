@@ -27,7 +27,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent, ReactNode, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiProviderTypeLabels } from "@/lib/api-models";
 import type {
@@ -56,6 +56,15 @@ type Message = {
 };
 
 type AdminProduct = AdminSummary["products"][number];
+type OfferMaintenanceScope = "visible" | "hidden";
+type OfferMaintenanceListState = {
+  offers: RawOffer[];
+  total: number;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  query: string;
+};
 type OfficialAdminData = AdminSummary["officialPrices"];
 type OfficialAdminPrice = OfficialAdminData["currentPrices"][number];
 type OfficialAdminRun = OfficialAdminData["collectRuns"][number];
@@ -181,8 +190,26 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
   const [collapsedSourceGroups, setCollapsedSourceGroups] = useState<Set<string>>(new Set());
   const [offerSearchQuery, setOfferSearchQuery] = useState("");
-  const [visibleOfferLimit, setVisibleOfferLimit] = useState(OFFER_EMERGENCY_PAGE_SIZE);
-  const [hiddenOfferLimit, setHiddenOfferLimit] = useState(OFFER_EMERGENCY_PAGE_SIZE);
+  const [debouncedOfferSearchQuery, setDebouncedOfferSearchQuery] = useState("");
+  const [offerMaintenance, setOfferMaintenance] = useState<Record<OfferMaintenanceScope, OfferMaintenanceListState>>({
+    visible: {
+      offers: data.rawOffers,
+      total: data.rawOfferTotal,
+      loading: false,
+      loadingMore: false,
+      error: null,
+      query: "",
+    },
+    hidden: {
+      offers: data.hiddenRawOffers || [],
+      total: data.hiddenRawOfferTotal,
+      loading: false,
+      loadingMore: false,
+      error: null,
+      query: "",
+    },
+  });
+  const offerMaintenanceRef = useRef(offerMaintenance);
   const listRef = useRef<HTMLDivElement>(null);
 
   const reviewSubmissions = useMemo(
@@ -278,6 +305,86 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     }
   }, [rowFeedback]);
 
+  useEffect(() => {
+    offerMaintenanceRef.current = offerMaintenance;
+  }, [offerMaintenance]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedOfferSearchQuery(offerSearchQuery.trim());
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [offerSearchQuery]);
+
+  const loadOfferMaintenancePage = useCallback(
+    async (scope: OfferMaintenanceScope, options: { reset?: boolean; query?: string } = {}) => {
+      const current = offerMaintenanceRef.current[scope];
+      const query = options.query ?? current.query;
+      const reset = Boolean(options.reset);
+      const offset = reset ? 0 : current.offers.length;
+      if (!reset && (current.loading || current.loadingMore || current.offers.length >= current.total)) return;
+
+      setOfferMaintenance((prev) => ({
+        ...prev,
+        [scope]: {
+          ...prev[scope],
+          loading: reset,
+          loadingMore: !reset,
+          error: null,
+          query,
+        },
+      }));
+
+      try {
+        const result = await fetchAdminOfferMaintenancePage({
+          scope,
+          query,
+          limit: OFFER_EMERGENCY_PAGE_SIZE,
+          offset,
+          password,
+        });
+        if (!result.ok) throw new Error(result.message || "读取报价失败。");
+
+        setOfferMaintenance((prev) => {
+          const nextOffers = reset
+            ? result.offers || []
+            : dedupeOffers([...prev[scope].offers, ...(result.offers || [])]);
+          if (prev[scope].query !== query) return prev;
+          return {
+            ...prev,
+            [scope]: {
+              offers: nextOffers,
+              total: Number(result.total || nextOffers.length),
+              loading: false,
+              loadingMore: false,
+              error: null,
+              query,
+            },
+          };
+        });
+      } catch (error) {
+        setOfferMaintenance((prev) => ({
+          ...prev,
+          [scope]: prev[scope].query === query
+            ? {
+                ...prev[scope],
+                loading: false,
+                loadingMore: false,
+                error: error instanceof Error ? error.message : "读取报价失败。",
+              }
+            : prev[scope],
+        }));
+      }
+    },
+    [password],
+  );
+
+  useEffect(() => {
+    if (!authed || activeTab !== "manual") return;
+    void loadOfferMaintenancePage("visible", { reset: true, query: debouncedOfferSearchQuery });
+    void loadOfferMaintenancePage("hidden", { reset: true, query: debouncedOfferSearchQuery });
+  }, [activeTab, authed, debouncedOfferSearchQuery, loadOfferMaintenancePage]);
+
   const showRowFeedback = useCallback((id: string, type: RowFeedback["type"], text: string) => {
     setRowFeedback({ id, type, text });
   }, []);
@@ -311,28 +418,6 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     }
     return map;
   }, [data.rawOffers, sourceStatsById, sources]);
-  const matchedVisibleOffers = useMemo(
-    () => filterAdminOffers(data.rawOffers, offerSearchQuery),
-    [data.rawOffers, offerSearchQuery],
-  );
-  const matchedHiddenOffers = useMemo(
-    () => filterAdminOffers(data.hiddenRawOffers || [], offerSearchQuery),
-    [data.hiddenRawOffers, offerSearchQuery],
-  );
-  const visibleOfferTotalCount = offerSearchQuery.trim()
-    ? matchedVisibleOffers.length
-    : data.rawOfferTotal;
-  const hiddenOfferTotalCount = offerSearchQuery.trim()
-    ? matchedHiddenOffers.length
-    : data.hiddenRawOfferTotal;
-  const filteredVisibleOffers = useMemo(
-    () => matchedVisibleOffers.slice(0, visibleOfferLimit),
-    [matchedVisibleOffers, visibleOfferLimit],
-  );
-  const filteredHiddenOffers = useMemo(
-    () => matchedHiddenOffers.slice(0, hiddenOfferLimit),
-    [matchedHiddenOffers, hiddenOfferLimit],
-  );
   const sourceGroups = useMemo(() => groupSources(sources), [sources]);
   const selectedSources = useMemo(
     () => sources.filter((source) => selectedSourceIds.has(source.id)),
@@ -807,6 +892,8 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         type: "success",
         text: hidden ? "报价已下架，前台会立即隐藏。" : "报价已恢复，前台可重新展示。",
       });
+      void loadOfferMaintenancePage("visible", { reset: true, query: offerMaintenanceRef.current.visible.query });
+      void loadOfferMaintenancePage("hidden", { reset: true, query: offerMaintenanceRef.current.hidden.query });
       router.refresh();
     } else {
       setGlobalMessage({ type: "error", text: result.message || (hidden ? "下架报价失败。" : "恢复报价失败。") });
@@ -2124,11 +2211,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#adb3b4]" />
                         <input
                           value={offerSearchQuery}
-                          onChange={(event) => {
-                            setOfferSearchQuery(event.target.value);
-                            setVisibleOfferLimit(OFFER_EMERGENCY_PAGE_SIZE);
-                            setHiddenOfferLimit(OFFER_EMERGENCY_PAGE_SIZE);
-                          }}
+                          onChange={(event) => setOfferSearchQuery(event.target.value)}
                           placeholder="搜索商品、渠道或链接"
                           className="h-9 w-full rounded-lg border border-[#adb3b4]/30 bg-white pl-9 pr-3 text-sm outline-none transition-colors focus:border-[#2d3435]"
                         />
@@ -2138,25 +2221,31 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                       <OfferEmergencyList
                         title="当前可见报价"
                         emptyText="没有匹配的可见报价。"
-                        offers={filteredVisibleOffers}
-                        totalCount={visibleOfferTotalCount}
+                        offers={offerMaintenance.visible.offers}
+                        totalCount={offerMaintenance.visible.total}
+                        loading={offerMaintenance.visible.loading}
+                        loadingMore={offerMaintenance.visible.loadingMore}
+                        error={offerMaintenance.visible.error}
                         loadingAction={loadingAction}
                         actionLabel="下架"
                         actionTone="danger"
                         hiddenAction
-                        onLoadMore={() => setVisibleOfferLimit((value) => value + OFFER_EMERGENCY_PAGE_SIZE)}
+                        onLoadMore={() => loadOfferMaintenancePage("visible")}
                         onToggleHidden={toggleOfferHidden}
                       />
                       <OfferEmergencyList
                         title="手动下架报价"
                         emptyText="没有匹配的手动下架报价。"
-                        offers={filteredHiddenOffers}
-                        totalCount={hiddenOfferTotalCount}
+                        offers={offerMaintenance.hidden.offers}
+                        totalCount={offerMaintenance.hidden.total}
+                        loading={offerMaintenance.hidden.loading}
+                        loadingMore={offerMaintenance.hidden.loadingMore}
+                        error={offerMaintenance.hidden.error}
                         loadingAction={loadingAction}
                         actionLabel="恢复"
                         actionTone="success"
                         hiddenAction={false}
-                        onLoadMore={() => setHiddenOfferLimit((value) => value + OFFER_EMERGENCY_PAGE_SIZE)}
+                        onLoadMore={() => loadOfferMaintenancePage("hidden")}
                         onToggleHidden={toggleOfferHidden}
                       />
                     </div>
@@ -4192,6 +4281,9 @@ function OfferEmergencyList({
   emptyText,
   offers,
   totalCount,
+  loading,
+  loadingMore,
+  error,
   loadingAction,
   actionLabel,
   actionTone,
@@ -4203,6 +4295,9 @@ function OfferEmergencyList({
   emptyText: string;
   offers: RawOffer[];
   totalCount: number;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
   loadingAction: string | null;
   actionLabel: string;
   actionTone: "danger" | "success";
@@ -4214,6 +4309,17 @@ function OfferEmergencyList({
     actionTone === "danger"
       ? "border-[#9b3328]/20 text-[#9b3328] hover:bg-[#fbe9e7]"
       : "border-[#2f7a4b]/20 text-[#2f7a4b] hover:bg-[#e8f3ec]";
+  const hasMore = offers.length < totalCount;
+
+  const handleScroll = useCallback(
+    (event: UIEvent<HTMLDivElement>) => {
+      if (!hasMore || loading || loadingMore) return;
+      const target = event.currentTarget;
+      const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+      if (distanceToBottom < 180) onLoadMore();
+    },
+    [hasMore, loading, loadingMore, onLoadMore],
+  );
 
   return (
     <div className="overflow-hidden rounded-lg border border-[#adb3b4]/20">
@@ -4221,9 +4327,14 @@ function OfferEmergencyList({
         <span className="text-xs font-semibold text-[#5a6061]">{title}</span>
         <span className="text-xs text-[#adb3b4]">显示 {offers.length} / {totalCount} 条</span>
       </div>
-      {offers.length ? (
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 px-3 py-10 text-sm text-[#adb3b4]">
+          <Loader2 size={15} className="animate-spin" />
+          正在搜索报价...
+        </div>
+      ) : offers.length ? (
         <>
-          <div className="max-h-[520px] divide-y divide-[#adb3b4]/15 overflow-auto">
+          <div className="max-h-[520px] divide-y divide-[#adb3b4]/15 overflow-auto" onScroll={handleScroll}>
             {offers.map((offer) => {
               const actionLoading = loadingAction === `${hiddenAction ? "hide" : "restore"}-offer-${offer.id}`;
               return (
@@ -4260,21 +4371,31 @@ function OfferEmergencyList({
                 </div>
               );
             })}
+            {hasMore && <div aria-hidden className="h-6" />}
           </div>
-          {offers.length < totalCount && (
+          {(hasMore || loadingMore || error) && (
             <div className="border-t border-[#adb3b4]/15 p-3">
-              <button
+              {error ? (
+                <button
                   type="button"
                   onClick={onLoadMore}
-                  className="inline-flex h-8 w-full items-center justify-center rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                  className="inline-flex h-8 w-full items-center justify-center rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7]"
                 >
-                  加载更多
+                  加载失败，点击重试
                 </button>
+              ) : (
+                <div className="flex h-8 items-center justify-center gap-2 text-xs text-[#adb3b4]">
+                  {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+                  {loadingMore ? "正在加载更多..." : "继续下滑自动加载"}
+                </div>
+              )}
             </div>
           )}
         </>
       ) : (
-        <div className="px-3 py-10 text-center text-sm text-[#adb3b4]">{emptyText}</div>
+        <div className="px-3 py-10 text-center text-sm text-[#adb3b4]">
+          {error || emptyText}
+        </div>
       )}
     </div>
   );
@@ -4367,6 +4488,42 @@ async function requestWithMethod(path: string, method: string, password: string,
     body: JSON.stringify(body),
   });
   return response.json().catch(() => ({ ok: false, message: response.statusText }));
+}
+
+async function fetchAdminOfferMaintenancePage({
+  scope,
+  query,
+  limit,
+  offset,
+  password,
+}: {
+  scope: OfferMaintenanceScope;
+  query: string;
+  limit: number;
+  offset: number;
+  password: string;
+}): Promise<{
+  ok: boolean;
+  message?: string;
+  offers?: RawOffer[];
+  total?: number;
+}> {
+  const params = new URLSearchParams({
+    scope,
+    q: query,
+    limit: String(limit),
+    offset: String(offset),
+  });
+  const response = await fetch(`/api/admin/offers?${params.toString()}`, {
+    headers: password ? { "x-admin-password": password } : undefined,
+  });
+  return response.json().catch(() => ({ ok: false, message: response.statusText }));
+}
+
+function dedupeOffers(offers: RawOffer[]): RawOffer[] {
+  const map = new Map<string, RawOffer>();
+  for (const offer of offers) map.set(offer.id, offer);
+  return Array.from(map.values());
 }
 
 function rowFeedbackClass(value: RowFeedback["type"]): string {
@@ -4592,26 +4749,6 @@ function formatApiPriceNumber(value: number): string {
 
 function offerTimestamp(offer: RawOffer): string | null | undefined {
   return offer.verifiedAt || offer.lastSeenAt || offer.capturedAt || offer.sourceUpdatedAt;
-}
-
-function filterAdminOffers(offers: RawOffer[], query: string): RawOffer[] {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return offers;
-
-  return offers.filter((offer) => {
-    const haystack = [
-      offer.sourceTitle,
-      offer.sourceName,
-      offer.sourceStoreName || "",
-      offer.url,
-      offer.failureReason || "",
-      offer.tags.join(" "),
-    ]
-      .join(" ")
-      .toLowerCase();
-
-    return haystack.includes(normalized);
-  });
 }
 
 function safeDomain(url: string): string | null {

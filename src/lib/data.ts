@@ -86,6 +86,16 @@ type OfferListFilters = {
   offset?: number;
 };
 
+export type AdminOfferMaintenanceScope = "visible" | "hidden";
+
+export type AdminOfferMaintenancePage = {
+  offers: RawOffer[];
+  total: number;
+  limit: number;
+  offset: number;
+  scope: AdminOfferMaintenanceScope;
+};
+
 type ProductOfferListFilters = {
   limit?: number;
   offset?: number;
@@ -386,6 +396,72 @@ export async function getAdminSummary(options: { isAuthenticated?: boolean } = {
   };
 }
 
+export async function listAdminOfferMaintenancePage(options: {
+  scope: AdminOfferMaintenanceScope;
+  query?: string | null;
+  limit?: number;
+  offset?: number;
+}): Promise<AdminOfferMaintenancePage> {
+  const supabase = getSupabaseServerClient();
+  const limit = Math.min(Math.max(options.limit || ADMIN_OFFER_SAMPLE_LIMIT, 1), 100);
+  const offset = Math.max(options.offset || 0, 0);
+
+  if (!supabase) {
+    const offers = options.scope === "visible"
+      ? seedRawOffers.filter((offer) => !offer.hidden)
+      : seedRawOffers.filter((offer) => offer.hidden);
+    const matched = filterAdminOfferMaintenanceRows(offers, options.query || "");
+    return {
+      offers: matched.slice(offset, offset + limit),
+      total: matched.length,
+      limit,
+      offset,
+      scope: options.scope,
+    };
+  }
+
+  let query = supabase
+    .from("raw_offers")
+    .select(RAW_OFFER_PUBLIC_SELECT, { count: "exact" });
+
+  if (options.scope === "hidden") {
+    query = query
+      .eq("hidden", true)
+      .ilike("failure_reason", `${ADMIN_MANUAL_HIDE_REASON_PREFIX}%`)
+      .order("updated_at", { ascending: false });
+  } else {
+    query = query
+      .eq("hidden", false)
+      .order("captured_at", { ascending: false });
+  }
+
+  const search = toAdminOfferSearchPattern(options.query || "");
+  if (search) {
+    query = query.or(
+      [
+        `source_title.ilike.${search}`,
+        `source_name.ilike.${search}`,
+        `source_store_name.ilike.${search}`,
+        `url.ilike.${search}`,
+        `failure_reason.ilike.${search}`,
+        `source_id.ilike.${search}`,
+        `category_slug.ilike.${search}`,
+      ].join(","),
+    );
+  }
+
+  const { data, count, error } = await query.range(offset, offset + limit - 1);
+  if (error) throw error;
+
+  return {
+    offers: ((data || []) as unknown as Record<string, unknown>[]).map(mapRawOffer),
+    total: count || 0,
+    limit,
+    offset,
+    scope: options.scope,
+  };
+}
+
 async function readAdminSummary(): Promise<AdminSummary> {
   const supabase = getSupabaseServerClient();
 
@@ -524,6 +600,33 @@ function toAdminDashboardData(dashboard: DashboardData, rawOfferTotal: number): 
     products: dashboard.products.map(stripProductOffersForAdmin),
     rawOffers: dashboard.rawOffers.slice(0, Math.min(rawOfferTotal, ADMIN_OFFER_SAMPLE_LIMIT)),
   };
+}
+
+function toAdminOfferSearchPattern(value: string): string | null {
+  const normalized = value.trim();
+  if (!normalized) return null;
+  return `%${normalized.replace(/[%,()]/g, " ").replace(/\s+/g, "%")}%`;
+}
+
+function filterAdminOfferMaintenanceRows(offers: RawOffer[], query: string): RawOffer[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return offers;
+
+  return offers.filter((offer) =>
+    [
+      offer.sourceTitle,
+      offer.sourceName,
+      offer.sourceStoreName || "",
+      offer.url,
+      offer.failureReason || "",
+      offer.sourceId || "",
+      offer.categorySlug || "",
+      offer.tags.join(" "),
+    ]
+      .join(" ")
+      .toLowerCase()
+      .includes(normalized),
+  );
 }
 
 function stripProductOffersForAdmin(product: ProductGroup): ProductGroup {
