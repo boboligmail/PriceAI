@@ -15,6 +15,7 @@
     "collect:api-models": "node scripts/collect-api-models.mjs",
     "collect:worker": "node scripts/collect-worker.mjs",
     "import:api-models": "node scripts/import-api-models.mjs",
+    "check:p2": "node scripts/p2-closeout-check.mjs",
     "test:api-models": "node scripts/test-api-models.mjs",
     "test:official-parser": "node scripts/test-official-prices-parser.mjs",
     "collect:browser": "node scripts/collect-browser.mjs",
