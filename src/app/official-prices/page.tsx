@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { OfficialPricesExplorer } from "@/components/OfficialPricesExplorer";
 import { SiteHeader } from "@/components/SiteHeader";
+import { getOfficialPricesDataset } from "@/lib/official-prices-db";
 
 export const metadata: Metadata = {
   title: "官方订阅地区价",
@@ -15,13 +16,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function OfficialPricesPage() {
+export default async function OfficialPricesPage() {
+  const dataset = await getOfficialPricesDataset();
+
   return (
     <div className="min-h-screen bg-[#f9f9f9] text-[#2d3435]">
       <div className="sticky top-0 z-40 border-b border-[#dfe4e5] bg-[#f9f9f9]/95 shadow-[0_10px_24px_rgba(45,52,53,0.035)] backdrop-blur-xl">
         <SiteHeader />
       </div>
-      <OfficialPricesExplorer />
+      <OfficialPricesExplorer dataset={dataset} />
     </div>
   );
 }

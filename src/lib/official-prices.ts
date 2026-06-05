@@ -36,6 +36,24 @@ export type OfficialPriceOfferRow = OfficialPriceRow & {
   plan: OfficialPricePlan;
 };
 
+export type OfficialPriceFxSummary = {
+  baseCurrency: string;
+  source: string;
+  sourceUrl: string;
+  date: string;
+  rates: Record<string, number>;
+};
+
+export type OfficialPricesDataset = {
+  configured: boolean;
+  source: "supabase" | "static";
+  generatedAt: string;
+  apps: OfficialPriceApp[];
+  plans: OfficialPricePlan[];
+  rows: OfficialPriceRow[];
+  fxSummary: OfficialPriceFxSummary;
+};
+
 export type OfficialPricePlanSummary = {
   id: string;
   appSlug: OfficialPriceAppSlug;
@@ -61,7 +79,7 @@ export type OfficialPriceApp = {
 
 export const officialPriceGeneratedAt = "2026-06-05T00:00:00+08:00";
 
-export const officialPriceFxSummary = {
+export const officialPriceFxSummary: OfficialPriceFxSummary = {
   baseCurrency: "USD",
   source: "Frankfurter",
   sourceUrl: "https://api.frankfurter.dev/v1/latest?base=USD&symbols=CNY,TRY,PHP,EGP,JPY,EUR",
@@ -233,18 +251,22 @@ export function getOfficialPricePlan(appSlug: OfficialPriceAppSlug, planSlug: st
 }
 
 export function getOfficialPricePlanSummary(id: string) {
-  const parsed = parseOfficialPricePlanId(id);
-  if (!parsed) return null;
-
-  return getOfficialPricePlanSummaries(parsed.appSlug).find((summary) => summary.id === id) ?? null;
+  return getOfficialPricePlanSummaryFromDataset(staticOfficialPricesDataset, id);
 }
 
 export function getOfficialPricePlanSummaries(scope: OfficialPriceScope = "all"): OfficialPricePlanSummary[] {
-  return officialPricePlans
+  return buildOfficialPricePlanSummaries(staticOfficialPricesDataset, scope);
+}
+
+export function buildOfficialPricePlanSummaries(
+  dataset: Pick<OfficialPricesDataset, "apps" | "plans" | "rows">,
+  scope: OfficialPriceScope = "all",
+): OfficialPricePlanSummary[] {
+  return dataset.plans
     .filter((plan) => scope === "all" || plan.appSlug === scope)
     .map((plan) => {
-      const app = getOfficialPriceApp(plan.appSlug);
-      const rows = getOfficialPriceRows(plan.appSlug, plan.slug);
+      const app = getOfficialPriceAppFromDataset(dataset, plan.appSlug);
+      const rows = getOfficialPriceRowsFromDataset(dataset, plan.appSlug, plan.slug);
       const latestFetchedAt = rows.reduce((latest, row) => (row.fetchedAt > latest ? row.fetchedAt : latest), "");
 
       return {
@@ -262,18 +284,25 @@ export function getOfficialPricePlanSummaries(scope: OfficialPriceScope = "all")
       };
     })
     .sort((a, b) => {
-      const appDelta = officialPriceApps.findIndex((app) => app.slug === a.appSlug) - officialPriceApps.findIndex((app) => app.slug === b.appSlug);
+      const appDelta = dataset.apps.findIndex((app) => app.slug === a.appSlug) - dataset.apps.findIndex((app) => app.slug === b.appSlug);
       if (appDelta !== 0) return appDelta;
       return a.label.localeCompare(b.label, "zh-CN");
     });
 }
 
 export function getOfficialPriceOfferRows(scope: OfficialPriceScope = "all") {
-  return officialPriceRows
+  return buildOfficialPriceOfferRows(staticOfficialPricesDataset, scope);
+}
+
+export function buildOfficialPriceOfferRows(
+  dataset: Pick<OfficialPricesDataset, "apps" | "plans" | "rows">,
+  scope: OfficialPriceScope = "all",
+): OfficialPriceOfferRow[] {
+  return dataset.rows
     .filter((row) => scope === "all" || row.appSlug === scope)
     .map((row): OfficialPriceOfferRow | null => {
-      const app = getOfficialPriceApp(row.appSlug);
-      const plan = getOfficialPricePlan(row.appSlug, row.planSlug);
+      const app = getOfficialPriceAppFromDataset(dataset, row.appSlug);
+      const plan = getOfficialPricePlanFromDataset(dataset, row.appSlug, row.planSlug);
       if (!app || !plan) return null;
 
       return {
@@ -285,21 +314,73 @@ export function getOfficialPriceOfferRows(scope: OfficialPriceScope = "all") {
     })
     .filter((row): row is OfficialPriceOfferRow => Boolean(row))
     .sort((a, b) => {
-      const appDelta = officialPriceApps.findIndex((app) => app.slug === a.appSlug) - officialPriceApps.findIndex((app) => app.slug === b.appSlug);
+      const appDelta = dataset.apps.findIndex((app) => app.slug === a.appSlug) - dataset.apps.findIndex((app) => app.slug === b.appSlug);
       if (appDelta !== 0) return appDelta;
       const planDelta =
-        officialPricePlans.findIndex((plan) => plan.appSlug === a.appSlug && plan.slug === a.planSlug) -
-        officialPricePlans.findIndex((plan) => plan.appSlug === b.appSlug && plan.slug === b.planSlug);
+        dataset.plans.findIndex((plan) => plan.appSlug === a.appSlug && plan.slug === a.planSlug) -
+        dataset.plans.findIndex((plan) => plan.appSlug === b.appSlug && plan.slug === b.planSlug);
       if (planDelta !== 0) return planDelta;
       return a.cnyPrice - b.cnyPrice;
     });
 }
 
 export function getOfficialPriceRowsById(id: string) {
+  return getOfficialPriceRowsByIdFromDataset(staticOfficialPricesDataset, id);
+}
+
+export function getOfficialPricePlanSummaryFromDataset(
+  dataset: Pick<OfficialPricesDataset, "apps" | "plans" | "rows">,
+  id: string,
+) {
+  const parsed = parseOfficialPricePlanId(id);
+  if (!parsed) return null;
+
+  return buildOfficialPricePlanSummaries(dataset, parsed.appSlug).find((summary) => summary.id === id) ?? null;
+}
+
+export function getOfficialPriceRowsByIdFromDataset(
+  dataset: Pick<OfficialPricesDataset, "apps" | "plans" | "rows">,
+  id: string,
+) {
   const parsed = parseOfficialPricePlanId(id);
   if (!parsed) return [];
 
-  return getOfficialPriceRows(parsed.appSlug, parsed.planSlug);
+  return getOfficialPriceRowsFromDataset(dataset, parsed.appSlug, parsed.planSlug);
+}
+
+export const staticOfficialPricesDataset: OfficialPricesDataset = {
+  configured: false,
+  source: "static",
+  generatedAt: officialPriceGeneratedAt,
+  apps: officialPriceApps,
+  plans: officialPricePlans,
+  rows: officialPriceRows,
+  fxSummary: officialPriceFxSummary,
+};
+
+function getOfficialPriceAppFromDataset(
+  dataset: Pick<OfficialPricesDataset, "apps">,
+  appSlug: OfficialPriceAppSlug,
+) {
+  return dataset.apps.find((app) => app.slug === appSlug) ?? null;
+}
+
+function getOfficialPricePlanFromDataset(
+  dataset: Pick<OfficialPricesDataset, "plans">,
+  appSlug: OfficialPriceAppSlug,
+  planSlug: string,
+) {
+  return dataset.plans.find((plan) => plan.appSlug === appSlug && plan.slug === planSlug) ?? null;
+}
+
+function getOfficialPriceRowsFromDataset(
+  dataset: Pick<OfficialPricesDataset, "rows">,
+  appSlug: OfficialPriceAppSlug,
+  planSlug: string,
+) {
+  return dataset.rows
+    .filter((row) => row.appSlug === appSlug && row.planSlug === planSlug)
+    .sort((a, b) => a.cnyPrice - b.cnyPrice);
 }
 
 function isOfficialPriceAppSlug(value: string): value is OfficialPriceAppSlug {

@@ -5,10 +5,10 @@ import { notFound } from "next/navigation";
 import { BrandIcon } from "@/components/BrandIcon";
 import { SiteHeader } from "@/components/SiteHeader";
 import {
-  getOfficialPricePlanSummary,
-  getOfficialPriceRowsById,
-  officialPriceFxSummary,
+  getOfficialPricePlanSummaryFromDataset,
+  getOfficialPriceRowsByIdFromDataset,
 } from "@/lib/official-prices";
+import { getOfficialPricesDataset } from "@/lib/official-prices-db";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 export const dynamicParams = true;
@@ -19,7 +19,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const summary = getOfficialPricePlanSummary(id);
+  const dataset = await getOfficialPricesDataset();
+  const summary = getOfficialPricePlanSummaryFromDataset(dataset, id);
 
   if (!summary) {
     return {
@@ -47,8 +48,9 @@ export default async function OfficialPriceDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const summary = getOfficialPricePlanSummary(id);
-  const rows = getOfficialPriceRowsById(id);
+  const dataset = await getOfficialPricesDataset();
+  const summary = getOfficialPricePlanSummaryFromDataset(dataset, id);
+  const rows = getOfficialPriceRowsByIdFromDataset(dataset, id);
 
   if (!summary) notFound();
 
@@ -91,7 +93,7 @@ export default async function OfficialPriceDetailPage({
               <Metric label="最低地区价" value={cheapest ? formatCurrency(cheapest.cnyPrice, "CNY") : "待确认"} />
               <Metric label="最低地区" value={cheapest?.countryLabel || "暂无"} />
               <Metric label="地区报价" value={`${summary.sampleCount}`} />
-              <Metric label="汇率日期" value={officialPriceFxSummary.date} />
+              <Metric label="汇率日期" value={dataset.fxSummary.date} />
             </div>
           </div>
         </section>

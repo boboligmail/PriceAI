@@ -14,22 +14,20 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { BrandIcon } from "@/components/BrandIcon";
 import {
-  getOfficialPriceOfferRows,
-  getOfficialPricePlanSummaries,
-  officialPriceApps,
-  officialPriceFxSummary,
-  officialPriceGeneratedAt,
+  buildOfficialPriceOfferRows,
+  buildOfficialPricePlanSummaries,
   type OfficialPriceAppSlug,
   type OfficialPriceOfferRow,
   type OfficialPricePlanSummary,
   type OfficialPriceScope,
+  type OfficialPricesDataset,
 } from "@/lib/official-prices";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 type ScopeMode = "products" | "offers";
 type PlatformFilter = "all" | OfficialPriceAppSlug;
 
-export function OfficialPricesExplorer() {
+export function OfficialPricesExplorer({ dataset }: { dataset: OfficialPricesDataset }) {
   const [platform, setPlatform] = useState<PlatformFilter>("all");
   const [scopeMode, setScopeMode] = useState<ScopeMode>("products");
   const [query, setQuery] = useState("");
@@ -37,20 +35,22 @@ export function OfficialPricesExplorer() {
   const normalizedQuery = query.trim().toLowerCase();
   const summaries = useMemo(
     () =>
-      getOfficialPricePlanSummaries(platform)
+      buildOfficialPricePlanSummaries(dataset, platform)
         .filter((summary) => matchesSummary(summary, normalizedQuery))
         .sort((a, b) => comparePrice(a.lowestRow?.cnyPrice, b.lowestRow?.cnyPrice)),
-    [normalizedQuery, platform],
+    [dataset, normalizedQuery, platform],
   );
   const offers = useMemo(
     () =>
-      getOfficialPriceOfferRows(platform)
+      buildOfficialPriceOfferRows(dataset, platform)
         .filter((row) => matchesOffer(row, normalizedQuery))
         .sort((a, b) => a.cnyPrice - b.cnyPrice),
-    [normalizedQuery, platform],
+    [dataset, normalizedQuery, platform],
   );
   const resultCount = scopeMode === "products" ? summaries.length : offers.length;
-  const title = buildTitle(platform, scopeMode);
+  const title = buildTitle(dataset, platform, scopeMode);
+  const totalPlanCount = useMemo(() => buildOfficialPricePlanSummaries(dataset, "all").length, [dataset]);
+  const totalOfferCount = useMemo(() => buildOfficialPriceOfferRows(dataset, "all").length, [dataset]);
 
   return (
     <main className="mx-auto max-w-[1500px] px-5 py-6 sm:px-8 md:py-10 lg:py-12">
@@ -63,24 +63,26 @@ export function OfficialPricesExplorer() {
             基于 Apple App Store 公开页面整理官方内购价格，外层先看每个标准套餐的最低地区价，点进详情再看所有地区报价。人民币为按公开汇率估算，实际支付价格、税费和汇率以官方页面与支付时显示为准。
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-[0.72rem] font-medium text-[#5a6061]">
-            <span>数据样本：{formatRelativeTime(officialPriceGeneratedAt)}</span>
+            <span>数据样本：{formatRelativeTime(dataset.generatedAt)}</span>
             <span className="h-1 w-1 rounded-full bg-[#adb3b4]" />
             <span>当前显示：{resultCount} {scopeMode === "products" ? "个标准套餐" : "条地区报价"}</span>
             <span className="hidden h-1 w-1 rounded-full bg-[#adb3b4] md:inline-block" />
-            <span className="hidden md:inline">汇率日期：{officialPriceFxSummary.date}</span>
+            <span className="hidden md:inline">汇率日期：{dataset.fxSummary.date}</span>
+            <span className="hidden h-1 w-1 rounded-full bg-[#adb3b4] lg:inline-block" />
+            <span className="hidden lg:inline">{dataset.source === "supabase" ? "数据源：Supabase" : "数据源：静态样本"}</span>
           </div>
         </div>
 
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <Metric label="标准套餐" value={`${getOfficialPricePlanSummaries("all").length}`} />
-            <Metric label="地区报价" value={`${getOfficialPriceOfferRows("all").length}`} />
-            <Metric label="平台" value={`${officialPriceApps.length}`} />
+            <Metric label="标准套餐" value={`${totalPlanCount}`} />
+            <Metric label="地区报价" value={`${totalOfferCount}`} />
+            <Metric label="平台" value={`${dataset.apps.length}`} />
           </div>
           <div className="rounded-lg bg-[#fff7e8] p-4 text-sm leading-6 text-[#7a541b] ring-1 ring-[#efdfbd]">
             <div className="flex items-start gap-2">
               <Info size={17} className="mt-0.5 shrink-0" />
-              <p>本页只展示已在项目文档和公开页面中确认的 P0 样本。未确认地区不会补价格，后续可由采集脚本扩展。</p>
+              <p>本页只展示公开页面中已确认的可用价格。未匹配、解析失败或待复核的地区不会补价格，后续可在后台查看采集日志。</p>
             </div>
           </div>
         </div>
@@ -94,7 +96,7 @@ export function OfficialPricesExplorer() {
             label="全部"
             onClick={() => setPlatform("all")}
           />
-          {officialPriceApps.map((app) => (
+          {dataset.apps.map((app) => (
             <PlatformPill
               key={app.slug}
               active={platform === app.slug}
@@ -369,8 +371,8 @@ function billingPeriodLabel(period: OfficialPricePlanSummary["billingPeriod"]) {
   return period === "annual" ? "年付" : "月付";
 }
 
-function buildTitle(platform: OfficialPriceScope, scopeMode: ScopeMode) {
-  const label = platform === "all" ? "全平台" : officialPriceApps.find((app) => app.slug === platform)?.displayName ?? platform;
+function buildTitle(dataset: Pick<OfficialPricesDataset, "apps">, platform: OfficialPriceScope, scopeMode: ScopeMode) {
+  const label = platform === "all" ? "全平台" : dataset.apps.find((app) => app.slug === platform)?.displayName ?? platform;
   return `${label} ${scopeMode === "products" ? "官方标准商品" : "官方地区报价"}`;
 }
 

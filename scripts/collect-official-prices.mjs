@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createClient } from "@supabase/supabase-js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
@@ -38,10 +40,6 @@ if (isCli()) {
 
 export async function collectOfficialPrices(options = {}) {
   options = normalizeOptions(options);
-
-  if (options.post || options.db) {
-    throw new Error("--post/--db will be enabled after official_subscription_* migrations are added.");
-  }
 
   const configs = await loadConfig();
   const apps = selectApps(configs.apps, options);
@@ -170,7 +168,7 @@ export async function collectOfficialPrices(options = {}) {
     }
   }
 
-  return {
+  const result = {
     generatedAt: fetchedAt,
     dryRun: Boolean(options.dryRun),
     source: {
@@ -201,6 +199,12 @@ export async function collectOfficialPrices(options = {}) {
       items: runItems,
     },
   };
+
+  if (options.post || options.db) {
+    result.database = await postOfficialPriceSnapshot(result, configs, options);
+  }
+
+  return result;
 }
 
 async function loadConfig() {
@@ -219,6 +223,356 @@ async function loadConfig() {
 
 async function readJson(filePath) {
   return JSON.parse(await readFile(filePath, "utf8"));
+}
+
+async function postOfficialPriceSnapshot(result, configs, options) {
+  const dbRows = expandRowsForDatabase(result, configs);
+  const plan = {
+    dryRun: Boolean(options.dryRun),
+    apps: configs.apps.length,
+    regions: configs.regions.length,
+    plans: configs.rules.length,
+    currentRows: dbRows.length,
+    availableRows: dbRows.filter((row) => row.status === "available").length,
+    nonAvailableRows: dbRows.filter((row) => row.status !== "available").length,
+    snapshots: dbRows.length,
+    fxRates: Object.keys(result.fx.rates || {}).length,
+    runLog: true,
+  };
+
+  if (options.dryRun) {
+    return {
+      status: "planned",
+      ...plan,
+      message: "--post --dry-run only builds the database write plan; no Supabase credentials or remote writes are required.",
+    };
+  }
+
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for --post/--db.");
+  }
+
+  const appMap = await upsertOfficialApps(supabase, configs.apps);
+  const regionMap = await upsertOfficialRegions(supabase, configs.regions);
+  const planMap = await upsertOfficialPlans(supabase, configs.rules, appMap);
+  const runId = await insertOfficialCollectRun(supabase, result, options);
+  const existingByKey = await listExistingCurrentPrices(supabase, dbRows, appMap, regionMap, planMap);
+  const currentRows = buildCurrentPriceRows(dbRows, appMap, regionMap, planMap, existingByKey);
+  const snapshotRows = buildSnapshotRows(dbRows, appMap, regionMap, planMap, runId);
+  const fxRows = buildFxRows(result.fx, result.generatedAt);
+
+  await upsertRows(supabase, "official_subscription_region_prices", currentRows, {
+    onConflict: "app_id,plan_id,region_id",
+  });
+  await insertRows(supabase, "official_subscription_price_snapshots", snapshotRows);
+  await upsertRows(supabase, "fx_rates", fxRows, {
+    onConflict: "base_currency,target_currency,date,source",
+  });
+
+  return {
+    status: "posted",
+    ...plan,
+    currentRowsWritten: currentRows.length,
+    snapshotsWritten: snapshotRows.length,
+    fxRatesWritten: fxRows.length,
+    runId,
+  };
+}
+
+function expandRowsForDatabase(result, configs) {
+  const rows = [...result.rows];
+  const rulesByApp = new Map();
+  const regionByCode = new Map(configs.regions.map((region) => [region.countryCode, region]));
+
+  for (const rule of configs.rules) {
+    const appRules = rulesByApp.get(rule.appSlug) || [];
+    appRules.push(rule);
+    rulesByApp.set(rule.appSlug, appRules);
+  }
+
+  for (const failure of result.failures || []) {
+    const rules = rulesByApp.get(failure.appSlug) || [];
+    const region = regionByCode.get(failure.countryCode) || {};
+    for (const rule of rules) {
+      rows.push({
+        appSlug: failure.appSlug,
+        planSlug: rule.planSlug,
+        countryCode: failure.countryCode,
+        countryLabel: failure.countryLabel,
+        currencyCode: region.currencyCode || null,
+        priceText: null,
+        priceValue: null,
+        cnyPrice: null,
+        fxRateToCny: null,
+        fxDate: result.fx.date || null,
+        sourceUrl: failure.sourceUrl,
+        evidenceSource: failure.evidenceSource || "app_store_html",
+        rawTitle: null,
+        rawSnippetHash: null,
+        fetchedAt: failure.fetchedAt || result.generatedAt,
+        status: "parse_failed",
+        failureReason: failure.failureReason,
+      });
+    }
+  }
+
+  return rows;
+}
+
+async function upsertOfficialApps(supabase, apps) {
+  const rows = apps.map((app) => ({
+    slug: app.slug,
+    display_name: app.displayName,
+    provider: app.provider,
+    app_store_id: app.appStoreId,
+    app_store_slug: app.appStoreSlug,
+    enabled: app.enabled !== false,
+    sort_order: Number(app.sortOrder || 0),
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { data, error } = await supabase
+    .from("official_subscription_apps")
+    .upsert(rows, { onConflict: "slug" })
+    .select("id,slug");
+
+  if (error) throw error;
+  return new Map((data || []).map((row) => [String(row.slug), String(row.id)]));
+}
+
+async function upsertOfficialRegions(supabase, regions) {
+  const rows = regions.map((region) => ({
+    country_code: region.countryCode,
+    storefront_code: region.storefrontCode,
+    country_label: region.countryLabel,
+    currency_code: region.currencyCode,
+    enabled: region.enabled !== false,
+    priority: Number(region.priority || 0),
+    updated_at: new Date().toISOString(),
+  }));
+
+  const { data, error } = await supabase
+    .from("official_subscription_regions")
+    .upsert(rows, { onConflict: "country_code" })
+    .select("id,country_code");
+
+  if (error) throw error;
+  return new Map((data || []).map((row) => [String(row.country_code), String(row.id)]));
+}
+
+async function upsertOfficialPlans(supabase, rules, appMap) {
+  const rows = rules.map((rule) => {
+    const appId = appMap.get(rule.appSlug);
+    if (!appId) throw new Error(`Cannot upsert plan ${rule.appSlug}/${rule.planSlug}: app is missing.`);
+
+    return {
+      app_id: appId,
+      slug: rule.planSlug,
+      label: rule.label,
+      billing_period: rule.billingPeriod || "monthly",
+      aliases: Array.from(new Set([rule.label, ...(rule.include || [])].filter(Boolean))),
+      match_rules: {
+        include: rule.include || [],
+        exclude: rule.exclude || [],
+        preferPriceBandUsd: rule.preferPriceBandUsd || null,
+      },
+      enabled: rule.enabled !== false,
+      sort_order: Number(rule.sortOrder || 0),
+      updated_at: new Date().toISOString(),
+    };
+  });
+
+  const { data, error } = await supabase
+    .from("official_subscription_plans")
+    .upsert(rows, { onConflict: "app_id,slug" })
+    .select("id,app_id,slug");
+
+  if (error) throw error;
+  const output = new Map();
+  for (const row of data || []) {
+    output.set(`${row.app_id}/${row.slug}`, String(row.id));
+  }
+  return output;
+}
+
+async function insertOfficialCollectRun(supabase, result, options) {
+  const { data, error } = await supabase
+    .from("official_subscription_collect_runs")
+    .insert({
+      mode: options.mode || "manual",
+      target_app_slug: result.scope.apps.length === 1 ? result.scope.apps[0] : null,
+      target_region_codes: result.scope.regions,
+      status: result.run.status,
+      success_count: result.run.availableCount,
+      failure_count: result.run.failureCount + result.run.missingCount + result.run.needsReviewCount,
+      unmatched_count: result.run.unmatchedCount,
+      started_at: result.generatedAt,
+      finished_at: new Date().toISOString(),
+      logs: {
+        source: result.source,
+        scope: result.scope,
+        items: result.run.items,
+        failures: result.failures,
+        unmatchedItems: result.unmatchedItems,
+      },
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return data.id;
+}
+
+async function listExistingCurrentPrices(supabase, dbRows, appMap, regionMap, planMap) {
+  const planIds = new Set();
+  const regionIds = new Set();
+
+  for (const row of dbRows) {
+    const appId = appMap.get(row.appSlug);
+    const planId = planMap.get(`${appId}/${row.planSlug}`);
+    const regionId = regionMap.get(row.countryCode);
+    if (planId) planIds.add(planId);
+    if (regionId) regionIds.add(regionId);
+  }
+
+  if (!planIds.size || !regionIds.size) return new Map();
+
+  const { data, error } = await supabase
+    .from("official_subscription_region_prices")
+    .select(
+      [
+        "app_id",
+        "plan_id",
+        "region_id",
+        "price_text",
+        "price_value",
+        "currency_code",
+        "cny_price",
+        "fx_rate_to_cny",
+        "fx_date",
+        "last_success_at",
+      ].join(","),
+    )
+    .in("plan_id", [...planIds])
+    .in("region_id", [...regionIds]);
+
+  if (error) throw error;
+  return new Map((data || []).map((row) => [priceKey(row.app_id, row.plan_id, row.region_id), row]));
+}
+
+function buildCurrentPriceRows(dbRows, appMap, regionMap, planMap, existingByKey) {
+  return dbRows.map((row) => {
+    const ids = resolvePriceIds(row, appMap, regionMap, planMap);
+    const key = priceKey(ids.appId, ids.planId, ids.regionId);
+    const existing = existingByKey.get(key);
+    const hasHistoricalPrice = existing?.price_text && existing?.last_success_at;
+    const status = row.status === "available" ? "available" : hasHistoricalPrice ? "stale" : row.status;
+    const checkedAt = row.fetchedAt || new Date().toISOString();
+
+    return {
+      app_id: ids.appId,
+      plan_id: ids.planId,
+      region_id: ids.regionId,
+      price_text: status === "stale" ? existing.price_text : row.priceText,
+      price_value: status === "stale" ? existing.price_value : row.priceValue,
+      currency_code: status === "stale" ? existing.currency_code : row.currencyCode,
+      cny_price: status === "stale" ? existing.cny_price : row.cnyPrice,
+      fx_rate_to_cny: status === "stale" ? existing.fx_rate_to_cny : row.fxRateToCny,
+      fx_date: status === "stale" ? existing.fx_date : row.fxDate,
+      source_url: row.sourceUrl,
+      evidence_source: row.evidenceSource || "app_store_html",
+      status,
+      raw_title: row.rawTitle,
+      raw_snippet_hash: row.rawSnippetHash,
+      last_success_at: row.status === "available" ? checkedAt : existing?.last_success_at || null,
+      last_checked_at: checkedAt,
+      failure_reason: row.status === "available" ? null : row.failureReason,
+      updated_at: checkedAt,
+    };
+  });
+}
+
+function buildSnapshotRows(dbRows, appMap, regionMap, planMap, runId) {
+  return dbRows.map((row) => {
+    const ids = resolvePriceIds(row, appMap, regionMap, planMap);
+    return {
+      run_id: runId,
+      app_id: ids.appId,
+      plan_id: ids.planId,
+      region_id: ids.regionId,
+      price_text: row.priceText,
+      price_value: row.priceValue,
+      currency_code: row.currencyCode,
+      cny_price: row.cnyPrice,
+      fx_rate_to_cny: row.fxRateToCny,
+      fx_date: row.fxDate,
+      source_url: row.sourceUrl,
+      evidence_source: row.evidenceSource || "app_store_html",
+      raw_title: row.rawTitle,
+      raw_snippet_hash: row.rawSnippetHash,
+      fetched_at: row.fetchedAt || new Date().toISOString(),
+      status: row.status,
+      failure_reason: row.failureReason,
+    };
+  });
+}
+
+function buildFxRows(fx, fetchedAt) {
+  return Object.entries(fx.rates || {}).map(([targetCurrency, rate]) => ({
+    base_currency: fx.baseCurrency || "USD",
+    target_currency: targetCurrency,
+    rate,
+    date: fx.date,
+    source: fx.source || "Frankfurter",
+    fetched_at: fetchedAt,
+  }));
+}
+
+function resolvePriceIds(row, appMap, regionMap, planMap) {
+  const appId = appMap.get(row.appSlug);
+  const regionId = regionMap.get(row.countryCode);
+  const planId = planMap.get(`${appId}/${row.planSlug}`);
+
+  if (!appId || !regionId || !planId) {
+    throw new Error(`Cannot map official price row ${row.appSlug}/${row.planSlug}/${row.countryCode} to database ids.`);
+  }
+
+  return { appId, planId, regionId };
+}
+
+async function upsertRows(supabase, table, rows, options = {}) {
+  for (const chunk of chunks(rows, 500)) {
+    if (!chunk.length) continue;
+    const { error } = await supabase.from(table).upsert(chunk, options);
+    if (error) throw error;
+  }
+}
+
+async function insertRows(supabase, table, rows) {
+  for (const chunk of chunks(rows, 500)) {
+    if (!chunk.length) continue;
+    const { error } = await supabase.from(table).insert(chunk);
+    if (error) throw error;
+  }
+}
+
+function priceKey(appId, planId, regionId) {
+  return `${appId}/${planId}/${regionId}`;
+}
+
+function getSupabaseClient() {
+  const env = readEnvFile(path.join(repoRoot, ".env.local"));
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
 
 function selectApps(apps, options) {
@@ -551,6 +905,40 @@ function numericSort(a, b) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function chunks(items, size) {
+  const output = [];
+  for (let index = 0; index < items.length; index += size) {
+    output.push(items.slice(index, index + size));
+  }
+  return output;
+}
+
+function readEnvFile(filePath) {
+  const output = {};
+  if (!existsSync(filePath)) return output;
+
+  for (const line of readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+
+    const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
+    if (!match) continue;
+
+    output[match[1]] = unquote(match[2].trim());
+  }
+
+  return output;
+}
+
+function unquote(value) {
+  const quote = value[0];
+  if ((quote === `"` || quote === `'`) && value[value.length - 1] === quote) {
+    return value.slice(1, -1);
+  }
+
+  return value;
 }
 
 function parseArgs(values) {
