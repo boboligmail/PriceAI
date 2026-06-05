@@ -43,8 +43,8 @@ export async function importApiModelDataset(options = {}) {
       context_window: model.contextWindow ?? null,
       description: model.description,
       status: "active",
-      source_url: model.sourceUrl,
-      source_label: model.sourceLabel,
+      source_url: requiredText(model.sourceUrl, `${model.id}.sourceUrl`),
+      source_label: model.sourceLabel || "公开来源",
       capabilities: model.capabilities,
       suitable_tools: model.suitableTools,
       data_updated_at: toTimestamp(model.updatedAt),
@@ -55,7 +55,7 @@ export async function importApiModelDataset(options = {}) {
       slug: slugify(provider.id),
       type: provider.type,
       billing_mode: provider.billingMode,
-      official_url: provider.url,
+      official_url: requiredText(provider.url, `${provider.id}.url`),
       pricing_url: provider.pricingUrl ?? null,
       logo_url: provider.logoUrl ?? null,
       description: provider.description,
@@ -81,7 +81,7 @@ export async function importApiModelDataset(options = {}) {
       coverage_label: plan.coverageLabel ?? null,
       compatibility: plan.compatibility,
       suitable_tools: plan.suitableTools,
-      source_url: plan.url,
+      source_url: requiredText(plan.url, `${plan.id}.url`),
       source_label: plan.sourceLabel,
       enabled: true,
       data_updated_at: toTimestamp(plan.updatedAt),
@@ -221,7 +221,10 @@ async function upsertRows(supabase, table, rows, options = {}) {
   for (const chunk of chunks(rows, 500)) {
     if (!chunk.length) continue;
     const { error } = await supabase.from(table).upsert(chunk, options);
-    if (error) throw error;
+    if (error) {
+      error.table = table;
+      throw error;
+    }
   }
 }
 
@@ -243,6 +246,12 @@ function toTimestamp(value) {
   const text = String(value || "").trim();
   if (!text) return new Date().toISOString();
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return `${text}T00:00:00.000Z`;
+  return text;
+}
+
+function requiredText(value, fieldName) {
+  const text = String(value || "").trim();
+  if (!text) throw new Error(`Missing required API model import field: ${fieldName}`);
   return text;
 }
 
@@ -345,5 +354,6 @@ function isCli() {
 
 function errorMessage(error) {
   if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") return JSON.stringify(error, null, 2);
   return String(error);
 }
