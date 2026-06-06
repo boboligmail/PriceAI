@@ -1,5 +1,5 @@
 import { getAdminPasswordFromRequest, listOfferFeedback, updateOfferFeedbackStatus } from "@/lib/admin";
-import { clearAdminDataCache } from "@/lib/data";
+import { clearAdminDataCache, listRawOffersByIds } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
 import { z } from "zod";
 
@@ -17,7 +17,12 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = statusSchema.catch("pending").parse(searchParams.get("status") || "pending");
     const feedback = await listOfferFeedback(status);
-    return Response.json({ ok: true, feedback });
+    const offers = await listRawOffersByIds(
+      feedback
+        .map((item) => item.offerId)
+        .filter((id): id is string => Boolean(id)),
+    );
+    return Response.json({ ok: true, feedback, offers });
   } catch (error) {
     return Response.json(
       { ok: false, message: error instanceof Error ? error.message : "加载反馈失败。" },

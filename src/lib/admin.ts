@@ -15,6 +15,7 @@ import type {
   OfferFeedback,
   OfferFeedbackReason,
   OfferFeedbackStatus,
+  OfferStatus,
   RawOffer,
   SiteFeedback,
   SiteFeedbackStatus,
@@ -890,6 +891,12 @@ function mapOfferFeedbackRow(row: Record<string, unknown>): OfferFeedback {
     sourceName: row.source_name ? String(row.source_name) : null,
     sourceTitle: row.source_title ? String(row.source_title) : null,
     offerUrl: row.offer_url ? String(row.offer_url) : null,
+    offerPrice: row.offer_price === null || row.offer_price === undefined ? null : Number(row.offer_price),
+    offerCurrency: row.offer_currency ? String(row.offer_currency) : null,
+    offerStatus: row.offer_status ? String(row.offer_status) as OfferStatus : null,
+    offerCapturedAt: row.offer_captured_at ? String(row.offer_captured_at) : null,
+    offerSourceUpdatedAt: row.offer_source_updated_at ? String(row.offer_source_updated_at) : null,
+    offerLastSeenAt: row.offer_last_seen_at ? String(row.offer_last_seen_at) : null,
     reason: String(row.reason || "other") as OfferFeedbackReason,
     notes: row.notes ? String(row.notes) : null,
     contact: row.contact ? String(row.contact) : null,
@@ -1542,6 +1549,12 @@ export async function createOfferFeedback(input: {
   sourceName?: string | null;
   sourceTitle?: string | null;
   offerUrl?: string | null;
+  offerPrice?: number | null;
+  offerCurrency?: string | null;
+  offerStatus?: OfferStatus | null;
+  offerCapturedAt?: string | null;
+  offerSourceUpdatedAt?: string | null;
+  offerLastSeenAt?: string | null;
   reason: OfferFeedbackReason;
   notes?: string | null;
   contact?: string | null;
@@ -1591,6 +1604,12 @@ export async function createOfferFeedback(input: {
     source_name: input.sourceName || null,
     source_title: input.sourceTitle || null,
     offer_url: input.offerUrl || null,
+    offer_price: input.offerPrice ?? null,
+    offer_currency: input.offerCurrency || null,
+    offer_status: input.offerStatus || null,
+    offer_captured_at: input.offerCapturedAt || null,
+    offer_source_updated_at: input.offerSourceUpdatedAt || null,
+    offer_last_seen_at: input.offerLastSeenAt || null,
     reason: input.reason,
     notes: input.notes?.trim() || null,
     contact: input.contact?.trim() || null,

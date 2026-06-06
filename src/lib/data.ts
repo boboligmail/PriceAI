@@ -332,6 +332,7 @@ export function getEmptyAdminSummary(isAuthenticated = false): AdminSummary {
     pendingSiteFeedback: [],
     sourceOfferStats: [],
     hiddenRawOffers: [],
+    feedbackRawOffers: [],
   };
 }
 
@@ -461,6 +462,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       pendingSiteFeedback: [],
       sourceOfferStats: [],
       hiddenRawOffers: [],
+      feedbackRawOffers: [],
     };
   }
 
@@ -522,6 +524,11 @@ async function readAdminSummary(): Promise<AdminSummary> {
   ]);
 
   const sources = sourcesResult.error ? [] : (sourcesResult.data || []).map(mapSource);
+  const feedbackRawOffers = await listRawOffersByIds(
+    pendingOfferFeedback
+      .map((item) => item.offerId)
+      .filter((id): id is string => Boolean(id)),
+  ).catch(() => []);
   const canonicalProducts = productsResult.error
     ? canonicalCatalog
     : (productsResult.data || []).map(mapCanonicalProduct);
@@ -550,6 +557,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       pendingSiteFeedback,
       sourceOfferStats,
       hiddenRawOffers: hiddenOfferData.rows,
+      feedbackRawOffers,
     };
   }
 
@@ -567,6 +575,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
     pendingSiteFeedback,
     sourceOfferStats,
     hiddenRawOffers: hiddenOfferData.rows,
+    feedbackRawOffers,
   };
 }
 
@@ -719,6 +728,25 @@ async function listAdminVisibleRawOffers(): Promise<{ rows: RawOffer[]; total: n
     rows: ((rowsResult.data || []) as unknown as Record<string, unknown>[]).map(mapRawOffer),
     total: countResult.count || rowsResult.data?.length || 0,
   };
+}
+
+export async function listRawOffersByIds(ids: string[]): Promise<RawOffer[]> {
+  const supabase = getSupabaseServerClient();
+  const uniqueIds = Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+  if (!supabase || !uniqueIds.length) return [];
+
+  const rows: Record<string, unknown>[] = [];
+  for (let index = 0; index < uniqueIds.length; index += 100) {
+    const chunk = uniqueIds.slice(index, index + 100);
+    const { data, error } = await supabase
+      .from("raw_offers")
+      .select(RAW_OFFER_PUBLIC_SELECT)
+      .in("id", chunk);
+    if (error) throw error;
+    rows.push(...((data || []) as unknown as Record<string, unknown>[]));
+  }
+
+  return rows.map(mapRawOffer);
 }
 
 async function listAdminHiddenRawOffers(): Promise<{ rows: RawOffer[]; total: number }> {

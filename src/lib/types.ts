@@ -133,6 +133,7 @@ export type AdminSummary = DashboardData & {
   pendingSiteFeedback: SiteFeedback[];
   sourceOfferStats: SourceOfferStats[];
   hiddenRawOffers: RawOffer[];
+  feedbackRawOffers: RawOffer[];
 };
 
 export type SourceOfferStats = {
@@ -487,6 +488,12 @@ export type OfferFeedback = {
   sourceName: string | null;
   sourceTitle: string | null;
   offerUrl: string | null;
+  offerPrice: number | null;
+  offerCurrency: string | null;
+  offerStatus: OfferStatus | null;
+  offerCapturedAt: string | null;
+  offerSourceUpdatedAt: string | null;
+  offerLastSeenAt: string | null;
   reason: OfferFeedbackReason;
   notes: string | null;
   contact: string | null;

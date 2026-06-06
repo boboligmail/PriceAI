@@ -207,6 +207,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [submissions, setSubmissions] = useState<ChannelSubmission[]>(data.pendingSubmissions || []);
   const [offerFeedback, setOfferFeedback] = useState<OfferFeedback[]>(data.pendingOfferFeedback || []);
+  const [feedbackRawOffers, setFeedbackRawOffers] = useState<RawOffer[]>(data.feedbackRawOffers || []);
   const [siteFeedback, setSiteFeedback] = useState<SiteFeedback[]>(data.pendingSiteFeedback || []);
   const [probeResults, setProbeResults] = useState<Record<string, ProbeResult>>({});
   const [officialProbeResult, setOfficialProbeResult] = useState<OfficialProbeResult | null>(null);
@@ -276,8 +277,9 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     const map = new Map<string, RawOffer>();
     for (const offer of data.rawOffers) map.set(offer.id, offer);
     for (const offer of data.hiddenRawOffers || []) map.set(offer.id, offer);
+    for (const offer of feedbackRawOffers) map.set(offer.id, offer);
     return map;
-  }, [data.hiddenRawOffers, data.rawOffers]);
+  }, [data.hiddenRawOffers, data.rawOffers, feedbackRawOffers]);
   const productByKey = useMemo(() => {
     const map = new Map<string, AdminProduct>();
     for (const product of data.products) {
@@ -1198,6 +1200,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       const json = await response.json().catch(() => ({ ok: false }));
       if (response.ok && json.ok) {
         setOfferFeedback(json.feedback || []);
+        setFeedbackRawOffers(json.offers || []);
       }
     } catch {
       /* ignore */
@@ -3031,9 +3034,15 @@ function OfferFeedbackList({
         const sourceName = offerSourceLabel(matchedOffer, item);
         const sourceTitle = item.sourceTitle || matchedOffer?.sourceTitle || "未记录原始商品名";
         const offerUrl = item.offerUrl || matchedOffer?.url || null;
-        const currentStatus = matchedOffer ? offerStatusLabel(matchedOffer.status) : "未记录";
-        const currentPrice = matchedOffer ? formatCurrency(matchedOffer.price, matchedOffer.currency) : "未记录";
-        const updatedAt = matchedOffer ? offerTimestamp(matchedOffer) : null;
+        const snapshotStatus = item.offerStatus ? offerStatusLabel(item.offerStatus) : null;
+        const snapshotPrice =
+          item.offerPrice !== null && item.offerPrice !== undefined
+            ? formatCurrency(item.offerPrice, item.offerCurrency || "CNY")
+            : null;
+        const snapshotUpdatedAt = item.offerLastSeenAt || item.offerCapturedAt || item.offerSourceUpdatedAt;
+        const currentStatus = matchedOffer ? offerStatusLabel(matchedOffer.status) : snapshotStatus || "未记录";
+        const currentPrice = matchedOffer ? formatCurrency(matchedOffer.price, matchedOffer.currency) : snapshotPrice || "未记录";
+        const updatedAt = matchedOffer ? offerTimestamp(matchedOffer) : snapshotUpdatedAt;
         const categoryText = matchedProduct
           ? [matchedProduct.platform, matchedProduct.productType, matchedProduct.spec].filter(Boolean).join(" / ")
           : item.productSlug || item.productId || "未匹配到当前标准商品";
