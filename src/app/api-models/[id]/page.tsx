@@ -134,7 +134,9 @@ export default async function ApiModelDetailPage({
           </div>
         </div>
 
-        <section className="mt-5 overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
+        <ApiOfferMobileList rows={rows} currency={currency} />
+
+        <section className="mt-5 hidden overflow-hidden rounded-lg bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 md:block">
           <div className="overflow-x-auto">
             <table className="min-w-[940px] w-full table-fixed border-collapse text-left text-sm">
               <colgroup>
@@ -192,6 +194,59 @@ function PlanPanel({ plan, currency }: { plan: ApiPlan; currency: ApiCurrency })
         <ExternalLink size={13} />
       </a>
     </article>
+  );
+}
+
+function ApiOfferMobileList({ rows, currency }: { rows: ApiModelOfferWithRelations[]; currency: ApiCurrency }) {
+  return (
+    <section className="mt-5 grid grid-cols-1 gap-3 md:hidden">
+      {rows.map((offer) => {
+        const sourceHref = offer.pricingUrl ?? offer.provider.pricingUrl ?? offer.provider.url;
+
+        return (
+          <article key={offer.id} className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link href={`/api-models/providers/${offer.providerId}`} className="block truncate text-base font-bold leading-6 text-[#202829]">
+                  {offer.provider.name}
+                </Link>
+                <p className="mt-0.5 line-clamp-2 text-xs leading-5 text-[#5a6061]">调用：{offer.routeModelId ?? offer.model.modelId}</p>
+              </div>
+              <TypeChip type={offer.provider.type} />
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <PriceMetric label="输入" value={formatApiPrice(offer.inputPrice, currency)} />
+              <PriceMetric label="输出" value={formatApiPrice(offer.outputPrice, currency)} />
+            </div>
+            <div className="mt-2">
+              <PriceMetric
+                label="缓存"
+                value={formatCacheApiPrice(offer.cacheReadPrice, currency)}
+                helper={offer.cacheWritePrice ? `写入：${formatCacheApiPrice(offer.cacheWritePrice, currency)}` : undefined}
+              />
+            </div>
+
+            <p className="mt-3 line-clamp-2 text-sm font-medium leading-6 text-[#2d3435]">{formatApiDisplayText(offer.freeOrPlan)}</p>
+            {offer.notes ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(offer.notes)}</p> : null}
+            <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(offer.limitSummary)}</p>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <a
+                href={sourceHref}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full bg-[#e4e9ea] px-3 text-xs font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
+              >
+                <span className="truncate">{offer.sourceLabel}</span>
+                <ExternalLink size={13} className="shrink-0" />
+              </a>
+              <span className="text-xs text-[#5a6061]">{formatDatasetDate(offer.updatedAt)}</span>
+            </div>
+          </article>
+        );
+      })}
+    </section>
   );
 }
 
