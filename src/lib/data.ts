@@ -819,45 +819,24 @@ async function loadPublicProductOffers(
   id: string,
   filters: Required<Pick<ProductOfferListFilters, "limit" | "offset">>,
 ) {
-  const supabase = getSupabaseServerClient();
   const { limit, offset } = filters;
+  const publicData = await readPublicOfferData();
+  const products = publicData.products.length ? publicData.products : canonicalCatalog;
+  const product =
+    products.find((item) => item.id === id || item.slug === id) ||
+    canonicalCatalog.find((item) => item.id === id || item.slug === id);
 
-  if (supabase) {
-    try {
-      const products = await listActiveCanonicalProducts();
-      const product =
-        products.find((item) => item.id === id || item.slug === id) ||
-        canonicalCatalog.find((item) => item.id === id || item.slug === id);
-
-      if (!product) {
-        return {
-          offers: [],
-          total: 0,
-          generatedAt: new Date().toISOString(),
-        };
-      }
-
-      const offers = (await listVisibleRawOfferRows())
-        .map(mapRawOffer)
-        .filter((offer) => resolveOfferProduct(offer, products.length ? products : canonicalCatalog).id === product.id)
-        .sort(comparePublicOffers);
-      const page = offers.slice(offset, offset + limit);
-
-      return {
-        offers: page,
-        total: offers.length,
-        limited: offers.length > offset + limit,
-        generatedAt: new Date().toISOString(),
-      };
-    } catch (error) {
-      console.warn("Falling back to cached product offers because Supabase read failed:", error);
-    }
+  if (!product) {
+    return {
+      offers: [],
+      total: 0,
+      generatedAt: publicData.generatedAt,
+    };
   }
 
-  const product = await getPublicProductGroup(id);
-  const offers = (product?.offers ?? []).filter(
-    (offer) => product && resolveOfferProduct(offer, canonicalCatalog).id === product.id,
-  ).sort(comparePublicOffers);
+  const offers = publicData.offers
+    .filter((offer) => resolveOfferProduct(offer, products).id === product.id)
+    .sort(comparePublicOffers);
   const total = offers.length;
   const page = offers.slice(offset, offset + limit);
 
@@ -865,7 +844,7 @@ async function loadPublicProductOffers(
     offers: page,
     total,
     limited: total > offset + limit,
-    generatedAt: new Date().toISOString(),
+    generatedAt: publicData.generatedAt,
   };
 }
 
