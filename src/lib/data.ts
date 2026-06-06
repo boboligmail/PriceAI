@@ -64,6 +64,18 @@ type PublicOfferData = {
   products: CanonicalProduct[];
 };
 
+type PublicOfferPageRow = Record<string, unknown> & {
+  total_count?: number | string | null;
+  product_id?: string | null;
+  product_slug?: string | null;
+  product_display_name?: string | null;
+  product_platform?: string | null;
+  product_type?: string | null;
+  product_spec?: string | null;
+  product_summary?: string | null;
+  product_updated_at?: string | null;
+};
+
 let publicOfferDataCache: { expiresAt: number; value: PublicOfferData } | null = null;
 let publicOfferDataPromise: Promise<PublicOfferData> | null = null;
 let explorerDataCache: { expiresAt: number; value: ExplorerData } | null = null;
@@ -276,6 +288,9 @@ export async function getExplorerData(): Promise<ExplorerData> {
 }
 
 async function buildExplorerData(): Promise<ExplorerData> {
+  const rpcData = await getExplorerDataFromDatabase();
+  if (rpcData) return rpcData;
+
   const publicData = await readPublicOfferData();
   const products = buildProductGroups(publicData.offers, publicData.products);
 
@@ -285,6 +300,26 @@ async function buildExplorerData(): Promise<ExplorerData> {
     products: products.map(toExplorerProductSummary),
     sources: [],
     offerTotal: publicData.offers.length,
+  };
+}
+
+async function getExplorerDataFromDatabase(): Promise<ExplorerData | null> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.rpc("list_public_product_summaries");
+  if (error) {
+    console.warn("Falling back to full public data because product summary RPC failed:", error.message);
+    return null;
+  }
+
+  const rows = ((data || []) as unknown as Record<string, unknown>[]);
+  return {
+    generatedAt: new Date().toISOString(),
+    configured: true,
+    products: rows.map(mapPublicProductSummaryRow),
+    sources: [],
+    offerTotal: rows.reduce((sum, row) => sum + Number(row.offer_count || 0), 0),
   };
 }
 
@@ -788,11 +823,11 @@ export async function getPublicProductGroup(id: string) {
 }
 
 export async function getPublicProductSummary(id: string) {
-  const explorerData = await getExplorerData();
-  const summary = explorerData.products.find((product) => product.id === id || product.slug === id);
+  const summary = await getPublicProductSummaryFromDatabase(id);
   if (summary) return summary;
 
-  return getPublicProductSummaryFromDatabase(id);
+  const explorerData = await getExplorerData();
+  return explorerData.products.find((product) => product.id === id || product.slug === id) || null;
 }
 
 async function getPublicProductSummaryFromDatabase(id: string): Promise<ExplorerProductSummary | null> {
@@ -847,6 +882,9 @@ async function loadPublicProductOffers(
   id: string,
   filters: Required<Pick<ProductOfferListFilters, "limit" | "offset">>,
 ) {
+  const rpcData = await getPublicProductOffersFromDatabase(id, filters);
+  if (rpcData) return rpcData;
+
   const { limit, offset } = filters;
   const publicData = await readPublicOfferData();
   const products = publicData.products.length ? publicData.products : canonicalCatalog;
@@ -876,7 +914,40 @@ async function loadPublicProductOffers(
   };
 }
 
+async function getPublicProductOffersFromDatabase(
+  id: string,
+  filters: Required<Pick<ProductOfferListFilters, "limit" | "offset">>,
+) {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.rpc("list_public_product_offers_page", {
+    p_product_id: id,
+    p_limit: filters.limit,
+    p_offset: filters.offset,
+  });
+
+  if (error) {
+    console.warn("Falling back to full public data because product offers RPC failed:", error.message);
+    return null;
+  }
+
+  const rows = ((data || []) as unknown as Record<string, unknown>[]);
+  const offers = rows.map(mapRawOffer);
+  const total = rows.length ? Number(rows[0].total_count || rows.length) : 0;
+
+  return {
+    offers,
+    total,
+    limited: total > filters.offset + filters.limit,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 export async function listPublicOffers(filters: OfferListFilters = {}) {
+  const rpcData = await listPublicOffersFromDatabase(filters);
+  if (rpcData) return rpcData;
+
   const publicData = await readPublicOfferData();
   const productGroups = buildProductGroups(publicData.offers, publicData.products).map(toExplorerProductSummary);
   const normalizedQuery = (filters.query || "").trim().toLowerCase();
@@ -950,6 +1021,43 @@ export async function listPublicOffers(filters: OfferListFilters = {}) {
   };
 }
 
+async function listPublicOffersFromDatabase(filters: OfferListFilters = {}) {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const limit = Math.min(Math.max(filters.limit || 80, 1), PUBLIC_OFFER_LIMIT);
+  const offset = Math.max(filters.offset || 0, 0);
+  const { data, error } = await supabase.rpc("list_public_offers_page", {
+    p_query: filters.query || null,
+    p_platform: filters.platform || null,
+    p_product_type: filters.productType || null,
+    p_stock: filters.stock || null,
+    p_sort: filters.sort || null,
+    p_min_price: filters.minPrice ?? null,
+    p_max_price: filters.maxPrice ?? null,
+    p_limit: limit,
+    p_offset: offset,
+  });
+
+  if (error) {
+    console.warn("Falling back to full public data because public offers RPC failed:", error.message);
+    return null;
+  }
+
+  const rows = ((data || []) as unknown as PublicOfferPageRow[]);
+  const total = rows.length ? Number(rows[0].total_count || rows.length) : 0;
+
+  return {
+    rows: rows.map((row) => ({
+      offer: compactPublicOffer(mapRawOffer(row)),
+      product: compactPublicProduct(mapPublicOfferProductRow(row)),
+    })),
+    total,
+    limited: total > offset + limit,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 function compactPublicOfferRow(row: { offer: RawOffer; product: ExplorerProductSummary }) {
   return {
     offer: compactPublicOffer(row.offer),
@@ -991,6 +1099,30 @@ function compactPublicProduct(product: ExplorerProductSummary): CanonicalProduct
     summary: product.summary,
     aliases: [],
     updatedAt: product.updatedAt,
+  };
+}
+
+function mapPublicOfferProductRow(row: PublicOfferPageRow): ExplorerProductSummary {
+  return {
+    id: String(row.product_id || row.canonical_product_id || "other-product"),
+    slug: String(row.product_slug || row.product_id || row.canonical_product_id || "other-product"),
+    displayName: String(row.product_display_name || row.product_slug || row.product_id || "其他商品"),
+    platform: String(row.product_platform || row.category_slug || "其他"),
+    productType: String(row.product_type || "其他"),
+    spec: String(row.product_spec || ""),
+    summary: String(row.product_summary || ""),
+    aliases: [],
+    updatedAt: row.product_updated_at ? String(row.product_updated_at) : null,
+    offerCount: Number(row.total_count || 0),
+    inStockCount: 0,
+    outOfStockCount: 0,
+    lowestPrice: null,
+    lowestPriceLabel: "",
+    lowestPriceTone: "muted",
+    lowestOffer: null,
+    latestSeenAt: null,
+    anomalyFlags: [],
+    offerSearchText: "",
   };
 }
 
