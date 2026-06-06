@@ -21,7 +21,8 @@
     "collect:browser": "node scripts/collect-browser.mjs",
     "reparse:submissions": "node scripts/reparse-submissions-local.mjs",
     "migrate:remote:freshness": "node scripts/apply-remote-migration.mjs",
-    "setup:ga4": "node scripts/setup-ga4.mjs"
+    "setup:ga4": "node scripts/setup-ga4.mjs",
+    "test:catalog": "node scripts/test-catalog.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.105.3",
