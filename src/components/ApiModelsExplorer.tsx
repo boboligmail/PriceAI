@@ -20,6 +20,8 @@ import { CategoryTabBar, CategoryTabStrip, type CategoryTabItem } from "@/compon
 import { SiteHeader } from "@/components/SiteHeader";
 import {
   apiProviderTypeLabels,
+  formatApiBillingMode,
+  formatApiDisplayText,
   formatApiPrice,
   formatPlanPrice,
   getApiModelOffers,
@@ -35,7 +37,7 @@ import {
   type ApiProviderType,
 } from "@/lib/api-models";
 
-const typeFilters = ["all", "official", "subscription", "router", "free"] as const;
+const typeFilters = ["all", "official", "subscription", "free"] as const;
 type TypeFilter = (typeof typeFilters)[number];
 type ScopeMode = "models" | "offers" | "providers";
 type FamilyFilter = "all" | string;
@@ -45,7 +47,6 @@ const typeFilterLabels: Record<TypeFilter, string> = {
   all: "全部类型",
   official: apiProviderTypeLabels.official,
   subscription: apiProviderTypeLabels.subscription,
-  router: apiProviderTypeLabels.router,
   free: apiProviderTypeLabels.free,
 };
 
@@ -217,7 +218,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
               </button>
             </div>
             <p className="mt-3 hidden max-w-[75ch] text-sm leading-7 text-[#5a6061] md:block">
-              按具体模型和正规公开渠道重新组织 API 信息。你可以先查某个模型有哪些官方 API、套餐或免费入口，也可以反过来查某个渠道或套餐覆盖哪些模型。
+              按具体模型和正规公开渠道重新组织 API 信息。你可以先查某个模型有哪些官方 API、Token Plan 或免费入口，也可以反过来查某个渠道覆盖哪些模型。
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-[0.72rem] font-medium text-[#5a6061]">
               <span>{dataset.source === "supabase" ? "数据库同步" : "人工维护样本"}：{formatDatasetDate(dataset.generatedAt)}</span>
@@ -351,7 +352,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
 
             <div className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-[#e4e9ea] px-4 text-sm font-semibold text-[#2d3435]">
               <ArrowUpDown size={17} />
-              {scopeMode === "models" ? "模型家族优先" : scopeMode === "offers" ? "模型与价格优先" : "官方/套餐优先"}
+              {scopeMode === "models" ? "模型家族优先" : scopeMode === "offers" ? "模型与价格优先" : "官方/Token Plan 优先"}
             </div>
 
             <button
@@ -409,7 +410,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
               <div>
                 <h2 id="api-submit-title" className="text-lg font-bold text-[#202829]">提交 API 渠道</h2>
                 <p className="mt-1 text-sm leading-6 text-[#5a6061]">
-                  每行一个链接，优先提交官方文档、价格页或公开套餐页。
+                  每行一个链接，优先提交官方文档、价格页或公开 Token Plan 页面。
                 </p>
               </div>
               <button
@@ -431,7 +432,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
                   onChange={(event) => setSubmitUrls(event.target.value)}
                   rows={5}
                   required
-                  placeholder={"https://openrouter.ai/models\nhttps://api-docs.deepseek.com/quick_start/pricing/"}
+                  placeholder={"https://api-docs.deepseek.com/quick_start/pricing/\nhttps://bigmodel.cn/pricing"}
                   className="w-full resize-y rounded-lg border border-[#adb3b4]/30 bg-white px-3 py-2 text-sm leading-6 text-[#202829] outline-none transition placeholder:text-[#9aa2a3] focus:border-[#2d3435]"
                 />
               </label>
@@ -459,7 +460,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
                   value={submitNotes}
                   onChange={(event) => setSubmitNotes(event.target.value)}
                   rows={3}
-                  placeholder="模型覆盖、免费额度或套餐说明"
+                  placeholder="模型覆盖、免费额度或 Token Plan 说明"
                   className="w-full resize-y rounded-lg border border-[#adb3b4]/30 bg-white px-3 py-2 text-sm leading-6 text-[#202829] outline-none transition placeholder:text-[#9aa2a3] focus:border-[#2d3435]"
                 />
               </label>
@@ -530,13 +531,13 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
       ) : providerSummaries.length ? (
         <ApiProviderSummaryTable summaries={providerSummaries} currency={currency} />
       ) : (
-        <EmptyState text="没有符合条件的渠道或套餐" />
+        <EmptyState text="没有符合条件的渠道或 Token Plan" />
       )}
 
       <section className="mt-6 rounded-lg bg-[#fff7e8] p-5 text-sm leading-7 text-[#7a541b] ring-1 ring-[#efdfbd]">
-        <p className="font-semibold text-[#7a541b]">套餐折算提示</p>
+        <p className="font-semibold text-[#7a541b]">Token Plan 折算提示</p>
         <p className="mt-1">
-          订阅型 API 套餐需要同时看月费、模型覆盖、请求窗口、额度刷新和用途限制。比如 OpenCode Go 有低月费和多模型覆盖，但仍然有 5 小时、每周、每月的额度窗口。
+          Token Plan 需要同时看月费、模型覆盖、请求窗口、额度刷新和用途限制。比如 OpenCode Go 有低月费和多模型覆盖，但仍然有 5 小时、每周、每月的额度窗口。
         </p>
       </section>
 
@@ -561,7 +562,7 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
               <TableHead>输入价</TableHead>
               <TableHead>输出价</TableHead>
               <TableHead>缓存价</TableHead>
-              <TableHead>套餐/免费额度</TableHead>
+              <TableHead>Token Plan/免费额度</TableHead>
               <TableHead>限制</TableHead>
               <TableHead>来源</TableHead>
               <TableHead>更新时间</TableHead>
@@ -590,7 +591,7 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
                       <ApiProviderIcon provider={offer.provider} />
                       <span className="min-w-0">
                         <span className="block truncate font-semibold text-[#202829] group-hover:text-[#2f7a4b]">{offer.provider.name}</span>
-                        <span className="mt-1 block truncate text-xs text-[#5a6061]">{offer.provider.billingMode}</span>
+                        <span className="mt-1 block truncate text-xs text-[#5a6061]">{formatApiBillingMode(offer.provider.billingMode)}</span>
                       </span>
                     </Link>
                   </td>
@@ -607,8 +608,8 @@ function ApiOfferTable({ rows, currency }: { rows: ApiModelOfferWithRelations[];
                     <p className="font-semibold leading-6 text-[#202829]">{offer.cacheReadPrice ? formatApiPrice(offer.cacheReadPrice, currency) : "待确认"}</p>
                     {offer.cacheWritePrice ? <p className="mt-1 text-xs leading-5 text-[#5a6061]">写入：{formatApiPrice(offer.cacheWritePrice, currency)}</p> : null}
                   </td>
-                  <td className="max-w-[260px] px-5 py-4 text-sm leading-6 text-[#2d3435]">{offer.freeOrPlan}</td>
-                  <td className="max-w-[280px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{offer.limitSummary}</td>
+                  <td className="max-w-[260px] px-5 py-4 text-sm leading-6 text-[#2d3435]">{formatApiDisplayText(offer.freeOrPlan)}</td>
+                  <td className="max-w-[280px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(offer.limitSummary)}</td>
                   <td className="px-5 py-4">
                     <a
                       href={sourceHref}
@@ -649,7 +650,7 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
               <TableHead>标准模型</TableHead>
               <TableHead>官方/参考入口</TableHead>
               <TableHead>渠道覆盖</TableHead>
-              <TableHead>价格/套餐</TableHead>
+              <TableHead>价格/Token Plan</TableHead>
               <TableHead>限制</TableHead>
               <TableHead>最近更新</TableHead>
               <TableHead className="w-[120px] text-center">操作</TableHead>
@@ -679,7 +680,7 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
                   <td className="max-w-[270px] px-5 py-4">
                     <span className="block truncate font-semibold text-[#202829]">{primaryOffer?.provider.name || summary.model.sourceLabel}</span>
                     <span className="mt-1 block truncate text-xs text-[#5a6061]">
-                      {primaryOffer ? `${formatApiPrice(primaryOffer.inputPrice, currency)} · ${primaryOffer.billingMode}` : "暂无价格，保留来源"}
+                      {primaryOffer ? `${formatApiPrice(primaryOffer.inputPrice, currency)} · ${formatApiBillingMode(primaryOffer.billingMode)}` : "暂无价格，保留来源"}
                     </span>
                   </td>
                   <td className="px-5 py-4">
@@ -687,16 +688,16 @@ function ApiModelSummaryTable({ summaries, currency }: { summaries: ApiModelSumm
                       <CountBadge tone="neutral">渠道 {summary.providerCount}</CountBadge>
                       <CountBadge tone="good">官方 {summary.officialCount}</CountBadge>
                       <CountBadge tone="warn">免费 {summary.freeCount}</CountBadge>
-                      <CountBadge tone="neutral">套餐 {summary.planCount}</CountBadge>
+                      <CountBadge tone="neutral">Token Plan {summary.planCount}</CountBadge>
                     </div>
                   </td>
                   <td className="max-w-[240px] px-5 py-4">
                     <p className="font-semibold leading-6 text-[#202829]">
                       {primaryOffer ? formatApiPrice(primaryOffer.inputPrice, currency) : "暂无价格"}
                     </p>
-                    <p className="mt-1 text-xs leading-5 text-[#5a6061]">{primaryOffer?.freeOrPlan ?? "保留来源，等待补充报价"}</p>
+                    <p className="mt-1 text-xs leading-5 text-[#5a6061]">{primaryOffer ? formatApiDisplayText(primaryOffer.freeOrPlan) : "保留来源，等待补充报价"}</p>
                   </td>
-                  <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{primaryOffer?.limitSummary ?? "未公开固定 RPM/TPM，以官方控制台为准。"}</td>
+                  <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{primaryOffer ? formatApiDisplayText(primaryOffer.limitSummary) : "未公开固定 RPM/TPM，以官方控制台为准。"}</td>
                   <td className="px-5 py-4 text-[#5a6061]">{summary.latestUpdatedAt}</td>
                   <td className="w-[120px] px-5 py-4 text-center">
                     <Link
@@ -724,10 +725,10 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
         <table className="min-w-[1120px] w-full border-collapse text-left text-sm">
           <thead className="bg-[#f2f4f4] text-[0.68rem] font-semibold text-[#5a6061]">
             <tr>
-              <TableHead>渠道/套餐</TableHead>
+              <TableHead>渠道/Token Plan</TableHead>
               <TableHead>类型</TableHead>
               <TableHead>模型覆盖</TableHead>
-              <TableHead>价格/套餐</TableHead>
+              <TableHead>价格/Token Plan</TableHead>
               <TableHead>限制</TableHead>
               <TableHead>最近更新</TableHead>
               <TableHead className="w-[120px] text-center">操作</TableHead>
@@ -745,7 +746,7 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
                       <ApiProviderIcon provider={provider} />
                       <span className="min-w-0">
                         <span className="block truncate font-semibold text-[#202829] group-hover:text-[#2f7a4b]">{provider.name}</span>
-                        <span className="mt-1 block truncate text-xs text-[#5a6061]">{provider.description}</span>
+                        <span className="mt-1 block truncate text-xs text-[#5a6061]">{formatApiDisplayText(provider.description)}</span>
                       </span>
                     </Link>
                   </td>
@@ -760,13 +761,13 @@ function ApiProviderSummaryTable({ summaries, currency }: { summaries: ApiProvid
                     {summary.primaryPlan ? (
                       <>
                         <p className="font-semibold leading-6 text-[#202829]">{formatPlanPrice(summary.primaryPlan, currency)}</p>
-                        <p className="mt-1 text-xs leading-5 text-[#5a6061]">{summary.primaryPlan.quotaSummary}</p>
+                        <p className="mt-1 text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(summary.primaryPlan.quotaSummary)}</p>
                       </>
                     ) : (
-                      <p className="text-sm leading-6 text-[#5a6061]">{provider.billingMode}</p>
+                      <p className="text-sm leading-6 text-[#5a6061]">{formatApiBillingMode(provider.billingMode)}</p>
                     )}
                   </td>
-                  <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{summary.primaryPlan?.limitSummary ?? provider.limitSummary}</td>
+                  <td className="max-w-[270px] px-5 py-4 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(summary.primaryPlan?.limitSummary ?? provider.limitSummary)}</td>
                   <td className="px-5 py-4 text-[#5a6061]">{summary.latestUpdatedAt}</td>
                   <td className="w-[120px] px-5 py-4 text-center">
                     <Link
@@ -1016,15 +1017,15 @@ function scopeCountLabel(scopeMode: ScopeMode) {
   return {
     models: "个标准模型",
     offers: "条报价明细",
-    providers: "个渠道/套餐",
+    providers: "个渠道/Token Plan",
   }[scopeMode];
 }
 
 function searchPlaceholder(scopeMode: ScopeMode) {
   return {
     models: "搜索 DeepSeek V4、Qwen3.7、Kimi K2.6",
-    offers: "搜索模型、渠道、套餐或限制",
-    providers: "搜索 OpenCode Go、OpenRouter、官方 API",
+    offers: "搜索模型、渠道、Token Plan 或限制",
+    providers: "搜索 OpenCode Go、Kimi Code、官方 API",
   }[scopeMode];
 }
 

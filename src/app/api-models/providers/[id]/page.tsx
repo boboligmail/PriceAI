@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { SiteHeader } from "@/components/SiteHeader";
 import {
   apiProviderTypeLabels,
+  formatApiDisplayText,
   formatApiPrice,
   formatPlanPrice,
   getApiModelOffersByProvider,
@@ -38,13 +39,13 @@ export async function generateMetadata({
 
   return {
     title: `${summary.provider.name} API 模型覆盖`,
-    description: `查看 ${summary.provider.name} 覆盖的 API 模型、套餐、价格和限制。`,
+    description: `查看 ${summary.provider.name} 覆盖的 API 模型、Token Plan、价格和限制。`,
     alternates: {
       canonical: `/api-models/providers/${id}`,
     },
     openGraph: {
       title: `${summary.provider.name} API 模型覆盖`,
-      description: `对比 ${summary.provider.name} 的公开模型、套餐和限制。`,
+      description: `对比 ${summary.provider.name} 的公开模型、Token Plan 和限制。`,
       url: `https://priceai.cc/api-models/providers/${id}`,
     },
   };
@@ -98,8 +99,8 @@ export default async function ApiProviderDetailPage({
                   {provider.name}
                 </h1>
               </div>
-              <p className="mt-4 max-w-[75ch] text-sm leading-7 text-[#5a6061]">{provider.description}</p>
-              <p className="mt-3 max-w-[75ch] text-sm leading-7 text-[#7a541b]">{provider.limitations}</p>
+              <p className="mt-4 max-w-[75ch] text-sm leading-7 text-[#5a6061]">{formatApiDisplayText(provider.description)}</p>
+              <p className="mt-3 max-w-[75ch] text-sm leading-7 text-[#7a541b]">{formatApiDisplayText(provider.limitations)}</p>
               <a
                 href={provider.pricingUrl ?? provider.url}
                 target="_blank"
@@ -114,7 +115,7 @@ export default async function ApiProviderDetailPage({
             <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-4">
               <Metric label="模型覆盖" value={`${summary.modelCount}`} />
               <Metric label="报价明细" value={`${summary.offerCount}`} />
-              <Metric label="套餐" value={`${summary.planCount}`} />
+              <Metric label="Token Plan" value={`${summary.planCount}`} />
               <Metric label="类型" value={apiProviderTypeLabels[provider.type]} />
             </div>
           </div>
@@ -123,8 +124,8 @@ export default async function ApiProviderDetailPage({
         {plans.length ? (
           <section className="mt-8">
             <div className="mb-3">
-              <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">套餐与额度</h2>
-              <p className="mt-2 text-sm text-[#5a6061]">先看这个渠道的套餐口径，再决定是否适合你的调用方式。</p>
+              <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">Token Plan 与额度</h2>
+              <p className="mt-2 text-sm text-[#5a6061]">先看这个渠道的 Token Plan 口径，再决定是否适合你的调用方式。</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {plans.map((plan) => (
@@ -157,7 +158,7 @@ export default async function ApiProviderDetailPage({
                   <TableHead>输入价</TableHead>
                   <TableHead>输出价</TableHead>
                   <TableHead>缓存读/写</TableHead>
-                  <TableHead>免费/套餐额度</TableHead>
+                  <TableHead>免费/Token Plan 额度</TableHead>
                   <TableHead>限制</TableHead>
                   <TableHead>来源</TableHead>
                   <TableHead>更新时间</TableHead>
@@ -191,10 +192,10 @@ function PlanPanel({ plan, currency }: { plan: ApiPlan; currency: ApiCurrency })
         <TypeChip type={plan.type} />
       </div>
       <p className="mt-4 text-sm font-semibold text-[#202829]">{formatPlanPrice(plan, currency)}</p>
-      <p className="mt-2 text-sm leading-6 text-[#5a6061]">{plan.quotaSummary}</p>
-      <p className="mt-1 text-sm leading-6 text-[#5a6061]">{plan.resetSummary}</p>
-      <p className="mt-3 text-xs leading-5 text-[#7a541b]">{plan.limitSummary}</p>
-      {plan.coverageLabel ? <p className="mt-2 text-xs leading-5 text-[#5a6061]">{plan.coverageLabel}</p> : null}
+      <p className="mt-2 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(plan.quotaSummary)}</p>
+      <p className="mt-1 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(plan.resetSummary)}</p>
+      <p className="mt-3 text-xs leading-5 text-[#7a541b]">{formatApiDisplayText(plan.limitSummary)}</p>
+      {plan.coverageLabel ? <p className="mt-2 text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(plan.coverageLabel)}</p> : null}
       <a
         href={plan.url}
         target="_blank"
@@ -235,11 +236,11 @@ function ApiOfferRow({ offer, currency }: { offer: ApiModelOfferWithRelations; c
         {offer.cacheWritePrice ? <p className="mt-1 max-w-[210px] text-xs leading-5 text-[#5a6061]">写入：{formatApiPrice(offer.cacheWritePrice, currency)}</p> : null}
       </td>
       <td className="px-5 py-4">
-        <p className="max-w-[250px] text-sm leading-6 text-[#2d3435]">{offer.freeOrPlan}</p>
-        {offer.notes ? <p className="mt-1 max-w-[250px] text-xs leading-5 text-[#5a6061]">{offer.notes}</p> : null}
+        <p className="max-w-[250px] text-sm leading-6 text-[#2d3435]">{formatApiDisplayText(offer.freeOrPlan)}</p>
+        {offer.notes ? <p className="mt-1 max-w-[250px] text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(offer.notes)}</p> : null}
       </td>
       <td className="px-5 py-4">
-        <p className="max-w-[270px] text-sm leading-6 text-[#5a6061]">{offer.limitSummary}</p>
+        <p className="max-w-[270px] text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(offer.limitSummary)}</p>
       </td>
       <td className="px-5 py-4">
         <a

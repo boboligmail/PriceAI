@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   apiProviderCandidates,
+  getPublicApiModelDataset,
   staticApiModelDataset,
   type ApiBillingMode,
   type ApiModel,
@@ -305,7 +306,7 @@ export async function getApiModelAdminData(): Promise<ApiModelAdminData> {
 
 async function readApiModelDataset(): Promise<ApiModelDataset> {
   const supabase = getSupabaseServerClient();
-  if (!supabase) return staticApiModelDataset;
+  if (!supabase) return getPublicApiModelDataset(staticApiModelDataset);
 
   try {
     const [familiesResult, modelsResult, providersResult, plansResult, planModelsResult, offersResult] = await Promise.all([
@@ -351,10 +352,10 @@ async function readApiModelDataset(): Promise<ApiModelDataset> {
     const offerRows = dbRows(offersResult.data);
 
     if (!familyRows.length || !modelRows.length || !providerRows.length || !offerRows.length) {
-      return {
+      return getPublicApiModelDataset({
         ...staticApiModelDataset,
         source: "static",
-      };
+      });
     }
 
     const familyNameById = new Map(familyRows.map((row) => [stringValue(row.id), stringValue(row.name)]));
@@ -384,13 +385,13 @@ async function readApiModelDataset(): Promise<ApiModelDataset> {
       .filter((offer): offer is ApiModelOffer => Boolean(offer));
 
     if (!models.length || !providers.length || !offers.length) {
-      return {
+      return getPublicApiModelDataset({
         ...staticApiModelDataset,
         source: "static",
-      };
+      });
     }
 
-    return {
+    return getPublicApiModelDataset({
       source: "supabase",
       generatedAt: latestDate([
         ...models.map((model) => model.updatedAt),
@@ -403,13 +404,13 @@ async function readApiModelDataset(): Promise<ApiModelDataset> {
       providers,
       plans,
       offers,
-    };
+    });
   } catch (error) {
     console.warn("Falling back to static API model data because Supabase read failed:", error);
-    return {
+    return getPublicApiModelDataset({
       ...staticApiModelDataset,
       source: "static",
-    };
+    });
   }
 }
 

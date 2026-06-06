@@ -165,15 +165,47 @@ export const apiProviderTypeLabels: Record<ApiProviderType, string> = {
   official: "官方 API",
   router: "模型路由",
   free: "免费/测试",
-  subscription: "订阅套餐",
+  subscription: "Token Plan",
 };
 
 export const apiProviderTypeDescriptions: Record<ApiProviderType, string> = {
   official: "厂商官方或云厂商公开 API，适合做价格基准。",
   router: "公开模型路由平台，重点看模型覆盖、价格变化和限流口径。",
   free: "免费或测试用途入口，必须同时关注限流、排队和可用性。",
-  subscription: "按月订阅的 API 套餐，需要看额度、短周期限制和使用边界。",
+  subscription: "按月或周期购买 Token/请求额度的 API 套餐，需要看额度、短周期限制和使用边界。",
 };
+
+export const hiddenPublicApiProviderIds = new Set([
+  "openrouter",
+  "baidu-qianfan",
+  "huaweicloud-modelarts-maas",
+  "jdcloud-joyai",
+  "unicom-yuanjing",
+]);
+
+export function isPublicApiProvider(provider: ApiProvider) {
+  return provider.type !== "router" && !hiddenPublicApiProviderIds.has(provider.id);
+}
+
+export function getPublicApiModelDataset(dataset: ApiModelDataset): ApiModelDataset {
+  const providers = dataset.providers.filter(isPublicApiProvider);
+  const providerIds = new Set(providers.map((provider) => provider.id));
+  const offers = dataset.offers.filter((offer) => providerIds.has(offer.providerId));
+  const plans = dataset.plans.filter((plan) => providerIds.has(plan.providerId));
+  const visibleModelIds = new Set([
+    ...offers.map((offer) => offer.modelId),
+    ...plans.flatMap((plan) => plan.modelIds),
+  ]);
+  const models = dataset.models.filter((model) => visibleModelIds.has(model.id));
+
+  return {
+    ...dataset,
+    models,
+    providers,
+    plans,
+    offers,
+  };
+}
 
 export const apiProviderCandidates = [
   {
@@ -1425,6 +1457,18 @@ export function formatPlanPrice(plan: ApiPlan, currency: ApiCurrency) {
   if (typeof plan.priceCnyMonthly === "number") return `${formatCnyAmount(plan.priceCnyMonthly, currency)}/月 · ${plan.priceLabel}`;
   if (typeof plan.priceUsdMonthly !== "number") return plan.priceLabel;
   return `${formatUsdAmount(plan.priceUsdMonthly, currency)}/月 · ${plan.priceLabel}`;
+}
+
+export function formatApiBillingMode(value: ApiBillingMode) {
+  if (value === "订阅套餐") return "Token Plan";
+  return value;
+}
+
+export function formatApiDisplayText(value: string) {
+  return value
+    .replaceAll("订阅型 API 套餐", "Token Plan")
+    .replaceAll("月订阅套餐", "月费 Token Plan")
+    .replaceAll("订阅套餐", "Token Plan");
 }
 
 export function getApiModelFamilyOptions(dataset: ApiModelDataset = staticApiModelDataset): ApiModelFamilyOption[] {

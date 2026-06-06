@@ -6,6 +6,8 @@ import { ApiModelIcon } from "@/components/ApiModelIcon";
 import { SiteHeader } from "@/components/SiteHeader";
 import {
   apiProviderTypeLabels,
+  formatApiBillingMode,
+  formatApiDisplayText,
   formatApiPrice,
   formatPlanPrice,
   getApiModelOffersByModel,
@@ -38,7 +40,7 @@ export async function generateMetadata({
 
   return {
     title: `${summary.displayName} API 渠道`,
-    description: `查看 ${summary.displayName} 的官方 API、模型路由、免费测试和订阅套餐入口。`,
+    description: `查看 ${summary.displayName} 的官方 API、Token Plan 和免费测试入口。`,
     alternates: {
       canonical: `/api-models/${id}`,
     },
@@ -100,7 +102,7 @@ export default async function ApiModelDetailPage({
               <Metric label="渠道报价" value={`${summary.offerCount}`} />
               <Metric label="来源渠道" value={`${summary.providerCount}`} />
               <Metric label="官方 API" value={`${summary.officialCount}`} />
-              <Metric label="套餐" value={`${summary.planCount}`} />
+              <Metric label="Token Plan" value={`${summary.planCount}`} />
             </div>
           </div>
         </section>
@@ -108,8 +110,8 @@ export default async function ApiModelDetailPage({
         {plans.length ? (
           <section className="mt-8">
             <div className="mb-3">
-              <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">可用套餐</h2>
-              <p className="mt-2 text-sm text-[#5a6061]">套餐不是单纯最低价，需要同时看额度、刷新周期和用途边界。</p>
+              <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">可用 Token Plan</h2>
+              <p className="mt-2 text-sm text-[#5a6061]">Token Plan 不是单纯最低价，需要同时看额度、刷新周期和用途边界。</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-2">
               {plans.map((plan) => (
@@ -143,7 +145,7 @@ export default async function ApiModelDetailPage({
                   <TableHead>输入价</TableHead>
                   <TableHead>输出价</TableHead>
                   <TableHead>缓存读/写</TableHead>
-                  <TableHead>免费/套餐额度</TableHead>
+                  <TableHead>免费/Token Plan 额度</TableHead>
                   <TableHead>限制</TableHead>
                   <TableHead>来源</TableHead>
                   <TableHead>更新时间</TableHead>
@@ -177,9 +179,9 @@ function PlanPanel({ plan, currency }: { plan: ApiPlan; currency: ApiCurrency })
         <TypeChip type={plan.type} />
       </div>
       <p className="mt-4 text-sm font-semibold text-[#202829]">{formatPlanPrice(plan, currency)}</p>
-      <p className="mt-2 text-sm leading-6 text-[#5a6061]">{plan.quotaSummary}</p>
-      <p className="mt-1 text-sm leading-6 text-[#5a6061]">{plan.resetSummary}</p>
-      <p className="mt-3 text-xs leading-5 text-[#7a541b]">{plan.limitSummary}</p>
+      <p className="mt-2 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(plan.quotaSummary)}</p>
+      <p className="mt-1 text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(plan.resetSummary)}</p>
+      <p className="mt-3 text-xs leading-5 text-[#7a541b]">{formatApiDisplayText(plan.limitSummary)}</p>
       <a
         href={plan.url}
         target="_blank"
@@ -206,7 +208,7 @@ function ApiOfferRow({ offer, currency }: { offer: ApiModelOfferWithRelations; c
           {offer.provider.name}
           <ChevronRight size={13} className="shrink-0" />
         </Link>
-        <p className="mt-1 text-xs text-[#5a6061]">{offer.billingMode}</p>
+        <p className="mt-1 text-xs text-[#5a6061]">{formatApiBillingMode(offer.billingMode)}</p>
       </td>
       <td className="px-5 py-4">
         <TypeChip type={offer.provider.type} />
@@ -227,11 +229,11 @@ function ApiOfferRow({ offer, currency }: { offer: ApiModelOfferWithRelations; c
         {offer.cacheWritePrice ? <p className="mt-1 max-w-[210px] text-xs leading-5 text-[#5a6061]">写入：{formatApiPrice(offer.cacheWritePrice, currency)}</p> : null}
       </td>
       <td className="px-5 py-4">
-        <p className="max-w-[250px] text-sm leading-6 text-[#2d3435]">{offer.freeOrPlan}</p>
-        {offer.notes ? <p className="mt-1 max-w-[250px] text-xs leading-5 text-[#5a6061]">{offer.notes}</p> : null}
+        <p className="max-w-[250px] text-sm leading-6 text-[#2d3435]">{formatApiDisplayText(offer.freeOrPlan)}</p>
+        {offer.notes ? <p className="mt-1 max-w-[250px] text-xs leading-5 text-[#5a6061]">{formatApiDisplayText(offer.notes)}</p> : null}
       </td>
       <td className="px-5 py-4">
-        <p className="max-w-[270px] text-sm leading-6 text-[#5a6061]">{offer.limitSummary}</p>
+        <p className="max-w-[270px] text-sm leading-6 text-[#5a6061]">{formatApiDisplayText(offer.limitSummary)}</p>
       </td>
       <td className="px-5 py-4">
         <a
