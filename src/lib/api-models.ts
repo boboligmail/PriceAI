@@ -650,13 +650,27 @@ export const apiProviders: ApiProvider[] = [
     name: "OpenCode Go",
     type: "subscription",
     billingMode: "订阅套餐",
-    url: "https://opencode.ai/",
+    url: "https://opencode.ai/go?ref=22QZ8PAKGD",
     pricingUrl: "https://dev.opencode.ai/docs/go/",
     logoUrl: "/brand-icons/opencode.png",
     description: "OpenCode 面向开放编码模型的低价订阅套餐，提供多模型 API endpoint。",
     limitSummary: "$12/5h · $30/week · $60/month 用量窗口。",
     limitations: "请求数取决于模型消耗；有 5 小时、每周、每月额度窗口，不能当作无限 API。",
     sourceLabel: "OpenCode Go Docs",
+    updatedAt: apiModelUpdatedAt,
+  },
+  {
+    id: "opencode-zen",
+    name: "OpenCode Zen",
+    type: "free",
+    billingMode: "免费/测试",
+    url: "https://opencode.ai/zh/zen",
+    pricingUrl: "https://opencode.ai/docs/zh-cn/zen/",
+    logoUrl: "/brand-icons/opencode.png",
+    description: "OpenCode Zen 面向 Coding Agent 精选模型，包含按量模型和不定期开放的限时免费模型。",
+    limitSummary: "部分 Free 模型限时免费；其他模型按 $/1M tokens 计费，以 Zen 文档和模型接口为准。",
+    limitations: "免费模型会不定期调整；部分免费端点可能用于模型反馈或产品改进，不适合提交敏感数据。",
+    sourceLabel: "OpenCode Zen Docs",
     updatedAt: apiModelUpdatedAt,
   },
   {
@@ -685,6 +699,20 @@ export const apiProviders: ApiProvider[] = [
     limitSummary: "未公开固定 RPM/TPM，以 API Catalog 为准。",
     limitations: "免费访问主要面向开发测试和原型，模型列表、限速和可用性会变化。",
     sourceLabel: "NVIDIA NIM",
+    updatedAt: apiModelUpdatedAt,
+  },
+  {
+    id: "modelscope-api-inference",
+    name: "ModelScope API Inference / 魔搭社区",
+    type: "free",
+    billingMode: "免费/测试",
+    url: "https://modelscope.cn/",
+    pricingUrl: "https://modelscope.cn/docs/model-service/API-Inference/limits",
+    logoUrl: "/brand-icons/modelscope.png",
+    description: "魔搭社区 API-Inference 将开源模型标准化为 API 接口，适合个人开发者做免费额度内的模型调用和原型验证。",
+    limitSummary: "常见口径为每日约 2,000 次免费调用；单模型额度和并发会动态调整，以 API 使用情况页为准。",
+    limitations: "免费服务不适合作为生产 SLA；达到限制会返回 429，模型覆盖和单模型额度会随平台策略变化。",
+    sourceLabel: "ModelScope API-Inference 使用限制",
     updatedAt: apiModelUpdatedAt,
   },
   {
@@ -894,7 +922,7 @@ export const apiPlans: ApiPlan[] = [
     type: "subscription",
     priceLabel: "$5 首月，之后 $10/月",
     priceUsdMonthly: 10,
-    url: "https://dev.opencode.ai/docs/go/",
+    url: "https://opencode.ai/go?ref=22QZ8PAKGD",
     quotaSummary: "5 小时 $12、每周 $30、每月 $60 的用量窗口。",
     resetSummary: "短周期额度按 OpenCode Go 规则滚动或周期刷新。",
     limitSummary: "$12/5h · $30/week · $60/month 用量窗口。",
@@ -916,6 +944,66 @@ export const apiPlans: ApiPlan[] = [
     compatibility: ["OpenAI-compatible", "Anthropic-compatible", "Coding Agent", "中文模型"],
     suitableTools: ["OpenCode", "Codex", "Cursor", "Claude Code"],
     sourceLabel: "OpenCode Go Docs",
+    updatedAt: apiModelUpdatedAt,
+  },
+  {
+    id: "opencode-zen-free",
+    providerId: "opencode-zen",
+    providerName: "OpenCode Zen",
+    name: "OpenCode Zen Free / PAYG",
+    type: "free",
+    priceLabel: "部分模型限时免费，其余按量计费",
+    url: "https://opencode.ai/zh/zen",
+    quotaSummary: "Zen 当前提供若干限时 Free 模型，同时保留按 $/1M tokens 计费的精选模型。",
+    resetSummary: "免费模型、可用模型和价格不定期更新，以 Zen 模型接口和文档为准。",
+    limitSummary: "限时 Free 模型免费；付费模型按 Zen 当前价格表计费。",
+    limitations: "免费模型可能用于收集反馈或产品改进，不适合提交个人、商业或机密数据。",
+    modelIds: [
+      "deepseek-v4-flash",
+      "qwen3-7-max",
+      "qwen3-7-plus",
+      "qwen3-6-plus",
+      "qwen3-5-plus",
+      "kimi-k2-6",
+      "kimi-k2-5",
+      "glm-5-1",
+      "glm-5",
+      "minimax-m2-7",
+      "minimax-m2-5",
+      "mimo-v2-5",
+    ],
+    coverageLabel: "官方 Zen 文档当前列出 DeepSeek V4 Flash Free、MiMo-V2.5 Free、Nemotron 3 Ultra Free、Big Pickle 等限时免费模型。",
+    compatibility: ["OpenAI-compatible", "Anthropic-compatible", "Coding Agent", "免费/测试", "中文模型"],
+    suitableTools: ["OpenCode", "Codex", "Cursor", "Claude Code", "Open WebUI"],
+    sourceLabel: "OpenCode Zen Docs",
+    updatedAt: apiModelUpdatedAt,
+  },
+  {
+    id: "modelscope-api-inference-free",
+    providerId: "modelscope-api-inference",
+    providerName: "ModelScope API Inference / 魔搭社区",
+    name: "ModelScope API-Inference 免费额度",
+    type: "free",
+    priceLabel: "免费额度内调用",
+    url: "https://modelscope.cn/docs/model-service/API-Inference/limits",
+    quotaSummary: "每日总免费调用约 2,000 次，单模型通常有独立上限，具体以 API 使用情况页为准。",
+    resetSummary: "按自然日重置，超限后通常返回 429。",
+    limitSummary: "每日约 2,000 次；单模型动态限流最高约 500 次。",
+    limitations: "需要 ModelScope 账号和访问令牌，部分模型需要绑定阿里云账号；免费额度和模型覆盖会动态调整。",
+    modelIds: [
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "glm-5-1",
+      "glm-5",
+      "kimi-k2-5",
+      "minimax-m2-7",
+      "minimax-m2-5",
+      "step-3-7-flash",
+    ],
+    coverageLabel: "用户实测覆盖 DeepSeek V4 Pro/Flash、GLM-5.1/5、Kimi K2.5、MiniMax M2.7/M2.5、Step 3.7 Flash 等。",
+    compatibility: ["OpenAI-compatible", "免费/测试", "中文模型", "前沿开源模型"],
+    suitableTools: ["Codex", "Qwen Code", "OpenCode", "Open WebUI", "Cherry Studio"],
+    sourceLabel: "ModelScope API-Inference 使用限制",
     updatedAt: apiModelUpdatedAt,
   },
   {
@@ -1543,6 +1631,8 @@ export const apiModelOffers: ApiModelOffer[] = [
     pricingUrl: "https://platform.stepfun.com/docs/zh/guides/pricing/details",
   }),
   ...opencodeGoOffers(),
+  ...opencodeZenOffers(),
+  ...modelScopeApiInferenceOffers(),
   ...alibabaCodingPlanOffers(),
   ...openRouterOffers(),
   ...awesomeCodingPlanReferenceOffers(),
@@ -2029,6 +2119,120 @@ function opencodeGoOffers(): ApiModelOffer[] {
       outputPrice: usd(1.2),
       cacheReadPrice: usd(0.06),
       cacheWritePrice: usd(0.375),
+    }),
+  ];
+}
+
+function opencodeZenOffers(): ApiModelOffer[] {
+  const shared = {
+    inputPrice: textPrice("Zen 当前限时 Free 或按量价格表"),
+    outputPrice: textPrice("Zen 当前限时 Free 或按量价格表"),
+    cacheReadPrice: textPrice("以 Zen 文档当前价格表为准"),
+    freeOrPlan: "Zen 精选模型入口，部分模型限时免费，其余按量计费。",
+    limitations: "免费模型会不定期变化；Free 模型可能用于反馈收集或产品改进，不适合提交敏感数据。",
+    compatibility: ["OpenAI-compatible", "Coding Agent", "免费/测试", "中文模型"],
+    sourceLabel: "OpenCode Zen Docs",
+    pricingUrl: "https://opencode.ai/docs/zh-cn/zen/",
+    suitableTools: ["OpenCode", "Codex", "Cursor", "Claude Code", "Open WebUI"],
+  };
+
+  return [
+    offer("opencode-zen-deepseek-flash-free", "deepseek-v4-flash", "opencode-zen", {
+      ...shared,
+      routeModelId: "deepseek-v4-flash-free",
+      inputPrice: textPrice("Free"),
+      outputPrice: textPrice("Free"),
+      cacheReadPrice: textPrice("Free"),
+      freeOrPlan: "OpenCode Zen 当前限时免费模型。",
+    }),
+    offer("opencode-zen-qwen36-plus", "qwen3-6-plus", "opencode-zen", {
+      ...shared,
+      routeModelId: "qwen3.6-plus",
+    }),
+    offer("opencode-zen-qwen35-plus", "qwen3-5-plus", "opencode-zen", {
+      ...shared,
+      routeModelId: "qwen3.5-plus",
+    }),
+    offer("opencode-zen-kimi-k26", "kimi-k2-6", "opencode-zen", {
+      ...shared,
+      routeModelId: "kimi-k2.6",
+    }),
+    offer("opencode-zen-kimi-k25", "kimi-k2-5", "opencode-zen", {
+      ...shared,
+      routeModelId: "kimi-k2.5",
+    }),
+    offer("opencode-zen-glm51", "glm-5-1", "opencode-zen", {
+      ...shared,
+      routeModelId: "glm-5.1",
+    }),
+    offer("opencode-zen-glm5", "glm-5", "opencode-zen", {
+      ...shared,
+      routeModelId: "glm-5",
+    }),
+    offer("opencode-zen-minimax-m27", "minimax-m2-7", "opencode-zen", {
+      ...shared,
+      routeModelId: "minimax-m2.7",
+    }),
+    offer("opencode-zen-minimax-m25", "minimax-m2-5", "opencode-zen", {
+      ...shared,
+      routeModelId: "minimax-m2.5",
+    }),
+    offer("opencode-zen-mimo-v25-free", "mimo-v2-5", "opencode-zen", {
+      ...shared,
+      routeModelId: "mimo-v2.5-free",
+      inputPrice: textPrice("Free"),
+      outputPrice: textPrice("Free"),
+      cacheReadPrice: textPrice("Free"),
+      freeOrPlan: "OpenCode Zen 当前限时免费模型。",
+    }),
+  ];
+}
+
+function modelScopeApiInferenceOffers(): ApiModelOffer[] {
+  const shared = {
+    inputPrice: textPrice("免费额度内"),
+    outputPrice: textPrice("免费额度内"),
+    cacheReadPrice: textPrice("不公开独立缓存计费"),
+    freeOrPlan: "ModelScope API-Inference 免费额度内调用。",
+    limitations: "达到每日或单模型限制后通常返回 429；免费额度、模型覆盖和绑定要求以 ModelScope 当前页面为准。",
+    compatibility: ["OpenAI-compatible", "免费/测试", "中文模型", "前沿开源模型"],
+    sourceLabel: "ModelScope API-Inference 使用限制",
+    pricingUrl: "https://modelscope.cn/docs/model-service/API-Inference/limits",
+    suitableTools: ["Codex", "Qwen Code", "OpenCode", "Open WebUI", "Cherry Studio"],
+  };
+
+  return [
+    offer("modelscope-deepseek-v4-pro", "deepseek-v4-pro", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "deepseek-ai/DeepSeek-V4-Pro",
+    }),
+    offer("modelscope-deepseek-v4-flash", "deepseek-v4-flash", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "deepseek-ai/DeepSeek-V4-Flash",
+    }),
+    offer("modelscope-glm51", "glm-5-1", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "ZhipuAI/GLM-5.1",
+    }),
+    offer("modelscope-glm5", "glm-5", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "ZhipuAI/GLM-5",
+    }),
+    offer("modelscope-kimi-k25", "kimi-k2-5", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "moonshotai/Kimi-K2.5",
+    }),
+    offer("modelscope-minimax-m27", "minimax-m2-7", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "MiniMax/MiniMax-M2.7",
+    }),
+    offer("modelscope-minimax-m25", "minimax-m2-5", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "MiniMax/MiniMax-M2.5",
+    }),
+    offer("modelscope-step37-flash", "step-3-7-flash", "modelscope-api-inference", {
+      ...shared,
+      routeModelId: "stepfun-ai/Step-3.7-Flash",
     }),
   ];
 }

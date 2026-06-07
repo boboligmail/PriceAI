@@ -24,6 +24,7 @@ These assets are cached locally for stable rendering and performance. They are s
 | `alibabacloud.svg` | `https://commons.wikimedia.org/wiki/File:AlibabaCloudLogo.svg` | Alibaba Cloud logo sourced from Wikimedia Commons, where the source is listed as Alibaba Cloud and author as Alibaba Group. Cropped to the cloud mark for compact provider rows. |
 | `opencode.png` | `https://opencode.ai/favicon.ico` | Converted from official favicon to PNG. |
 | `openrouter.png` | `https://openrouter.ai/favicon.ico` | Converted from official favicon to PNG. |
+| `modelscope.png` | `https://img.alicdn.com/imgextra/i4/O1CN01fvt4it25rEZU4Gjso_!!6000000007579-2-tps-128-128.png` | Official ModelScope Open Graph image cached as PNG for API provider rows. |
 | `nvidia.png` | `https://www.nvidia.com/favicon.ico` | Converted from official favicon to PNG. |
 | `ollama.png` | `https://ollama.com/public/ollama.png` | Official Ollama public image used for compact provider rows. |
 | `fireworks.png` | `https://fireworks.ai/favicon.ico` | Converted from official favicon to PNG. |
