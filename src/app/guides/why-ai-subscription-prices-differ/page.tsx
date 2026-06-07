@@ -184,6 +184,13 @@ export default function WhyAiSubscriptionPricesDifferGuide() {
                 <ArrowRight size={16} />
               </Link>
               <Link
+                href="/guides/ai-subscription-region-price-risks"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20 transition hover:bg-[#f5f7f7]"
+              >
+                地区价风险
+                <ArrowRight size={16} />
+              </Link>
+              <Link
                 href="/guides/are-ai-subscription-card-shops-reliable"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#dde4e5] px-5 text-sm font-semibold text-[#2d3435] transition hover:bg-[#d3dcdd]"
               >

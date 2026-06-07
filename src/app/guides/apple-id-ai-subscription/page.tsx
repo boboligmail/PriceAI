@@ -217,7 +217,7 @@ export default function AppleIdAiSubscriptionGuide() {
             <div>
               <h2 className="font-serif text-2xl font-semibold tracking-normal text-[#202829]">先看 Apple 路径，再决定是否需要渠道。</h2>
               <p className="mt-2 text-sm leading-6 text-[#5a6061]">
-                如果 Apple 路径的总成本和维护成本能接受，可以继续看官方地区价；如果不适合，再回到比价工具看当前有货报价。
+                如果 Apple 路径的总成本和维护成本能接受，可以继续看官方地区价；如果不适合，也可以对比 Google Play、支付卡和礼品卡路径。
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
@@ -226,6 +226,20 @@ export default function AppleIdAiSubscriptionGuide() {
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20 transition hover:bg-[#f5f7f7]"
               >
                 官方地区价
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/guides/google-play-ai-subscription"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20 transition hover:bg-[#f5f7f7]"
+              >
+                Google Play
+                <ArrowRight size={16} />
+              </Link>
+              <Link
+                href="/guides/visa-card-for-ai-subscription"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20 transition hover:bg-[#f5f7f7]"
+              >
+                支付卡指南
                 <ArrowRight size={16} />
               </Link>
               <Link

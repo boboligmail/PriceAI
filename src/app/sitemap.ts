@@ -45,6 +45,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.78,
     },
     {
+      url: `${siteUrl}/guides`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.76,
+    },
+    {
       url: `${siteUrl}/guides/chatgpt-subscription-options`,
       lastModified: now,
       changeFrequency: "weekly",
@@ -67,6 +73,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "weekly",
       priority: 0.72,
+    },
+    {
+      url: `${siteUrl}/guides/google-play-ai-subscription`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.72,
+    },
+    {
+      url: `${siteUrl}/guides/visa-card-for-ai-subscription`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.71,
+    },
+    {
+      url: `${siteUrl}/guides/ai-subscription-gift-card`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.71,
+    },
+    {
+      url: `${siteUrl}/guides/ai-subscription-region-price-risks`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.71,
     },
     {
       url: `${siteUrl}/guides/are-ai-subscription-card-shops-reliable`,
