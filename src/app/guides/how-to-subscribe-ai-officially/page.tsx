@@ -181,7 +181,10 @@ export default function HowToSubscribeAiOfficiallyGuide() {
           </section>
 
           <section className="mt-12">
-            <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">官方说明入口</h2>
+            <h2 className="font-serif text-3xl font-semibold tracking-normal text-[#202829]">延伸阅读与官方参考</h2>
+            <p className="mt-3 max-w-[78ch] text-sm leading-7 text-[#5a6061]">
+              这些链接适合在动手订阅前核对原始规则。不同入口的地区、付款、退款和订阅管理方式可能变化，最终以官方页面和实际支付页提示为准。
+            </p>
             <div className="mt-6 grid gap-3 sm:grid-cols-2">
               {officialReferences.map((item) => (
                 <a
