@@ -166,9 +166,16 @@ export default function WhyAiSubscriptionPricesDifferGuide() {
           <section className="mt-12 flex flex-col gap-4 rounded-lg bg-[#f2f4f4] p-6 ring-1 ring-[#adb3b4]/15 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="font-serif text-2xl font-semibold tracking-normal text-[#202829]">理解价格来源后，再看当前有货价。</h2>
-              <p className="mt-2 text-sm leading-6 text-[#5a6061]">外层最低价只取有货报价；如果准备看第三方渠道，也可以先了解卡网的风险边界。</p>
+              <p className="mt-2 text-sm leading-6 text-[#5a6061]">外层最低价只取有货报价；如果想自己订阅，先看官方自助路径；如果准备看第三方渠道，也可以先了解卡网的风险边界。</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-3">
+              <Link
+                href="/guides/how-to-subscribe-ai-officially"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-white px-5 text-sm font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20 transition hover:bg-[#f5f7f7]"
+              >
+                官方自助订阅
+                <ArrowRight size={16} />
+              </Link>
               <Link
                 href="/guides/are-ai-subscription-card-shops-reliable"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#dde4e5] px-5 text-sm font-semibold text-[#2d3435] transition hover:bg-[#d3dcdd]"

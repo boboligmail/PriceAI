@@ -57,6 +57,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.74,
     },
     {
+      url: `${siteUrl}/guides/how-to-subscribe-ai-officially`,
+      lastModified: now,
+      changeFrequency: "weekly",
+      priority: 0.73,
+    },
+    {
       url: `${siteUrl}/guides/are-ai-subscription-card-shops-reliable`,
       lastModified: now,
       changeFrequency: "weekly",
