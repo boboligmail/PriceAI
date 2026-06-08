@@ -235,6 +235,33 @@ export function getGuidePathStepEntry(step: GuidePathStep) {
   return getGuideEntry(step.href);
 }
 
+export function getGuideNavigationItems(currentHref: string): {
+  previous: GuidePathStep | null;
+  next: GuidePathStep | null;
+} {
+  const readingPath = getGuideReadingPathForGuide(currentHref);
+
+  if (readingPath) {
+    const currentIndex = readingPath.steps.findIndex((step) => step.href === currentHref);
+    if (currentIndex >= 0) {
+      return {
+        previous: readingPath.steps[currentIndex - 1] ?? null,
+        next: readingPath.steps[currentIndex + 1] ?? null,
+      };
+    }
+  }
+
+  const currentGuideIndex = guideEntries.findIndex((guide) => guide.href === currentHref);
+  if (currentGuideIndex < 0) {
+    return { previous: null, next: guideEntries[0] ? guideToPathStep(guideEntries[0]) : null };
+  }
+
+  return {
+    previous: guideEntries[currentGuideIndex - 1] ? guideToPathStep(guideEntries[currentGuideIndex - 1]) : null,
+    next: guideEntries[currentGuideIndex + 1] ? guideToPathStep(guideEntries[currentGuideIndex + 1]) : null,
+  };
+}
+
 export function getRelatedGuides(currentHref: string, limit = 3) {
   const current = getGuideEntry(currentHref);
   const currentPath = getGuideReadingPathForGuide(currentHref);
@@ -259,4 +286,12 @@ export function getRelatedGuides(currentHref: string, limit = 3) {
     .sort((a, b) => b.score - a.score || guideEntries.indexOf(a.guide) - guideEntries.indexOf(b.guide))
     .map((item) => item.guide)
     .slice(0, limit);
+}
+
+function guideToPathStep(guide: GuideEntry): GuidePathStep {
+  return {
+    href: guide.href,
+    label: guide.title,
+    description: guide.intent,
+  };
 }

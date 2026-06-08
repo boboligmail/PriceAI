@@ -1,15 +1,36 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
-import { BookOpenText, ChevronRight, Menu, X } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+import { BookOpenText, ChevronLeft, ChevronRight, ListTree, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { getGuideCategory, guideCategories, guideEntries } from "@/lib/guides";
+import {
+  getGuideCategory,
+  getGuideNavigationItems,
+  guideCategories,
+  guideEntries,
+} from "@/lib/guides";
 
 export function GuideMobileNav({ currentHref }: { currentHref: string }) {
   const [open, setOpen] = useState(false);
   const drawerId = useId();
+  const touchStart = useRef<{ x: number; y: number; mode: "edge-open" | "drawer-close" } | null>(null);
   const currentGuide = guideEntries.find((guide) => guide.href === currentHref);
   const currentCategory = currentGuide ? getGuideCategory(currentGuide.categoryId) : undefined;
+  const navigationItems = getGuideNavigationItems(currentHref);
+
+  function handleSwipeEnd(touch: { clientX: number; clientY: number } | undefined) {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const mostlyHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 1.4 && Math.abs(deltaY) < 70;
+
+    if (!mostlyHorizontal) return;
+    if (start.mode === "edge-open" && deltaX > 64) setOpen(true);
+    if (start.mode === "drawer-close" && deltaX < -64) setOpen(false);
+  }
 
   useEffect(() => {
     if (!open) {
@@ -38,6 +59,55 @@ export function GuideMobileNav({ currentHref }: { currentHref: string }) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open]);
+
+  useEffect(() => {
+    if (open) return;
+
+    const startEdgeSwipe = (x: number, y: number) => {
+      if (x > 28) return;
+      touchStart.current = { x, y, mode: "edge-open" };
+    };
+
+    const handleWindowTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      startEdgeSwipe(touch.clientX, touch.clientY);
+    };
+
+    const handleWindowTouchEnd = (event: TouchEvent) => {
+      handleSwipeEnd(event.changedTouches[0]);
+    };
+
+    const handleWindowPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === "mouse" && event.buttons !== 1) return;
+      startEdgeSwipe(event.clientX, event.clientY);
+    };
+
+    const handleWindowPointerUp = (event: PointerEvent) => {
+      handleSwipeEnd(event);
+    };
+
+    window.addEventListener("touchstart", handleWindowTouchStart, { passive: true });
+    window.addEventListener("touchend", handleWindowTouchEnd, { passive: true });
+    window.addEventListener("pointerdown", handleWindowPointerDown, { passive: true });
+    window.addEventListener("pointerup", handleWindowPointerUp, { passive: true });
+    return () => {
+      window.removeEventListener("touchstart", handleWindowTouchStart);
+      window.removeEventListener("touchend", handleWindowTouchEnd);
+      window.removeEventListener("pointerdown", handleWindowPointerDown);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+    };
+  }, [open]);
+
+  function handleDrawerTouchStart(event: React.TouchEvent<HTMLElement>) {
+    const touch = event.touches[0];
+    if (!touch) return;
+    touchStart.current = { x: touch.clientX, y: touch.clientY, mode: "drawer-close" };
+  }
+
+  function handleDrawerTouchEnd(event: React.TouchEvent<HTMLElement>) {
+    handleSwipeEnd(event.changedTouches[0]);
+  }
 
   return (
     <>
@@ -86,6 +156,8 @@ export function GuideMobileNav({ currentHref }: { currentHref: string }) {
             id={drawerId}
             className="relative h-full w-[min(88vw,360px)] overflow-y-auto border-r border-[#dfe4e5] bg-[#f9f9f9] px-5 py-4 shadow-[18px_0_55px_rgba(45,52,53,0.16)]"
             aria-label="指南菜单"
+            onTouchStart={handleDrawerTouchStart}
+            onTouchEnd={handleDrawerTouchEnd}
           >
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
@@ -153,6 +225,72 @@ export function GuideMobileNav({ currentHref }: { currentHref: string }) {
           </aside>
         </div>
       ) : null}
+
+      <nav
+        aria-label="移动端指南连续阅读"
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-[#dfe4e5] bg-[#f9f9f9]/95 px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 shadow-[0_-12px_32px_rgba(45,52,53,0.08)] backdrop-blur-xl lg:hidden"
+      >
+        <div className="mx-auto grid max-w-[520px] grid-cols-[1fr_auto_1fr] items-center gap-2">
+          <MobileNavLink
+            href={navigationItems.previous?.href}
+            label={navigationItems.previous?.label ?? "上一篇"}
+            direction="previous"
+          />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-4 text-xs font-semibold text-[#f8f8f8] shadow-[0_10px_24px_rgba(45,52,53,0.14)]"
+            aria-expanded={open}
+            aria-controls={drawerId}
+            aria-label="打开指南目录"
+            data-guide-mobile-menu-button
+          >
+            <ListTree size={18} />
+            目录
+          </button>
+          <MobileNavLink
+            href={navigationItems.next?.href}
+            label={navigationItems.next?.label ?? "下一篇"}
+            direction="next"
+          />
+        </div>
+      </nav>
     </>
+  );
+}
+
+function MobileNavLink({
+  href,
+  label,
+  direction,
+}: {
+  href?: string;
+  label: string;
+  direction: "previous" | "next";
+}) {
+  const content = (
+    <>
+      {direction === "previous" ? <ChevronLeft size={16} className="shrink-0" /> : null}
+      <span className="min-w-0 truncate">{label}</span>
+      {direction === "next" ? <ChevronRight size={16} className="shrink-0" /> : null}
+    </>
+  );
+
+  const className = `inline-flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-md px-3 text-xs font-semibold ${
+    direction === "previous" ? "justify-self-start" : "justify-self-end"
+  }`;
+
+  if (!href) {
+    return (
+      <span className={`${className} text-[#adb3b4]`} aria-disabled="true">
+        {content}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={href} className={`${className} max-w-full bg-[#edf0f1] text-[#2d3435] transition hover:bg-[#dde4e5]`}>
+      {content}
+    </Link>
   );
 }

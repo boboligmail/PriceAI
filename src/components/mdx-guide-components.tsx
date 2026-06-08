@@ -1,6 +1,7 @@
 import { ArrowRight, Info, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
+import { GuideResponsiveTable } from "@/components/GuideResponsiveTable";
 
 type CalloutVariant = "note" | "warning";
 
@@ -63,16 +64,7 @@ export const mdxGuideComponents = {
   ol: (props: ComponentProps<"ol">) => <ol {...props} className="mt-4 list-decimal space-y-2 pl-5 text-base leading-8 text-[#5a6061]" />,
   li: (props: ComponentProps<"li">) => <li {...props} className="pl-1" />,
   strong: (props: ComponentProps<"strong">) => <strong {...props} className="font-semibold text-[#202829]" />,
-  table: (props: ComponentProps<"table">) => (
-    <div className="my-8 overflow-x-auto border-y border-[#dfe4e5]">
-      <table {...props} className="w-full min-w-[680px] border-collapse text-left text-sm" />
-    </div>
-  ),
-  thead: (props: ComponentProps<"thead">) => <thead {...props} className="bg-[#f2f4f4] text-[#202829]" />,
-  tbody: (props: ComponentProps<"tbody">) => <tbody {...props} className="divide-y divide-[#dfe4e5]" />,
-  tr: (props: ComponentProps<"tr">) => <tr {...props} className="align-top" />,
-  th: (props: ComponentProps<"th">) => <th {...props} className="border-b border-[#dfe4e5] px-3 py-3 font-semibold" />,
-  td: (props: ComponentProps<"td">) => <td {...props} className="px-3 py-3 leading-7 text-[#5a6061]" />,
+  table: (props: ComponentProps<"table">) => <GuideResponsiveTable>{props.children}</GuideResponsiveTable>,
   Callout,
   GuideCta,
 };
