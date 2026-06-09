@@ -1,6 +1,6 @@
 # PriceAI Analytics
 
-PriceAI 使用 Google Analytics 4 作为长期增长分析层，同时支持 Umami Cloud / 自托管 Umami 作为轻量运营看板。GA4 负责访问来源、DAU/WAU/MAU、页面表现和推广效果；Umami 负责日常快速查看访问、来源和关键点击；产品自己的关键业务事件后续仍建议写入 Supabase，避免只依赖第三方统计面板。
+PriceAI 使用 Google Analytics 4 作为长期增长分析层，同时使用自部署 Umami 作为轻量运营看板。GA4 负责访问来源、DAU/WAU/MAU、页面表现和推广效果；Umami 负责日常快速查看访问、来源和关键点击；产品自己的关键业务事件后续仍建议写入 Supabase，避免只依赖第三方统计面板。
 
 ## 当前接入结构
 
@@ -8,17 +8,16 @@ PriceAI 使用 Google Analytics 4 作为长期增长分析层，同时支持 Uma
 - `NEXT_PUBLIC_GA_MEASUREMENT_ID`：前端公开环境变量，形如 `G-XXXXXXXXXX`。
 - `src/components/GoogleAnalytics.tsx`：仅当 `NEXT_PUBLIC_GA_MEASUREMENT_ID` 存在时加载 `gtag.js`。
 - `NEXT_PUBLIC_UMAMI_WEBSITE_ID`：前端公开环境变量，Umami Website ID。
-- `NEXT_PUBLIC_UMAMI_SCRIPT_URL`：可选，Umami 脚本地址；未配置时默认使用 Umami Cloud。
+- `NEXT_PUBLIC_UMAMI_SCRIPT_URL`：前端公开环境变量，Umami 脚本地址；当前生产环境使用自部署脚本。
 - `NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS`：可选，允许加载 Umami 的正式域名，多个域名用英文逗号分隔；未配置时默认只允许 `priceai.cc` 和 `www.priceai.cc`。
 - `src/components/UmamiAnalytics.tsx`：仅当 `NEXT_PUBLIC_UMAMI_WEBSITE_ID` 存在且当前域名命中白名单时加载 Umami 统计脚本。
 - `src/lib/analytics.ts`：后续埋点用的轻量事件上报 helper。
 
-## Umami Cloud 免费版接入
+## Umami 自部署接入
 
-1. 打开 `https://cloud.umami.is/signup` 注册或登录。
-2. 新增 Website，名称可填 `PriceAI`，域名填 `priceai.cc`。
-3. 复制 Website ID。
-4. 在 Vercel 添加环境变量：
+当前生产环境的 Umami 部署在阿里云 2 US，公网入口为 `https://umami.dimthink.com`，PriceAI 对应的 Website ID 为 `ded26a4f-77c4-45ed-86ef-774b0fed0ef6`。
+
+在 Vercel 添加或更新环境变量：
 
 ```bash
 vercel env add NEXT_PUBLIC_UMAMI_WEBSITE_ID production
@@ -29,10 +28,10 @@ vercel env add NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS production
 `NEXT_PUBLIC_UMAMI_SCRIPT_URL` 可填：
 
 ```bash
-https://cloud.umami.is/script.js
+https://umami.dimthink.com/script.js
 ```
 
-也可以只填 `NEXT_PUBLIC_UMAMI_WEBSITE_ID`，代码会自动使用 Cloud 默认脚本地址。写完后需要重新部署。
+需要同时填写 `NEXT_PUBLIC_UMAMI_WEBSITE_ID` 和 `NEXT_PUBLIC_UMAMI_SCRIPT_URL`。缺任意一项时 Umami 不会加载，避免误发到错误的统计服务。写完后需要重新部署。
 
 `NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS` 可填：
 
@@ -40,7 +39,7 @@ https://cloud.umami.is/script.js
 priceai.cc,www.priceai.cc
 ```
 
-这个白名单用于避免 `localhost`、Vercel 预览域名和本地调试页面向 Umami Cloud 上报，减少 429 限流并避免污染真实访问数据。
+这个白名单用于避免 `localhost`、Vercel 预览域名和本地调试页面向自部署 Umami 上报，避免污染真实访问数据。
 
 ## 首次准备
 

@@ -21,23 +21,23 @@ cp .env.example .env.local
 | `CRON_SECRET` | 线上定时采集接口鉴权 |
 | `CRON_PUBLIC_BASE_URL` | 线上站点地址，例如 `https://priceai.cc` |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | 可选，Google Analytics 4 Measurement ID |
-| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | 可选，Umami Cloud / 自托管 Umami 的 Website ID |
-| `NEXT_PUBLIC_UMAMI_SCRIPT_URL` | 可选，Umami 统计脚本地址；Cloud 默认 `https://cloud.umami.is/script.js` |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | 可选，Umami Website ID |
+| `NEXT_PUBLIC_UMAMI_SCRIPT_URL` | 可选，Umami 统计脚本地址；当前生产环境使用自部署 Umami |
 | `NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS` | 可选，允许加载 Umami 的正式域名，多个域名用英文逗号分隔 |
 
 不要把 `.env.local`、service role key 或后台密码提交到仓库。
 
-## Umami Cloud
+## Umami
 
-PriceAI 支持 Umami Cloud 免费版作为轻量运营看板。先在 `https://cloud.umami.is` 创建账号和 Website，域名填写 `priceai.cc`，然后把 Website ID 写入环境变量：
+PriceAI 当前生产环境使用自部署 Umami 作为轻量运营看板。自部署入口为 `https://umami.dimthink.com`，前台只需要加载对应脚本并写入 Website ID：
 
 ```bash
-NEXT_PUBLIC_UMAMI_WEBSITE_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://cloud.umami.is/script.js
+NEXT_PUBLIC_UMAMI_WEBSITE_ID=ded26a4f-77c4-45ed-86ef-774b0fed0ef6
+NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://umami.dimthink.com/script.js
 NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS=priceai.cc,www.priceai.cc
 ```
 
-如果只配置 `NEXT_PUBLIC_UMAMI_WEBSITE_ID`，脚本地址会自动使用 Umami Cloud 默认地址。未配置 Website ID 时，Umami 不会加载；未配置允许域名时，默认只在 `priceai.cc` 和 `www.priceai.cc` 加载，不影响本地开发或预览域名。
+`NEXT_PUBLIC_UMAMI_WEBSITE_ID` 和 `NEXT_PUBLIC_UMAMI_SCRIPT_URL` 需要同时配置；缺任意一项时 Umami 不会加载。未配置允许域名时，默认只在 `priceai.cc` 和 `www.priceai.cc` 加载，不影响本地开发或预览域名。
 
 ## Supabase 初始化
 

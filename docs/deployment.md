@@ -25,7 +25,7 @@ vercel deploy --prod --yes
 
 `CRON_PUBLIC_BASE_URL` 建议填写正式域名，例如 `https://priceai.cc`。
 
-`NEXT_PUBLIC_UMAMI_WEBSITE_ID` 为可选项。使用 Umami Cloud 时，在 Umami 后台新增 Website 后复制 Website ID；`NEXT_PUBLIC_UMAMI_SCRIPT_URL` 可不填，默认使用 `https://cloud.umami.is/script.js`。`NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS` 可填 `priceai.cc,www.priceai.cc`，避免本地和预览域名上报统计。
+`NEXT_PUBLIC_UMAMI_WEBSITE_ID` 为可选项。当前生产环境使用自部署 Umami：`NEXT_PUBLIC_UMAMI_SCRIPT_URL` 填 `https://umami.dimthink.com/script.js`，`NEXT_PUBLIC_UMAMI_WEBSITE_ID` 填自部署 Umami 中 PriceAI 对应的 Website ID。`NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS` 可填 `priceai.cc,www.priceai.cc`，避免本地和预览域名上报统计。
 
 ## GitHub Actions 定时采集
 
