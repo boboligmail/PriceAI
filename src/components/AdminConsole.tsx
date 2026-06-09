@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { FormEvent, ReactNode, UIEvent } from "react";
+import type { Dispatch, FormEvent, ReactNode, SetStateAction, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiProviderTypeLabels } from "@/lib/api-models";
 import {
@@ -187,6 +187,26 @@ type SourceGroup = {
   disabledCount: number;
 };
 
+type SourceStatusFilter = "all" | "normal" | "issue" | "disabled" | "needs_collector";
+type SourceOfferFilter = "all" | "zero" | "small" | "medium" | "large";
+type SourceSortMode = "offers_desc" | "issue_first" | "stale_first" | "hidden_desc" | "name";
+type SourceRiskFlag = "high_volume" | "hidden_many" | "issue" | "stale_success";
+
+type SourceFilters = {
+  query: string;
+  status: SourceStatusFilter;
+  offerBand: SourceOfferFilter;
+  sort: SourceSortMode;
+  riskOnly: boolean;
+};
+
+type SourceGroupOverview = SourceGroup & {
+  totalVisibleOffers: number;
+  totalHiddenOffers: number;
+  totalManuallyHiddenOffers: number;
+  riskCount: number;
+};
+
 const statusOptions: Array<[OfferStatus, string]> = [
   ["in_stock", "有货"],
   ["out_of_stock", "缺货"],
@@ -230,7 +250,14 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [sourcePatches, setSourcePatches] = useState<Record<string, Partial<Source>>>({});
   const [deletedSourceIds, setDeletedSourceIds] = useState<Set<string>>(new Set());
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
-  const [collapsedSourceGroups, setCollapsedSourceGroups] = useState<Set<string>>(new Set());
+  const [activeSourceGroupKey, setActiveSourceGroupKey] = useState<string | null>(null);
+  const [sourceFilters, setSourceFilters] = useState<SourceFilters>({
+    query: "",
+    status: "all",
+    offerBand: "all",
+    sort: "offers_desc",
+    riskOnly: false,
+  });
   const [offerSearchQuery, setOfferSearchQuery] = useState("");
   const [debouncedOfferSearchQuery, setDebouncedOfferSearchQuery] = useState("");
   const [offerMaintenance, setOfferMaintenance] = useState<Record<OfferMaintenanceScope, OfferMaintenanceListState>>({
@@ -490,6 +517,27 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     return map;
   }, [data.rawOffers, sourceStatsById, sources]);
   const sourceGroups = useMemo(() => groupSources(sources), [sources]);
+  const sourceOverviewGroups = useMemo(
+    () => buildSourceOverviewGroups(sourceGroups, sourceStatsById, offerCountBySource),
+    [offerCountBySource, sourceGroups, sourceStatsById],
+  );
+  const activeSourceGroup = useMemo(
+    () => sourceOverviewGroups.find((group) => group.key === activeSourceGroupKey) || null,
+    [activeSourceGroupKey, sourceOverviewGroups],
+  );
+  const filteredSourceRows = useMemo(
+    () =>
+      activeSourceGroup
+        ? filterAndSortSources(activeSourceGroup.sources, sourceFilters, sourceStatsById, offerCountBySource)
+        : [],
+    [activeSourceGroup, offerCountBySource, sourceFilters, sourceStatsById],
+  );
+  useEffect(() => {
+    if (!activeSourceGroupKey) return;
+    if (sourceOverviewGroups.some((group) => group.key === activeSourceGroupKey)) return;
+    setActiveSourceGroupKey(null);
+    setSelectedSourceIds(new Set());
+  }, [activeSourceGroupKey, sourceOverviewGroups]);
   const selectedSources = useMemo(
     () => sources.filter((source) => selectedSourceIds.has(source.id)),
     [selectedSourceIds, sources],
@@ -1718,20 +1766,18 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   };
 
   const toggleAllSources = () => {
-    if (selectedSourceIds.size === sources.length && sources.every((source) => selectedSourceIds.has(source.id))) {
+    const selectableSources = activeSourceGroup ? filteredSourceRows : [];
+    const selectableIds = selectableSources.map((source) => source.id);
+    if (!selectableIds.length) {
+      setSelectedSourceIds(new Set());
+      return;
+    }
+
+    if (selectableIds.every((id) => selectedSourceIds.has(id))) {
       setSelectedSourceIds(new Set());
     } else {
-      setSelectedSourceIds(new Set(sources.map((source) => source.id)));
+      setSelectedSourceIds(new Set(selectableIds));
     }
-  };
-
-  const toggleSourceGroup = (label: string) => {
-    setCollapsedSourceGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
   };
 
   return (
@@ -2346,15 +2392,16 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={toggleAllSources}
-                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+                      disabled={!activeSourceGroup || !filteredSourceRows.length}
+                      className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
                     >
                       <Check size={14} />
-                      {selectedSourceIds.size ? "取消全选" : "全选渠道"}
+                      {selectedSourceIds.size ? "取消全选" : "全选当前"}
                     </button>
                     <button
                       type="button"
                       onClick={batchCollectSelectedSources}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-collect-sources"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-collect-sources"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#2d3435] px-3 text-xs font-medium text-white transition-colors hover:bg-[#202829] disabled:opacity-50"
                     >
                       {loadingAction === "batch-collect-sources" ? <Loader2 size={14} className="animate-spin" /> : <RefreshCcw size={14} />}
@@ -2363,7 +2410,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={copySelectedBrowserCommands}
-                      disabled={!selectedSourceIds.size}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
                     >
                       <TerminalSquare size={14} />
@@ -2372,7 +2419,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={copySelectedCollectorContexts}
-                      disabled={!selectedSourceIds.size}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
                     >
                       <Copy size={14} />
@@ -2381,7 +2428,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={() => batchToggleSelectedSources(false)}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-disable-sources"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-disable-sources"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
                     >
                       停用
@@ -2389,7 +2436,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={() => batchToggleSelectedSources(true)}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-enable-sources"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-enable-sources"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4] disabled:opacity-50"
                     >
                       启用
@@ -2397,7 +2444,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={() => batchToggleSelectedSourceOffers(true)}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-hide-source-offers"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-hide-source-offers"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7] disabled:opacity-50"
                     >
                       下架报价
@@ -2405,7 +2452,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={() => batchToggleSelectedSourceOffers(false)}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-restore-source-offers"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-restore-source-offers"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#2f7a4b]/20 bg-white px-3 text-xs font-medium text-[#2f7a4b] transition-colors hover:bg-[#e8f3ec] disabled:opacity-50"
                     >
                       恢复报价
@@ -2413,7 +2460,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     <button
                       type="button"
                       onClick={batchDeleteSelectedSources}
-                      disabled={!selectedSourceIds.size || loadingAction === "batch-delete-sources"}
+                      disabled={!activeSourceGroup || !selectedSourceIds.size || loadingAction === "batch-delete-sources"}
                       className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7] disabled:opacity-50"
                     >
                       <Trash2 size={14} />
@@ -2424,14 +2471,24 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                     )}
                   </div>
                   <SourceTable
-                    groups={sourceGroups}
-                    collapsedGroups={collapsedSourceGroups}
+                    overviewGroups={sourceOverviewGroups}
+                    activeGroup={activeSourceGroup}
+                    filteredSources={filteredSourceRows}
+                    filters={sourceFilters}
                     offerCountBySource={offerCountBySource}
                     sourceStatsById={sourceStatsById}
                     loadingAction={loadingAction}
                     feedback={rowFeedback}
                     selectedIds={selectedSourceIds}
-                    onToggleGroup={toggleSourceGroup}
+                    onSelectGroup={(groupKey) => {
+                      setActiveSourceGroupKey(groupKey);
+                      setSelectedSourceIds(new Set());
+                    }}
+                    onBackToGroups={() => {
+                      setActiveSourceGroupKey(null);
+                      setSelectedSourceIds(new Set());
+                    }}
+                    onFiltersChange={setSourceFilters}
                     onToggleSelect={toggleSourceSelect}
                     onRetry={collectSource}
                     onCopyBrowserCommand={copyBrowserCommand}
@@ -3553,14 +3610,18 @@ function UrlLine({ label, href, tone = "muted" }: { label: string; href: string;
 }
 
 function SourceTable({
-  groups,
-  collapsedGroups,
+  overviewGroups,
+  activeGroup,
+  filteredSources,
+  filters,
   offerCountBySource,
   sourceStatsById,
   loadingAction,
   feedback,
   selectedIds,
-  onToggleGroup,
+  onSelectGroup,
+  onBackToGroups,
+  onFiltersChange,
   onToggleSelect,
   onRetry,
   onCopyBrowserCommand,
@@ -3569,14 +3630,18 @@ function SourceTable({
   onToggleOffersVisibility,
   onDeleteSource,
 }: {
-  groups: SourceGroup[];
-  collapsedGroups: Set<string>;
+  overviewGroups: SourceGroupOverview[];
+  activeGroup: SourceGroupOverview | null;
+  filteredSources: Source[];
+  filters: SourceFilters;
   offerCountBySource: Map<string, number>;
   sourceStatsById: Map<string, SourceOfferStats>;
   loadingAction: string | null;
   feedback: RowFeedback | null;
   selectedIds: Set<string>;
-  onToggleGroup: (label: string) => void;
+  onSelectGroup: (groupKey: string) => void;
+  onBackToGroups: () => void;
+  onFiltersChange: Dispatch<SetStateAction<SourceFilters>>;
   onToggleSelect: (id: string) => void;
   onRetry: (source: Source) => void;
   onCopyBrowserCommand: (source: Source) => void;
@@ -3585,8 +3650,155 @@ function SourceTable({
   onToggleOffersVisibility: (source: Source, hidden: boolean) => void;
   onDeleteSource: (source: Source) => void;
 }) {
+  if (!activeGroup) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-[#adb3b4]/20">
+        <div className="hidden grid-cols-[1fr_110px_130px_190px_160px_90px] gap-3 border-b border-[#adb3b4]/20 bg-[#f2f4f4] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#5a6061] md:grid">
+          <span>分组</span>
+          <span>渠道</span>
+          <span>报价</span>
+          <span>健康</span>
+          <span>风险</span>
+          <span>操作</span>
+        </div>
+        <div className="divide-y divide-[#adb3b4]/15">
+          {overviewGroups.map((group) => (
+            <button
+              key={group.key}
+              type="button"
+              onClick={() => onSelectGroup(group.key)}
+              className="grid w-full gap-2 bg-white px-3 py-3 text-left transition-colors hover:bg-[#f7f9f9] md:grid-cols-[1fr_110px_130px_190px_160px_90px] md:items-center"
+            >
+              <span className="min-w-0">
+                <span className="flex min-w-0 items-center gap-2">
+                  <Store size={15} className="shrink-0 text-[#5a6061]" />
+                  <span className="truncate text-sm font-semibold text-[#202829]">{group.label}</span>
+                  {group.key === SOURCE_OTHER_GROUP_KEY ? (
+                    <span className="shrink-0 rounded-full bg-[#eef3f8] px-2 py-0.5 text-xs font-medium text-[#47657a]">零散采集</span>
+                  ) : null}
+                </span>
+                <span className="mt-1 block text-xs text-[#adb3b4]">
+                  {group.key === SOURCE_OTHER_GROUP_KEY ? "少量采集器合并展示，进入后保留原采集器标签。" : "点击进入该采集器分组。"}
+                </span>
+              </span>
+              <span className="text-sm font-semibold text-[#2d3435]">{group.sources.length}</span>
+              <span className="text-sm font-semibold text-[#2d3435]">
+                {group.totalVisibleOffers}
+                {group.totalManuallyHiddenOffers ? (
+                  <span className="ml-2 text-xs font-medium text-[#9b3328]">下架 {group.totalManuallyHiddenOffers}</span>
+                ) : null}
+              </span>
+              <span className="flex flex-wrap gap-1.5 text-xs font-semibold">
+                <span className="rounded-full bg-[#e8f3ec] px-2 py-0.5 text-[#2f7a4b]">正常 {group.normalCount}</span>
+                {group.abnormalCount > 0 ? <span className="rounded-full bg-[#fbe9e7] px-2 py-0.5 text-[#9b3328]">异常 {group.abnormalCount}</span> : null}
+                {group.disabledCount > 0 ? <span className="rounded-full bg-[#f2f4f4] px-2 py-0.5 text-[#5a6061]">停用 {group.disabledCount}</span> : null}
+              </span>
+              <span className="text-xs font-medium text-[#5a6061]">
+                {group.riskCount ? `疑似 ${group.riskCount}` : "暂无明显风险"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2d3435]">
+                查看
+                <ChevronDown size={14} className="-rotate-90" />
+              </span>
+            </button>
+          ))}
+          {!overviewGroups.length && (
+            <div className="px-3 py-10 text-center text-sm text-[#adb3b4]">暂无渠道源。</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-hidden rounded-lg border border-[#adb3b4]/20">
+      <div className="border-b border-[#adb3b4]/20 bg-white px-3 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={onBackToGroups}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+            >
+              <ChevronDown size={14} className="rotate-90" />
+              返回分组
+            </button>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold text-[#202829]">{activeGroup.label}</h3>
+              <span className="rounded-full bg-[#f2f4f4] px-2.5 py-1 text-xs font-medium text-[#5a6061]">{activeGroup.sources.length} 个渠道</span>
+              <span className="rounded-full bg-[#e4e9ea] px-2.5 py-1 text-xs font-medium text-[#2d3435]">报价 {activeGroup.totalVisibleOffers}</span>
+              {activeGroup.riskCount ? <span className="rounded-full bg-[#fff7e8] px-2.5 py-1 text-xs font-medium text-[#7a541b]">疑似低质量 {activeGroup.riskCount}</span> : null}
+            </div>
+          </div>
+          <div className="text-xs text-[#adb3b4]">
+            当前筛选 {filteredSources.length} 个，批量操作只作用于当前列表中已选渠道。
+          </div>
+        </div>
+
+        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(220px,1fr)_150px_150px_170px_auto_auto] lg:items-center">
+          <label className="flex h-10 min-w-0 items-center gap-2 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm">
+            <Search size={15} className="shrink-0 text-[#adb3b4]" />
+            <input
+              value={filters.query}
+              onChange={(event) => onFiltersChange((prev) => ({ ...prev, query: event.target.value }))}
+              placeholder="搜索渠道名、域名或入口"
+              className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-[#adb3b4]"
+            />
+          </label>
+          <select
+            value={filters.status}
+            onChange={(event) => onFiltersChange((prev) => ({ ...prev, status: event.target.value as SourceStatusFilter }))}
+            className="h-10 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm text-[#2d3435] outline-none"
+          >
+            <option value="all">全部状态</option>
+            <option value="normal">正常</option>
+            <option value="issue">异常</option>
+            <option value="disabled">停用</option>
+            <option value="needs_collector">需补采集器</option>
+          </select>
+          <select
+            value={filters.offerBand}
+            onChange={(event) => onFiltersChange((prev) => ({ ...prev, offerBand: event.target.value as SourceOfferFilter }))}
+            className="h-10 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm text-[#2d3435] outline-none"
+          >
+            <option value="all">全部报价量</option>
+            <option value="zero">0 条</option>
+            <option value="small">1-10 条</option>
+            <option value="medium">10-50 条</option>
+            <option value="large">50+ 条</option>
+          </select>
+          <select
+            value={filters.sort}
+            onChange={(event) => onFiltersChange((prev) => ({ ...prev, sort: event.target.value as SourceSortMode }))}
+            className="h-10 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm text-[#2d3435] outline-none"
+          >
+            <option value="offers_desc">报价数从高到低</option>
+            <option value="issue_first">异常优先</option>
+            <option value="stale_first">最久未成功优先</option>
+            <option value="hidden_desc">下架数从高到低</option>
+            <option value="name">名称排序</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => onFiltersChange((prev) => ({ ...prev, riskOnly: !prev.riskOnly }))}
+            className={`inline-flex h-10 items-center justify-center rounded-lg px-3 text-sm font-medium transition-colors ${
+              filters.riskOnly
+                ? "bg-[#fff7e8] text-[#7a541b] ring-1 ring-[#efdfbd]"
+                : "border border-[#adb3b4]/30 bg-white text-[#5a6061] hover:bg-[#f2f4f4]"
+            }`}
+          >
+            疑似低质量
+          </button>
+          <button
+            type="button"
+            onClick={() => onFiltersChange({ query: "", status: "all", offerBand: "all", sort: "offers_desc", riskOnly: false })}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm font-medium text-[#5a6061] transition-colors hover:bg-[#f2f4f4]"
+          >
+            重置
+          </button>
+        </div>
+      </div>
+
       <div className="hidden grid-cols-[28px_1fr_70px_110px_110px_150px_240px] gap-3 border-b border-[#adb3b4]/20 bg-[#f2f4f4] px-3 py-2.5 text-xs font-semibold uppercase tracking-wider text-[#5a6061] md:grid">
         <span />
         <span>来源</span>
@@ -3597,61 +3809,31 @@ function SourceTable({
         <span>操作</span>
       </div>
       <div className="divide-y divide-[#adb3b4]/15">
-        {groups.map((group) => {
-          const collapsed = collapsedGroups.has(group.key);
-          return (
-            <div key={group.key}>
-              <button
-                type="button"
-                onClick={() => onToggleGroup(group.key)}
-                aria-expanded={!collapsed}
-                className="flex w-full items-center justify-between gap-3 bg-[#f2f4f4] px-3 py-2 text-left text-xs font-semibold text-[#5a6061] transition-colors hover:bg-[#ebeeef]"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <ChevronDown
-                    size={14}
-                    className={`shrink-0 transition-transform ${collapsed ? "-rotate-90" : ""}`}
-                  />
-                  <span className="truncate">{group.label}</span>
-                  <span className="shrink-0 text-[#adb3b4]">· {group.sources.length} 个</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-1.5">
-                  <span className="rounded-full bg-[#e8f3ec] px-2 py-0.5 text-[#2f7a4b]">正常 {group.normalCount}</span>
-                  {group.abnormalCount > 0 && (
-                    <span className="rounded-full bg-[#fbe9e7] px-2 py-0.5 text-[#9b3328]">异常 {group.abnormalCount}</span>
-                  )}
-                  {group.disabledCount > 0 && (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[#5a6061]">停用 {group.disabledCount}</span>
-                  )}
-                </span>
-              </button>
-              {!collapsed && group.sources.map((source) => (
-                <SourceTableRow
-                  key={source.id}
-                  source={source}
-                  offerCount={offerCountBySource.get(source.id) || 0}
-                  stats={sourceStatsById.get(source.id)}
-                  loading={loadingAction === `collect-source-${source.id}` || loadingAction === "batch-collect-sources"}
-                  toggleLoading={loadingAction === `toggle-source-${source.id}`}
-                  hideLoading={loadingAction === `hide-source-offers-${source.id}`}
-                  restoreLoading={loadingAction === `restore-source-offers-${source.id}`}
-                  deleteLoading={loadingAction === `delete-source-${source.id}`}
-                  feedback={feedback?.id === source.id ? feedback : null}
-                  selected={selectedIds.has(source.id)}
-                  onToggleSelect={onToggleSelect}
-                  onRetry={onRetry}
-                  onCopyBrowserCommand={onCopyBrowserCommand}
-                  onCopyCollectorContext={onCopyCollectorContext}
-                  onToggleEnabled={onToggleEnabled}
-                  onToggleOffersVisibility={onToggleOffersVisibility}
-                  onDeleteSource={onDeleteSource}
-                />
-              ))}
-            </div>
-          );
-        })}
-        {!groups.length && (
-          <div className="px-3 py-10 text-center text-sm text-[#adb3b4]">暂无渠道源。</div>
+        {filteredSources.map((source) => (
+          <SourceTableRow
+            key={source.id}
+            source={source}
+            offerCount={offerCountBySource.get(source.id) || 0}
+            stats={sourceStatsById.get(source.id)}
+            riskLabels={sourceRiskFlags(source, sourceStatsById, offerCountBySource).map(sourceRiskFlagLabel)}
+            loading={loadingAction === `collect-source-${source.id}` || loadingAction === "batch-collect-sources"}
+            toggleLoading={loadingAction === `toggle-source-${source.id}`}
+            hideLoading={loadingAction === `hide-source-offers-${source.id}`}
+            restoreLoading={loadingAction === `restore-source-offers-${source.id}`}
+            deleteLoading={loadingAction === `delete-source-${source.id}`}
+            feedback={feedback?.id === source.id ? feedback : null}
+            selected={selectedIds.has(source.id)}
+            onToggleSelect={onToggleSelect}
+            onRetry={onRetry}
+            onCopyBrowserCommand={onCopyBrowserCommand}
+            onCopyCollectorContext={onCopyCollectorContext}
+            onToggleEnabled={onToggleEnabled}
+            onToggleOffersVisibility={onToggleOffersVisibility}
+            onDeleteSource={onDeleteSource}
+          />
+        ))}
+        {!filteredSources.length && (
+          <div className="px-3 py-10 text-center text-sm text-[#adb3b4]">没有符合条件的渠道。</div>
         )}
       </div>
     </div>
@@ -3662,6 +3844,7 @@ function SourceTableRow({
   source,
   offerCount,
   stats,
+  riskLabels,
   loading,
   toggleLoading,
   hideLoading,
@@ -3680,6 +3863,7 @@ function SourceTableRow({
   source: Source;
   offerCount: number;
   stats?: SourceOfferStats;
+  riskLabels: string[];
   loading: boolean;
   toggleLoading: boolean;
   hideLoading: boolean;
@@ -3730,6 +3914,15 @@ function SourceTableRow({
             {source.entryUrl}
           </a>
           {source.lastError && <p className="mt-1 line-clamp-2 text-xs text-[#9b3328]">{source.lastError}</p>}
+          {riskLabels.length ? (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {riskLabels.map((label) => (
+                <span key={label} className="rounded-full bg-[#fff7e8] px-2 py-0.5 text-xs font-medium text-[#7a541b]">
+                  {label}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
         <span className="text-sm font-medium text-[#5a6061]">
           <span className="mr-1 text-xs text-[#adb3b4] md:hidden">报价</span>
@@ -6417,6 +6610,9 @@ function offerStatusMeta(meta: Record<string, unknown>, key: string): OfferStatu
   return value === "out_of_stock" ? "out_of_stock" : "in_stock";
 }
 
+const SOURCE_STANDALONE_GROUP_THRESHOLD = 10;
+const SOURCE_OTHER_GROUP_KEY = "collector:other";
+
 function sourceCollectorGroup(source: Source): { key: string; label: string } {
   if (source.collectionMethod === "public_json") {
     return { key: "public_json", label: "公开 JSON" };
@@ -6444,6 +6640,177 @@ function compareSourcesForOps(a: Source, b: Source): number {
 
   const enabledDelta = Number(b.enabled) - Number(a.enabled);
   if (enabledDelta) return enabledDelta;
+
+  return sourceSortKey(a).localeCompare(sourceSortKey(b), "zh-CN");
+}
+
+function sourceVisibleOfferCount(
+  source: Source,
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): number {
+  return sourceStatsById.get(source.id)?.visibleCount ?? offerCountBySource.get(source.id) ?? 0;
+}
+
+function sourceRiskFlags(
+  source: Source,
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): SourceRiskFlag[] {
+  const stats = sourceStatsById.get(source.id);
+  const visibleCount = sourceVisibleOfferCount(source, sourceStatsById, offerCountBySource);
+  const totalCount = stats?.totalCount || visibleCount;
+  const hiddenCount = stats?.hiddenCount || 0;
+  const manuallyHiddenCount = stats?.manuallyHiddenCount || 0;
+  const flags: SourceRiskFlag[] = [];
+
+  if (visibleCount >= 50) flags.push("high_volume");
+  if (manuallyHiddenCount >= 5 || (totalCount >= 10 && hiddenCount / totalCount >= 0.3)) flags.push("hidden_many");
+  if (sourceHasIssue(source)) flags.push("issue");
+  if (!source.lastSuccessAt && source.lastCheckedAt) flags.push("stale_success");
+  else if ((source.consecutiveFailures || 0) >= 3) flags.push("stale_success");
+
+  return Array.from(new Set(flags));
+}
+
+function sourceRiskFlagLabel(flag: SourceRiskFlag): string {
+  const labels: Record<SourceRiskFlag, string> = {
+    high_volume: "报价多",
+    hidden_many: "下架多",
+    issue: "采集异常",
+    stale_success: "长期未成功",
+  };
+  return labels[flag];
+}
+
+function buildSourceOverviewGroups(
+  groups: SourceGroup[],
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): SourceGroupOverview[] {
+  const standalone: SourceGroupOverview[] = [];
+  const smallGroups: SourceGroup[] = [];
+
+  for (const group of groups) {
+    if (group.sources.length > SOURCE_STANDALONE_GROUP_THRESHOLD) standalone.push(toSourceGroupOverview(group, sourceStatsById, offerCountBySource));
+    else smallGroups.push(group);
+  }
+
+  if (smallGroups.length) {
+    const otherGroup: SourceGroup = {
+      key: SOURCE_OTHER_GROUP_KEY,
+      label: "其他",
+      sources: smallGroups.flatMap((group) => group.sources),
+      normalCount: smallGroups.reduce((sum, group) => sum + group.normalCount, 0),
+      abnormalCount: smallGroups.reduce((sum, group) => sum + group.abnormalCount, 0),
+      disabledCount: smallGroups.reduce((sum, group) => sum + group.disabledCount, 0),
+    };
+    standalone.push(toSourceGroupOverview(otherGroup, sourceStatsById, offerCountBySource));
+  }
+
+  return standalone.sort((a, b) => {
+    if (a.key === SOURCE_OTHER_GROUP_KEY) return 1;
+    if (b.key === SOURCE_OTHER_GROUP_KEY) return -1;
+    const riskDelta = b.riskCount - a.riskCount;
+    if (riskDelta) return riskDelta;
+    return b.sources.length - a.sources.length || a.label.localeCompare(b.label, "zh-CN");
+  });
+}
+
+function toSourceGroupOverview(
+  group: SourceGroup,
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): SourceGroupOverview {
+  let totalVisibleOffers = 0;
+  let totalHiddenOffers = 0;
+  let totalManuallyHiddenOffers = 0;
+  let riskCount = 0;
+
+  for (const source of group.sources) {
+    const stats = sourceStatsById.get(source.id);
+    totalVisibleOffers += sourceVisibleOfferCount(source, sourceStatsById, offerCountBySource);
+    totalHiddenOffers += stats?.hiddenCount || 0;
+    totalManuallyHiddenOffers += stats?.manuallyHiddenCount || 0;
+    if (sourceRiskFlags(source, sourceStatsById, offerCountBySource).length) riskCount += 1;
+  }
+
+  return {
+    ...group,
+    sources: [...group.sources].sort(compareSourcesForOps),
+    totalVisibleOffers,
+    totalHiddenOffers,
+    totalManuallyHiddenOffers,
+    riskCount,
+  };
+}
+
+function filterAndSortSources(
+  sources: Source[],
+  filters: SourceFilters,
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): Source[] {
+  const query = filters.query.trim().toLowerCase();
+  return sources
+    .filter((source) => {
+      if (query) {
+        const searchable = `${source.name} ${source.entryUrl} ${source.baseUrl || ""} ${source.id} ${collectorKindLabel(resolvedCollectorKind(source) || "auto")}`.toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      if (!sourceMatchesStatusFilter(source, filters.status)) return false;
+      if (!sourceMatchesOfferFilter(sourceVisibleOfferCount(source, sourceStatsById, offerCountBySource), filters.offerBand)) return false;
+      if (filters.riskOnly && !sourceRiskFlags(source, sourceStatsById, offerCountBySource).length) return false;
+      return true;
+    })
+    .sort((a, b) => compareSourcesByFilter(a, b, filters.sort, sourceStatsById, offerCountBySource));
+}
+
+function sourceMatchesStatusFilter(source: Source, status: SourceStatusFilter): boolean {
+  if (status === "all") return true;
+  if (status === "disabled") return !source.enabled;
+  if (status === "needs_collector") return sourceNeedsCollector(source);
+  if (status === "issue") return source.enabled && sourceHasIssue(source);
+  if (status === "normal") return source.enabled && !sourceHasIssue(source) && !sourceNeedsCollector(source);
+  return true;
+}
+
+function sourceMatchesOfferFilter(offerCount: number, offerBand: SourceOfferFilter): boolean {
+  if (offerBand === "all") return true;
+  if (offerBand === "zero") return offerCount === 0;
+  if (offerBand === "small") return offerCount >= 1 && offerCount <= 10;
+  if (offerBand === "medium") return offerCount > 10 && offerCount < 50;
+  if (offerBand === "large") return offerCount >= 50;
+  return true;
+}
+
+function compareSourcesByFilter(
+  a: Source,
+  b: Source,
+  sort: SourceSortMode,
+  sourceStatsById: Map<string, SourceOfferStats>,
+  offerCountBySource: Map<string, number>,
+): number {
+  if (sort === "offers_desc") {
+    const offerDelta = sourceVisibleOfferCount(b, sourceStatsById, offerCountBySource) - sourceVisibleOfferCount(a, sourceStatsById, offerCountBySource);
+    if (offerDelta) return offerDelta;
+  }
+
+  if (sort === "issue_first") {
+    const issueDelta = Number(sourceHasIssue(b)) - Number(sourceHasIssue(a));
+    if (issueDelta) return issueDelta;
+  }
+
+  if (sort === "stale_first") {
+    const aSuccess = a.lastSuccessAt || "";
+    const bSuccess = b.lastSuccessAt || "";
+    if (aSuccess !== bSuccess) return aSuccess.localeCompare(bSuccess);
+  }
+
+  if (sort === "hidden_desc") {
+    const hiddenDelta = (sourceStatsById.get(b.id)?.manuallyHiddenCount || 0) - (sourceStatsById.get(a.id)?.manuallyHiddenCount || 0);
+    if (hiddenDelta) return hiddenDelta;
+  }
 
   return sourceSortKey(a).localeCompare(sourceSortKey(b), "zh-CN");
 }
