@@ -6,17 +6,17 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://priceai.cc"),
   title: {
-    default: "PriceAI | AI 订阅价格雷达",
+    default: "PriceAI | AI 订阅卡网与模型 API 比价雷达",
     template: "%s | PriceAI",
   },
-  description: "聚合 ChatGPT、Claude、Gemini、Grok、邮箱和 API/CDK 等 AI 订阅渠道报价，查看有货最低价、原始来源和更新时间。",
+  description: "聚合 ChatGPT、Claude、Gemini、Grok、邮箱、API/CDK 和模型 API 等渠道报价，查看有货最低价、原始来源和更新时间。",
   applicationName: "PriceAI",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "PriceAI | AI 订阅价格雷达",
-    description: "把分散的 AI 会员渠道报价整理成可搜索、可比较、可核验的价格雷达。",
+    title: "PriceAI | AI 订阅卡网与模型 API 比价雷达",
+    description: "把分散的 AI 订阅卡网、官方地区价和模型 API 渠道整理成可搜索、可比较、可核验的比价雷达。",
     url: "https://priceai.cc",
     siteName: "PriceAI",
     locale: "zh_CN",
@@ -24,8 +24,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "PriceAI | AI 订阅价格雷达",
-    description: "查看 AI 订阅渠道的有货最低价、原始来源和更新时间。",
+    title: "PriceAI | AI 订阅卡网与模型 API 比价雷达",
+    description: "查看 AI 订阅卡网和模型 API 渠道的有货最低价、原始来源和更新时间。",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],

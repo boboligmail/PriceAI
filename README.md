@@ -5,8 +5,8 @@
 <h1 align="center">PriceAI</h1>
 
 <p align="center">
-  <strong>AI 订阅卡网渠道比价工具，把分散卡网报价整理成可比较的标准商品。</strong><br/>
-  聚合 100+ 卡网渠道里的 ChatGPT、Claude、Gemini、Grok、邮箱、API/CDK 等多渠道报价，看有货最低价，对比来源，跳转原站购买。
+  <strong>AI 订阅卡网与模型 API 比价雷达，把分散渠道报价整理成可比较的标准商品。</strong><br/>
+  聚合 100+ 卡网渠道里的 ChatGPT、Claude、Gemini、Grok、邮箱、API/CDK 和模型 API 等多渠道报价，看有货最低价，对比来源，跳转原站购买。
 </p>
 
 <p align="center">

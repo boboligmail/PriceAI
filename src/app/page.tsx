@@ -7,16 +7,17 @@ import { getExplorerData } from "@/lib/data";
 export const revalidate = 1800;
 
 export const metadata: Metadata = {
-  title: "AI 订阅与模型 API 获取成本雷达",
+  title: "PriceAI | AI 订阅卡网与模型 API 比价雷达",
   description:
-    "PriceAI 聚合 AI 订阅渠道、官方订阅地区价和模型 API 获取入口，查看 ChatGPT、Claude、Gemini、Grok 等有货最低价、来源和更新时间。",
+    "PriceAI 聚合 AI 订阅卡网渠道、官方订阅地区价和模型 API 渠道报价，查看 ChatGPT、Claude、Gemini、Grok 等有货最低价、来源和更新时间。",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "PriceAI | AI 订阅与模型 API 获取成本雷达",
-    description: "购买 AI 订阅或接入模型 API 前，先比较价格、来源、库存和更新时间。",
+    title: "PriceAI | AI 订阅卡网与模型 API 比价雷达",
+    description: "购买 AI 订阅或接入模型 API 前，先比较卡网渠道、官方地区价、模型 API 价格、来源、库存和更新时间。",
     url: "https://priceai.cc",
+    siteName: "PriceAI",
   },
 };
 
@@ -38,15 +39,25 @@ function buildHomeJsonLd() {
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: "PriceAI",
+      alternateName: ["Price AI", "AI 订阅卡网与模型 API 比价雷达", "AI 比价雷达"],
       url: "https://priceai.cc",
       inLanguage: "zh-CN",
       description:
-        "PriceAI 是 AI 订阅与模型 API 的获取成本雷达，聚合 AI 订阅渠道、官方地区价和模型 API 获取入口。",
+        "PriceAI 是 AI 订阅卡网与模型 API 比价雷达，聚合 AI 订阅卡网渠道、官方地区价和模型 API 渠道报价。",
       potentialAction: {
         "@type": "SearchAction",
         target: "https://priceai.cc/?q={search_term_string}",
         "query-input": "required name=search_term_string",
       },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "PriceAI",
+      alternateName: "Price AI",
+      url: "https://priceai.cc",
+      logo: "https://priceai.cc/icon.svg",
+      sameAs: ["https://github.com/physics-dimension/PriceAI"],
     },
     {
       "@context": "https://schema.org",

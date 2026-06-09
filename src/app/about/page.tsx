@@ -25,7 +25,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "PriceAI 是什么",
   description:
-    "PriceAI 是 AI 订阅与模型 API 的获取成本雷达，聚合 AI 订阅渠道、官方地区价和模型 API 获取入口，帮助中文用户购买或接入前比较价格、来源、库存和更新时间。",
+    "PriceAI 是 AI 订阅卡网与模型 API 比价雷达，聚合 AI 订阅卡网渠道、官方地区价和模型 API 渠道报价，帮助中文用户购买或接入前比较价格、来源、库存和更新时间。",
   alternates: {
     canonical: "/about",
   },
@@ -232,13 +232,13 @@ export default async function AboutPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full bg-[#e8f3ec] px-3 py-1.5 text-xs font-semibold text-[#2f7a4b] ring-1 ring-[#45bf78]/15">
               <Radar size={14} />
-              AI 订阅与模型 API 的获取成本雷达
+              AI 订阅卡网与模型 API 比价雷达
             </div>
             <h1 className="mt-5 font-serif text-4xl font-semibold leading-tight tracking-normal text-[#202829] sm:text-5xl lg:text-[3.5rem]">
               获取 AI 能力前，先看清真实成本。
             </h1>
             <p className="mt-6 max-w-[66ch] text-base leading-8 text-[#5a6061]">
-              PriceAI 面向中文用户整理 AI 能力获取路径：第三方订阅渠道、官方地区价、模型 API、免费 API 和 Token Plan。它不卖货、不担保，只把购买或接入前需要核验的价格、来源、库存和更新时间放到同一个界面里。
+              PriceAI 面向中文用户整理 AI 能力获取路径：AI 订阅卡网渠道、官方地区价、模型 API、免费 API 和 Token Plan。它不卖货、不担保，只把购买或接入前需要核验的价格、来源、库存和更新时间放到同一个界面里。
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link

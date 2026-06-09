@@ -574,7 +574,7 @@ export function PriceExplorer({
                 <span className="hidden md:inline">主价格优先取有货最低价，缺货会明显标注</span>
               </div>
               <p className="mt-3 hidden max-w-[78ch] text-sm leading-7 text-[#5a6061] md:block">
-                PriceAI 聚合 AI 订阅渠道、官方地区价和模型 API 获取入口。本站不卖货、不担保，价格仅供参考，实际交易和售后规则以原平台为准。
+                PriceAI 聚合 AI 订阅卡网渠道、官方地区价和模型 API 渠道报价。本站不卖货、不担保，价格仅供参考，实际交易和售后规则以原平台为准。
               </p>
             </div>
 
@@ -1821,6 +1821,10 @@ function advancedFilterCount({
 }
 
 function buildTitle(platform: string, productType: string, showingOffers = false): string {
+  if (platform === "全部" && productType === "全部" && !showingOffers) {
+    return "PriceAI：AI 订阅卡网与模型 API 比价雷达";
+  }
+
   const platformName = platform === "全部" ? "全平台" : platform;
   const typeName = productType === "全部" ? "标准商品" : productTypeLabels[productType] || productType;
 
