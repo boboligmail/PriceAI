@@ -103,6 +103,8 @@ const cases = [
   ["CR.Ai 中转Api | 支持Claude ChatGPT Gemini 官方1:1 |300刀兑换码 使用请看教程", "openai-api-cdk"],
   ["chatGPT API中转 充值余额100刀 8折", "openai-api-cdk"],
   ["Cursor Pro 成品号", "cursor-account"],
+  ["GitHub Copilot 账号", "other-product"],
+  ["OpenClaw SaaS 工具账号", "other-product"],
   ["Kiro注册机源码", "other-product"],
   ["Kiro 注册机生成器", "other-product"],
   ["Kiro Power 200$成品号一万积分 - 使用 Claude Opus4.6", "kiro-account"],

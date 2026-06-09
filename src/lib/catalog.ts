@@ -400,16 +400,6 @@ export const canonicalCatalog: CanonicalProduct[] = [
     aliases: ["x premium", "twitter premium", "twitter", "推特", "x 推特", "x/twitter", "x-twitter"],
   },
   {
-    id: "other-tool-account",
-    slug: "other-tool-account",
-    displayName: "其他工具账号",
-    platform: "其他",
-    productType: "工具账号",
-    spec: "AI / SaaS 工具账号",
-    summary: "OpenClaw、GitHub Copilot、Canva、Runway 等非主平台工具账号或权益。",
-    aliases: ["openclaw", "open claw", "copilot", "canva", "runway", "工具账号"],
-  },
-  {
     id: "other-product",
     slug: "other-product",
     displayName: "其他商品",
@@ -427,7 +417,7 @@ const legacyCanonicalIdMap: Record<string, string> = {
   "chatgpt-plus-account": "chatgpt-plus",
   "email-account": "email-account",
   "phone-verification": "phone-verification",
-  "other-tool-account": "other-tool-account",
+  "other-tool-account": "other-product",
 };
 
 type OfferClassificationContext = {
@@ -1096,7 +1086,7 @@ function classifyOtherTool(value: string): string {
   if (matches(value, ["suno"])) return "suno-account";
   if (isAppleIdAccount(value)) return "apple-id-account";
 
-  return "other-tool-account";
+  return "other-product";
 }
 
 function isXTwitterAccount(value: string): boolean {
