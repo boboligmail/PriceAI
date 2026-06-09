@@ -3,6 +3,7 @@ import { getAdminPasswordFromRequest } from "@/lib/admin";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { revalidatePath } from "next/cache";
 
 export async function POST(request: Request) {
   try {
@@ -87,6 +88,9 @@ export async function POST(request: Request) {
     }
 
     clearPublicDataCache();
+    revalidatePath("/");
+    revalidatePath("/products/[id]", "page");
+    revalidatePath("/sitemap.xml");
 
     return Response.json({
       ok: true,
