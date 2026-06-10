@@ -135,6 +135,7 @@ npm run collect:performance -- --hours 24 --limit 1500
 
 - 同一轮批量任务默认最多采集 `20` 个链动小铺店铺。
 - 同一渠道族两次请求默认间隔 `15` 秒。
+- 同一渠道族频繁返回 `HTTP 403` 时，默认进入 `5` 分钟短冷却，后续同主域店铺跳过到下一轮。
 - 一旦返回验证/风控页面，当前进程会对该渠道族熔断 `30` 分钟，后续同族店铺跳过到下一轮。
 - 单个渠道手动试采不默认套用批量限速，便于后台定位单点问题。
 
@@ -143,6 +144,8 @@ npm run collect:performance -- --hours 24 --limit 1500
 ```bash
 PRICEAI_LIANDONG_SHOP_BULK_LIMIT=20
 PRICEAI_LIANDONG_SHOP_BULK_DELAY_MS=15000
+PRICEAI_LIANDONG_SHOP_403_COOLDOWN_MINUTES=5
+PRICEAI_LIANDONG_SHOP_403_THRESHOLD=2
 PRICEAI_LIANDONG_SHOP_BREAKER_MINUTES=30
 ```
 

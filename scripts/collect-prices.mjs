@@ -15,6 +15,8 @@ const DEFAULT_LOCK_SECONDS = 10 * 60;
 const DEFAULT_LIANDONG_SHOP_BULK_LIMIT = 20;
 const DEFAULT_LIANDONG_SHOP_BULK_DELAY_MS = 15_000;
 const DEFAULT_LIANDONG_SHOP_BREAKER_MINUTES = 30;
+const DEFAULT_LIANDONG_SHOP_HTTP_403_COOLDOWN_MINUTES = 5;
+const DEFAULT_LIANDONG_SHOP_HTTP_403_THRESHOLD = 2;
 const DEFAULT_PAGE_DELAY_MS = 300;
 const DEFAULT_CONCURRENCY = 1;
 const DEFAULT_FLUSH_SOURCE_COUNT = 20;
@@ -157,7 +159,7 @@ async function collectOneTarget(target, options, logger, lockOwner, familyState,
       }
     }
 
-    recordCollectionFamilyResult(target, familyState, { status, message });
+    recordCollectionFamilyResult(target, familyState, { status, message, attempts: collection.attempts });
     return {
       sourceId: target.sourceId,
       source: target.sourceName,
@@ -171,7 +173,7 @@ async function collectOneTarget(target, options, logger, lockOwner, familyState,
     const message = errorMessage(error);
     const attempts = Array.isArray(error?.attempts) ? error.attempts : [];
     logger?.error(`Failed: ${message}`);
-    recordCollectionFamilyResult(target, familyState, { status: "failed", message, logger });
+    recordCollectionFamilyResult(target, familyState, { status: "failed", message, attempts, logger });
 
     if (options.post) {
       await postCrawlLog(target, [], "failed", message, options, {
@@ -2029,6 +2031,8 @@ export function createCollectionFamilyState(options = {}) {
     limit: liandongShopBulkLimitFor(options),
     delayMs: liandongShopBulkDelayMsFor(options),
     breakerMs: liandongShopBreakerMsFor(options),
+    http403CooldownMs: liandongShopHttp403CooldownMsFor(options),
+    http403Threshold: liandongShopHttp403ThresholdFor(options),
   };
 }
 
@@ -2048,6 +2052,12 @@ function collectionFamilySkipReason(target, state) {
   if (record.breakerUntil && record.breakerUntil > now) {
     return {
       message: `${family.label} 已触发风控熔断；约 ${Math.ceil((record.breakerUntil - now) / 60_000)} 分钟后再试。`,
+    };
+  }
+
+  if (record.http403CooldownUntil && record.http403CooldownUntil > now) {
+    return {
+      message: `${family.label} 近期频繁 HTTP 403，进入短冷却；约 ${Math.ceil((record.http403CooldownUntil - now) / 60_000)} 分钟后再试。`,
     };
   }
 
@@ -2089,6 +2099,24 @@ function recordCollectionFamilyResult(target, state, result = {}) {
   const record = collectionFamilyRecord(state, family);
   record.lastStatus = result.status || null;
   record.lastMessage = result.message || null;
+
+  if (result.status === "success") {
+    record.consecutiveHttp403Count = 0;
+  }
+
+  const http403Count = http403CountForResult(result);
+  if (http403Count > 0) {
+    record.consecutiveHttp403Count += http403Count;
+    if (record.consecutiveHttp403Count >= state.http403Threshold) {
+      record.http403CooldownUntil = Date.now() + state.http403CooldownMs;
+      record.consecutiveHttp403Count = 0;
+      result.logger?.log(
+        `${family.label} returned frequent HTTP 403; cooling this family for ${Math.ceil(state.http403CooldownMs / 60_000)} minutes.`,
+      );
+    }
+    return;
+  }
+
   if (!isChallengeMessage(result.message)) return;
 
   record.breakerUntil = Date.now() + state.breakerMs;
@@ -2105,6 +2133,8 @@ function collectionFamilyRecord(state, family) {
     startedCount: 0,
     lastStartedAt: 0,
     breakerUntil: 0,
+    http403CooldownUntil: 0,
+    consecutiveHttp403Count: 0,
     lastStatus: null,
     lastMessage: null,
   };
@@ -2152,6 +2182,37 @@ function liandongShopBreakerMsFor(options = {}) {
     env.PRICEAI_LIANDONG_SHOP_BREAKER_MINUTES ||
     DEFAULT_LIANDONG_SHOP_BREAKER_MINUTES;
   return integerInRange(raw, 1, 24 * 60, DEFAULT_LIANDONG_SHOP_BREAKER_MINUTES) * 60 * 1000;
+}
+
+function liandongShopHttp403CooldownMsFor(options = {}) {
+  const raw =
+    options.liandongShopHttp403CooldownMinutes ||
+    options["liandong-shop-403-cooldown-minutes"] ||
+    process.env.PRICEAI_LIANDONG_SHOP_403_COOLDOWN_MINUTES ||
+    env.PRICEAI_LIANDONG_SHOP_403_COOLDOWN_MINUTES ||
+    DEFAULT_LIANDONG_SHOP_HTTP_403_COOLDOWN_MINUTES;
+  return integerInRange(raw, 1, 60, DEFAULT_LIANDONG_SHOP_HTTP_403_COOLDOWN_MINUTES) * 60 * 1000;
+}
+
+function liandongShopHttp403ThresholdFor(options = {}) {
+  const raw =
+    options.liandongShopHttp403Threshold ||
+    options["liandong-shop-403-threshold"] ||
+    process.env.PRICEAI_LIANDONG_SHOP_403_THRESHOLD ||
+    env.PRICEAI_LIANDONG_SHOP_403_THRESHOLD ||
+    DEFAULT_LIANDONG_SHOP_HTTP_403_THRESHOLD;
+  return integerInRange(raw, 1, 10, DEFAULT_LIANDONG_SHOP_HTTP_403_THRESHOLD);
+}
+
+function http403CountForResult(result = {}) {
+  const attempts = Array.isArray(result.attempts) ? result.attempts : [];
+  const count = attempts.filter((attempt) => isHttp403Message(attempt?.message)).length;
+  if (count > 0) return count;
+  return isHttp403Message(result.message) ? 1 : 0;
+}
+
+function isHttp403Message(message) {
+  return /HTTP\s*403|returned HTTP 403|denied by ip_access_rule|ip_access_rule/i.test(String(message || ""));
 }
 
 function isChallengeMessage(message) {
