@@ -20,6 +20,7 @@ type ProductOffersResponse = {
 
 const OFFER_PAGE_SIZE = 80;
 const PRODUCT_OFFERS_CACHE_TTL_MS = 2 * 60 * 1000;
+const TELEGRAM_COMMUNITY_URL = "https://t.me/priceaicc";
 const productOffersMemoryCache = new Map<string, ProductOffersResponse>();
 
 export function ProductOffersPanel({
@@ -496,7 +497,6 @@ export function OfferFeedbackDialog({
         throw new Error(json.message || "反馈提交失败。");
       }
       setMessage({ type: "success", text: "已收到反馈，我会在后台审核处理。" });
-      window.setTimeout(onClose, 1200);
     } catch (currentError) {
       setMessage({ type: "error", text: currentError instanceof Error ? currentError.message : "反馈提交失败。" });
     } finally {
@@ -506,7 +506,7 @@ export function OfferFeedbackDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#202829]/35 px-4 py-4 sm:items-center">
-      <div className="w-full max-w-lg rounded-lg bg-white p-5 shadow-[0_24px_80px_rgba(32,40,41,0.22)]">
+      <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-[0_24px_80px_rgba(32,40,41,0.22)]">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="font-serif text-xl font-semibold text-[#202829]">反馈报价问题</h3>
@@ -582,6 +582,19 @@ export function OfferFeedbackDialog({
               className="h-10 w-full rounded-lg border border-[#adb3b4]/40 bg-white px-3 text-sm outline-none transition focus:border-[#2d3435]"
             />
           </label>
+          <a
+            href={TELEGRAM_COMMUNITY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center justify-between gap-3 rounded-lg border border-[#2AABEE]/20 bg-[#eef8fe] px-3 py-2 text-sm leading-6 text-[#23658a] transition hover:border-[#2AABEE]/35 hover:bg-[#e3f4fd]"
+          >
+            <span>
+              {message?.type === "success"
+                ? "需要补充截图或查看处理进展？可以加入 PriceAI 交流群继续说明。"
+                : "如果问题比较紧急，或需要补充截图/聊天记录，也可以加入 PriceAI 交流群同步反馈。"}
+            </span>
+            <ExternalLink size={14} className="shrink-0" />
+          </a>
           {message ? (
             <div className={`rounded-lg px-3 py-2 text-sm ${
               message.type === "success" ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"
@@ -591,10 +604,10 @@ export function OfferFeedbackDialog({
           ) : null}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || message?.type === "success"}
             className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#2d3435] px-4 text-sm font-semibold text-white transition hover:bg-[#202829] disabled:opacity-60"
           >
-            {loading ? "提交中..." : "提交反馈"}
+            {message?.type === "success" ? "已提交" : loading ? "提交中..." : "提交反馈"}
           </button>
         </form>
       </div>

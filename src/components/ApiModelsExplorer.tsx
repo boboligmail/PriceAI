@@ -516,11 +516,24 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
               <span>管理员会在后台看到解析结果并决定是否收录。</span>
             </div>
             {submitMessage ? (
-              <p className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                submitMessage.type === "success" ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"
-              }`}>
-                {submitMessage.text}
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className={`rounded-lg px-3 py-2 text-sm ${
+                  submitMessage.type === "success" ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]"
+                }`}>
+                  {submitMessage.text}
+                </p>
+                {submitMessage.type === "success" ? (
+                  <a
+                    href="https://t.me/priceaicc"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[#2AABEE]/20 bg-[#eef8fe] px-3 py-2 text-sm text-[#23658a] transition hover:border-[#2AABEE]/35 hover:bg-[#e3f4fd]"
+                  >
+                    <span>也欢迎加入 PriceAI 交流群，一起补充模型 API 渠道和免费额度信息。</span>
+                    <ExternalLink size={14} className="shrink-0" />
+                  </a>
+                ) : null}
+              </div>
             ) : null}
           </section>
         </div>

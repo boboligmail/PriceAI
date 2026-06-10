@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Info } from "lucide-react";
 import { AppLogo } from "@/components/AppLogo";
-import { FeedbackLink, GitHubLink } from "@/components/FeedbackLink";
+import { FeedbackLink, GitHubLink, TelegramLink } from "@/components/FeedbackLink";
 
 const navItems = [
   { key: "channels", href: "/", label: "卡网渠道", match: (pathname: string) => pathname === "/" || pathname.startsWith("/products") },
@@ -69,6 +69,7 @@ export function SiteHeader({
             <span className="hidden sm:inline">关于</span>
           </Link>
           <FeedbackLink compact />
+          <TelegramLink compact />
           <GitHubLink compact />
         </div>
       </div>
