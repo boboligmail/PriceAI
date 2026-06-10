@@ -37,6 +37,16 @@ function getExternalIconClassName(labelFrom: HeaderActionLabelFrom) {
   return labelFrom === "2xl" ? "hidden 2xl:block" : "hidden sm:block";
 }
 
+function getCompactButtonClassName(
+  labelFrom: HeaderActionLabelFrom,
+  smExpandedPaddingClassName: string,
+  ultraWideExpandedPaddingClassName: string,
+) {
+  return labelFrom === "2xl"
+    ? `h-9 w-9 gap-0 px-0 2xl:h-10 2xl:w-auto 2xl:gap-2 ${ultraWideExpandedPaddingClassName}`
+    : `h-9 w-9 gap-0 px-0 sm:h-10 sm:w-auto sm:gap-2 ${smExpandedPaddingClassName}`;
+}
+
 export function FeedbackLink({
   compact = false,
   labelFrom = "sm",
@@ -53,7 +63,7 @@ export function FeedbackLink({
         type="button"
         onClick={() => setOpen(true)}
         className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
-          compact ? "h-9 w-9 gap-0 px-0 sm:h-10 sm:w-auto sm:gap-2 sm:px-3" : "h-10 gap-2 px-3"
+          compact ? getCompactButtonClassName(labelFrom, "sm:px-3", "2xl:px-3") : "h-10 gap-2 px-3"
         }`}
         aria-label="提交意见反馈"
       >
@@ -78,7 +88,7 @@ export function GitHubLink({
       target="_blank"
       rel="noreferrer"
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
-        compact ? "h-9 w-9 gap-0 px-0 sm:h-10 sm:w-auto sm:gap-2 sm:px-3.5" : "h-10 gap-2 px-3.5"
+        compact ? getCompactButtonClassName(labelFrom, "sm:px-3.5", "2xl:px-3.5") : "h-10 gap-2 px-3.5"
       }`}
       aria-label="打开 PriceAI GitHub 仓库"
     >
@@ -109,7 +119,7 @@ export function TelegramLink({
       target="_blank"
       rel="noreferrer"
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
-        compact ? "h-9 w-9 gap-0 px-0 sm:h-10 sm:w-auto sm:gap-2 sm:px-3" : "h-10 gap-2 px-3.5"
+        compact ? getCompactButtonClassName(labelFrom, "sm:px-3", "2xl:px-3") : "h-10 gap-2 px-3.5"
       }`}
       aria-label="加入 PriceAI Telegram 交流群"
     >

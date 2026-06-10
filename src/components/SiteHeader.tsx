@@ -19,7 +19,7 @@ export function SiteHeader({
   maxWidthClassName = "max-w-[1500px]",
   logoCompact = false,
   activeSection,
-  compactActionLabelFrom = "sm",
+  compactActionLabelFrom = "2xl",
 }: {
   maxWidthClassName?: string;
   logoCompact?: boolean;
@@ -28,8 +28,13 @@ export function SiteHeader({
 }) {
   const pathname = usePathname();
   const aboutActive = pathname.startsWith("/about");
-  const desktopCenterNavClassName = "hidden items-center rounded-full bg-[#e4e9ea] p-1 text-sm font-semibold text-[#5a6061] xl:flex";
-  const secondaryNavWrapperClassName = "border-t border-[#dfe4e5] px-5 pb-3 sm:px-8 xl:hidden";
+  const desktopCenterNavClassName = "hidden items-center rounded-full bg-[#e4e9ea] p-1 text-sm font-semibold text-[#5a6061] min-[720px]:flex";
+  const secondaryNavWrapperClassName = "border-t border-[#dfe4e5] px-5 pb-3 sm:px-8 min-[720px]:hidden";
+  const aboutButtonSizeClassName =
+    compactActionLabelFrom === "2xl"
+      ? "h-9 w-9 gap-0 px-0 2xl:h-10 2xl:w-auto 2xl:gap-2 2xl:px-3.5"
+      : "h-9 w-9 gap-0 px-0 sm:h-10 sm:w-auto sm:gap-2 sm:px-3.5";
+  const actionGroupGapClassName = compactActionLabelFrom === "2xl" ? "gap-1.5 2xl:gap-3" : "gap-1.5 sm:gap-3";
 
   return (
     <header>
@@ -59,10 +64,10 @@ export function SiteHeader({
           })}
         </nav>
 
-        <div className="relative z-10 flex min-w-0 items-center justify-end gap-1.5 sm:gap-3">
+        <div className={`relative z-10 flex min-w-0 items-center justify-end ${actionGroupGapClassName}`}>
           <Link
             href="/about"
-            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center gap-0 rounded-full px-0 text-sm font-semibold shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 sm:h-10 sm:w-auto sm:gap-2 sm:px-3.5 ${
+            className={`inline-flex shrink-0 items-center justify-center rounded-full text-sm font-semibold shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 ${aboutButtonSizeClassName} ${
               aboutActive
                 ? "bg-[#2d3435] text-[#f8f8f8]"
                 : "bg-white text-[#2d3435] hover:bg-[#f5f7f7] hover:text-[#202829]"
