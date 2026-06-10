@@ -29,14 +29,20 @@ const cases = [
   ["ChatGPT Pro 5倍 官方充值", "chatgpt-pro-5x"],
   ["PRO 5× 充值卡密(iOS美区质保)", "chatgpt-pro-5x"],
   ["ChatGPT Pro 100 美金 成品号/账号代充", "chatgpt-pro-5x"],
+  ["ChatGPT 推理强 ChatGPT Pro 5X 月卡｜官方卡充｜1个月｜支持续费｜正规充值 【20X-200刀款】 自助充值卡密", "other-product"],
+  ["ChatGPT PRO 5X/20X", "other-product"],
   ["GPT PRO 特价代充卡密(质保订阅)", "other-product"],
   ["ChatGPT Team 团队席位 邀请", "chatgpt-team-business"],
   ["ChatGPT Business 母号 自动拉", "chatgpt-team-business"],
   ["GPT Busisness 席位月卡 质保首登", "chatgpt-team-business"],
+  ["#plus直营店#--全新Team RT 凭证，购卡一小时内质保首登", "chatgpt-team-business"],
   ["gpt Team bug 子号 最低200刀（无质保，拿着卡密去兑换地址下载JSON文件）", "chatgpt-team-business"],
   ["GPT team bug 子号 (质保首登，JSON格式)", "chatgpt-team-business"],
   ["codex-api 100刀/1000刀不限时 PRO plus号池 非team free / 规格3", "openai-api-cdk"],
+  ["麦门Codex API 不限时 Plus和Pro号池 非Free和Team / 50$余额兑换码", "openai-api-cdk"],
   ["渠道7 Chatgpt Plus(质保首登) （较稳定款）目前不知道能活多久 要稳买我的team，不保codex接码", "chatgpt-plus"],
+  ["ChatGPT Plus 拼车｜专属席位｜月付", "chatgpt-plus"],
+  ["ChatGPT Go 激活码 月会员自助充值｜iOS 正规充值｜自动发货", "other-product"],
   ["Steam白号", "other-product"],
   ["Super Grok 激活码 月卡", "super-grok"],
   ["Grok 普号 体验号", "grok-account"],
@@ -49,6 +55,7 @@ const cases = [
   ["🥨Claude 6.25X【质保订阅】", "claude-team-premium"],
   ["Claude Max 5X直充月卡", "claude-max-5x"],
   ["Claude Max 20X 成品号", "claude-max-20x"],
+  ["【20x质保一次掉订阅】cluade 20x成品", "claude-max-20x"],
   ["Gemini Pro 一年 12个月", "gemini-pro-year"],
   ["【反重力GCP可用】Gemini Pro 12个月成品【质保首登丨官方订阅】", "gemini-pro-year"],
   ["提取12个月优惠链接 一次 gemin pro（不会用别买不退不换，小白别买）", "gemini-pro-recharge"],
@@ -191,6 +198,25 @@ assert.ok(
   "Offers at the floor should stay in the target product.",
 );
 
+const mixedTierGroups = buildProductGroups([
+  makeOffer({
+    id: "mixed-pro-tier",
+    title: "ChatGPT 推理强 ChatGPT Pro 5X 月卡｜官方卡充｜1个月｜支持续费｜正规充值 【20X-200刀款】 自助充值卡密",
+    price: 350,
+    status: "in_stock",
+    canonicalProductId: "chatgpt-pro-20x",
+  }),
+]);
+assert.ok(
+  mixedTierGroups.find((group) => group.id === "other-product")?.offers.some((offer) => offer.id === "mixed-pro-tier"),
+  "Mixed ChatGPT Pro tier titles should not fall back to the stored Pro 20x category.",
+);
+assert.equal(
+  mixedTierGroups.find((group) => group.id === "chatgpt-pro-20x"),
+  undefined,
+  "Mixed ChatGPT Pro tier titles should be removed from the Pro 20x group.",
+);
+
 console.log(`catalog test passed cases=${cases.length + priceCases.length}`);
 
 function makeOffer({
@@ -200,6 +226,7 @@ function makeOffer({
   status,
   hidden = false,
   effectiveStatus = null,
+  canonicalProductId = null,
 }) {
   return {
     id,
@@ -214,7 +241,7 @@ function makeOffer({
     tags: [],
     stockCount: status === "out_of_stock" ? 0 : 10,
     hidden,
-    canonicalProductId: null,
+    canonicalProductId,
     categorySlug: null,
     capturedAt: "2026-06-06T00:00:00.000Z",
     sourceUpdatedAt: "2026-06-06T00:00:00.000Z",

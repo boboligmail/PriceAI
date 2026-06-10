@@ -454,6 +454,7 @@ export function resolveOfferProduct(
 
   if (classified.id !== "other-product") return classified;
   if (titleClassified.id !== "other-product") return classified;
+  if (shouldBlockStoredProductFallback(offer.sourceTitle)) return classified;
   if (mappedId && catalogById.has(mappedId)) return getCanonicalProduct(mappedId);
   if (mappedId && canonicalMap.has(mappedId)) return canonicalMap.get(mappedId)!;
 
@@ -558,6 +559,10 @@ function classifyOfferByTitle(
     return getCanonicalProduct("claude-max-5x");
   }
 
+  if (isMixedChatGptProTier(value)) {
+    return getCanonicalProduct("other-product");
+  }
+
   if (isChatGptPro20(value)) {
     return getCanonicalProduct("chatgpt-pro-20x");
   }
@@ -581,6 +586,10 @@ function classifyOfferByTitle(
 
     if (isChatGptFreeAccount(value) || isNegatedPlus(value)) {
       return getCanonicalProduct("chatgpt-free-account");
+    }
+
+    if (isMixedChatGptProTier(value)) {
+      return getCanonicalProduct("other-product");
     }
 
     if (isChatGptTeamDominant(value)) {
@@ -634,6 +643,12 @@ function applyPriceFloor(product: CanonicalProduct, price: number | null | undef
   if (typeof price !== "number" || !Number.isFinite(price)) return product;
 
   return price < floor ? getCanonicalProduct("other-product") : product;
+}
+
+function shouldBlockStoredProductFallback(title: string): boolean {
+  const value = normalizeTitle(title);
+
+  return isMixedChatGptProTier(value);
 }
 
 export function buildProductGroups(
@@ -800,6 +815,7 @@ function normalizeTitle(title: string): string {
     .replace(/\bpulus\b/g, "plus")
     .replace(/\bgemin\b/g, "gemini")
     .replace(/\bcoedx\b/g, "codex")
+    .replace(/\bcluade\b/g, "claude")
     .replace(/\bbusisness\b/g, "business")
     .replace(/chat\s*gpt/g, "chatgpt")
     .replace(/supergrok/g, "super grok")
@@ -1116,6 +1132,7 @@ function isNegatedPlus(value: string): boolean {
 }
 
 function isApiProduct(value: string): boolean {
+  if (isModelApiCreditProduct(value)) return true;
   if (isChatGptAccountOrSubscriptionDominant(value)) return false;
   if (isChatGptTeam(value)) return false;
   if (isClaudeProduct(value) && matches(value, ["team", "席位", "标准席位", "高级席位", "1.25x", "1.25倍", "6.25x", "6.25倍"])) return false;
@@ -1133,6 +1150,13 @@ function isApiProduct(value: string): boolean {
   if (matches(value, ["额度"]) && matches(value, ["claude", "gemini", "gpt", "codex", "openai", "ai 平台"])) return true;
 
   return false;
+}
+
+function isModelApiCreditProduct(value: string): boolean {
+  if (!matches(value, ["codex api", "openai api", "chatgpt api", "gpt api"])) return false;
+  if (matches(value, ["余额兑换码", "余额 兑换码", "兑换码", "额度", "刀卡", "美元额度", "美金额度"])) return true;
+
+  return /\d+\s*\$\s*余额/.test(value) || /\d+\s*\$\s*余额兑换码/.test(value);
 }
 
 function isVirtualCardProduct(value: string): boolean {
@@ -1490,12 +1514,33 @@ function isChatGptAccountOrSubscriptionDominant(value: string): boolean {
 
 function isChatGptPro20(value: string): boolean {
   if (matches(value, ["gemini", "claude"])) return false;
-  return matches(value, ["pro", "gpt pro", "chatgpt pro"]) && matches(value, ["20x", "x20", "20倍", "200刀", "200 美元", "200美元", "200美金", "200 美金"]);
+  if (isMixedChatGptProTier(value)) return false;
+
+  return matches(value, ["pro", "gpt pro", "chatgpt pro"]) && hasChatGptPro20Signal(value);
 }
 
 function isChatGptPro5(value: string): boolean {
   if (matches(value, ["gemini", "claude"])) return false;
-  return matches(value, ["pro", "gpt pro", "chatgpt pro"]) && matches(value, ["5x", "x5", "5倍", "100刀", "100 美元", "100美元", "100美金", "100 美金"]);
+  if (isMixedChatGptProTier(value)) return false;
+
+  return matches(value, ["pro", "gpt pro", "chatgpt pro"]) && hasChatGptPro5Signal(value);
+}
+
+function isMixedChatGptProTier(value: string): boolean {
+  if (matches(value, ["gemini", "claude"])) return false;
+  if (!matches(value, ["pro", "gpt pro", "chatgpt pro"])) return false;
+
+  return hasChatGptPro5Signal(value) && hasChatGptPro20Signal(value);
+}
+
+function hasChatGptPro20Signal(value: string): boolean {
+  return matches(value, ["20x", "x20", "20倍", "200刀", "200 美元", "200美元", "200美金", "200 美金"]) ||
+    /\bpro\s*20\b/.test(value);
+}
+
+function hasChatGptPro5Signal(value: string): boolean {
+  return matches(value, ["5x", "x5", "5倍", "100刀", "100 美元", "100美元", "100美金", "100 美金"]) ||
+    /\bpro\s*5\b/.test(value);
 }
 
 function isChatGptTeam(value: string): boolean {
@@ -1508,6 +1553,7 @@ function isChatGptTeam(value: string): boolean {
 function isChatGptTeamDominant(value: string): boolean {
   if (matches(value, ["gemini", "claude", "grok"])) return false;
   if (isChatGptTeamExclusion(value)) return false;
+  if (isChatGptPlusCarpool(value)) return false;
 
   return matches(value, [
     "gpt team",
@@ -1524,6 +1570,11 @@ function isChatGptTeamDominant(value: string): boolean {
     "team 席位",
     "team反代",
     "team 反代",
+    "team月卡",
+    "team 月卡",
+    "team rt",
+    "team凭证",
+    "team 凭证",
     "business",
     "busisness",
     "business子号",
@@ -1539,6 +1590,13 @@ function isChatGptTeamDominant(value: string): boolean {
     "团队席位",
     "席位",
   ]);
+}
+
+function isChatGptPlusCarpool(value: string): boolean {
+  if (!matches(value, ["plus", "chatgpt plus", "gpt plus"])) return false;
+  if (!matches(value, ["拼车"])) return false;
+
+  return !matches(value, ["team", "business", "t5", "团队", "母号", "自动拉", "直拉"]);
 }
 
 function isChatGptTeamExclusion(value: string): boolean {
