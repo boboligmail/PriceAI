@@ -2,6 +2,8 @@
 
 本分支用于验证 PriceAI 是否能通过 OpenNext 运行在 Cloudflare Workers 上，不用于直接切换生产域名。
 
+后续迁移路线见 `docs/cloudflare-migration-plan.md`。
+
 ## 当前结论
 
 - POC 目标是 **Cloudflare Workers + OpenNext**，不是静态 Cloudflare Pages export。当前项目有动态 API、后台、ISR / revalidate 页面和 Supabase 读取，静态导出不适合作为主迁移路径。
