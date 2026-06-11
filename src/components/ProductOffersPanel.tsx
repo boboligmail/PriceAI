@@ -355,20 +355,56 @@ function OfferSourceTitle({ title, mode }: { title: string; mode: "table" | "car
   const [expanded, setExpanded] = useState(false);
   const canExpand = title.trim().length > SOURCE_TITLE_EXPAND_THRESHOLD;
 
-  if (mode === "table") {
-    return (
-      <span
-        className="block truncate text-[#2d3435]"
-        title={title}
-        aria-label={`原始商品名：${title}`}
-      >
-        {title}
-      </span>
-    );
+  if (!canExpand) {
+    if (mode === "table") {
+      return (
+        <span className="block truncate text-[#2d3435]" title={title} aria-label={`原始商品名：${title}`}>
+          {title}
+        </span>
+      );
+    }
+
+    return <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5a6061]">{title}</p>;
   }
 
-  if (!canExpand) {
-    return <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5a6061]">{title}</p>;
+  if (mode === "table") {
+    return (
+      <div className="min-w-0 text-[#2d3435]">
+        <div className={expanded ? "leading-6" : "flex min-w-0 items-center gap-2"}>
+          <span
+            className={expanded ? "block whitespace-normal break-words" : "min-w-0 flex-1 truncate"}
+            title={title}
+            aria-label={`原始商品名：${title}`}
+          >
+            {title}
+          </span>
+          {!expanded ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              aria-expanded={false}
+              aria-label={`展开原始商品名：${title}`}
+              className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-full bg-[#eef3f8] px-2 text-xs font-semibold text-[#47657a] transition hover:bg-[#dde8f1] focus:outline-none focus:ring-2 focus:ring-[#adb3b4]/35"
+            >
+              展开
+              <ChevronDown size={12} />
+            </button>
+          ) : null}
+        </div>
+        {expanded ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            aria-expanded={true}
+            aria-label={`收起原始商品名：${title}`}
+            className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#47657a] transition hover:text-[#2d3435] focus:outline-none focus:ring-2 focus:ring-[#adb3b4]/30"
+          >
+            收起
+            <ChevronUp size={12} />
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (
