@@ -1,6 +1,6 @@
 "use client";
 
-import { ExternalLink, Flag, X } from "lucide-react";
+import { ChevronDown, ChevronUp, ExternalLink, Flag, X } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { isAvailable } from "@/lib/catalog";
 import { trackAnalyticsEvent } from "@/lib/analytics";
@@ -21,6 +21,7 @@ type ProductOffersResponse = {
 const OFFER_PAGE_SIZE = 80;
 const PRODUCT_OFFERS_CACHE_TTL_MS = 2 * 60 * 1000;
 const TELEGRAM_COMMUNITY_URL = "https://t.me/priceaicc";
+const SOURCE_TITLE_EXPAND_THRESHOLD = 42;
 const productOffersMemoryCache = new Map<string, ProductOffersResponse>();
 
 export function ProductOffersPanel({
@@ -297,7 +298,7 @@ function OfferTable({ offers, onFeedback }: { offers: RawOffer[]; onFeedback: (o
                     ) : null}
                   </td>
                   <td className="max-w-[380px] px-5 py-4">
-                    <span className="block truncate text-[#2d3435]">{offer.sourceTitle}</span>
+                    <OfferSourceTitle title={offer.sourceTitle} mode="table" />
                   </td>
                   <td className="px-5 py-4">
                     <span className={`text-lg font-bold ${available ? "text-[#202829]" : "text-[#9b3328]"}`}>
@@ -329,7 +330,7 @@ function OfferListItem({ offer, onFeedback }: { offer: RawOffer; onFeedback: (of
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold text-[#202829]">{sourceLabel(offer)}</p>
-          <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5a6061]">{offer.sourceTitle}</p>
+          <OfferSourceTitle title={offer.sourceTitle} mode="card" />
         </div>
         <OfferStatusBadge available={available} />
       </div>
@@ -348,6 +349,43 @@ function OfferListItem({ offer, onFeedback }: { offer: RawOffer; onFeedback: (of
 
 function TableHead({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <th className={`px-5 py-3 font-semibold ${className}`}>{children}</th>;
+}
+
+function OfferSourceTitle({ title, mode }: { title: string; mode: "table" | "card" }) {
+  const [expanded, setExpanded] = useState(false);
+  const canExpand = title.trim().length > SOURCE_TITLE_EXPAND_THRESHOLD;
+
+  if (mode === "table") {
+    return (
+      <span
+        className="block truncate text-[#2d3435]"
+        title={title}
+        aria-label={`原始商品名：${title}`}
+      >
+        {title}
+      </span>
+    );
+  }
+
+  if (!canExpand) {
+    return <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#5a6061]">{title}</p>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setExpanded((current) => !current)}
+      aria-expanded={expanded}
+      title={title}
+      className="mt-1 block w-full rounded-md text-left text-sm leading-6 text-[#5a6061] transition hover:text-[#2d3435] focus:outline-none focus:ring-2 focus:ring-[#adb3b4]/30"
+    >
+      <span className={expanded ? "block" : "line-clamp-2"}>{title}</span>
+      <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#47657a]">
+        {expanded ? "收起" : "展开完整名称"}
+        {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+      </span>
+    </button>
+  );
 }
 
 function OfferStatusBadge({ available }: { available: boolean }) {
