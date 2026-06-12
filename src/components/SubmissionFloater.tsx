@@ -3,6 +3,7 @@
 import { CheckCircle2, ExternalLink, Loader2, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { trackAnalyticsEvent } from "@/lib/analytics";
+import { emitSubmissionFloaterState } from "@/lib/site-notice-events";
 
 type Status = "idle" | "submitting" | "success" | "error";
 
@@ -17,6 +18,11 @@ export function SubmissionFloater() {
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const parsed = useMemo(() => parseUrls(urlsText), [urlsText]);
+
+  useEffect(() => {
+    emitSubmissionFloaterState(open);
+    return () => emitSubmissionFloaterState(false);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;

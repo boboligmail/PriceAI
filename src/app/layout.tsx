@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { GoogleAnalytics } from "@/components/GoogleAnalytics";
+import { SiteNoticePrompt } from "@/components/SiteNoticePrompt";
 import { UmamiAnalytics } from "@/components/UmamiAnalytics";
 import "./globals.css";
 
@@ -42,6 +43,7 @@ export default function RootLayout({
     <html lang="zh-CN" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
         {children}
+        <SiteNoticePrompt />
         <GoogleAnalytics />
         <UmamiAnalytics />
       </body>
