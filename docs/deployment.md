@@ -29,11 +29,12 @@ vercel deploy --prod --yes
 
 ## GitHub Actions 定时采集
 
-仓库包含三条价格采集 workflow：
+仓库包含两条价格采集 workflow：
 
 - `.github/workflows/collect-prices.yml`：主采集任务，默认每 30 分钟运行一次，排除 `dujiao` 和 `shopApi` 采集器。
 - `.github/workflows/collect-dujiao-prices.yml`：`dujiao` 专项采集任务，默认每 30 分钟运行一次，并与主采集错开 15 分钟，使用并发 2。
-- `.github/workflows/collect-shopapi-prices.yml`：`shopApi` 专项采集任务，默认每 30 分钟运行一次，并与主采集错开 5 分钟，使用跨主域并发 2。同一主域内部仍然串行，并保留链动小铺每轮 10 个店铺上限。
+
+`shopApi` 来源需要国内 IP 环境，不能放在 GitHub-hosted runner 里跑；这类来源统一交给国内轻量采集节点。
 
 需要配置 GitHub Actions secrets：
 
@@ -63,12 +64,6 @@ PRICEAI_COLLECT_FLUSH_INTERVAL_MS=120000
 npm run collect:prices -- --all --kind dujiao --concurrency 2 --post --endpoint "$BASE_URL"
 ```
 
-`shopApi` 专项工作流执行：
-
-```bash
-npm run collect:prices -- --all --kind shopApi --concurrency 2 --post --endpoint "$BASE_URL" --liandong-shop-limit 10
-```
-
 查看最近采集性能和失败来源分组：
 
 ```bash
@@ -89,6 +84,19 @@ npm run collect:prices -- --all --post --endpoint https://priceai.cc
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ADMIN_PASSWORD` 或 `CRON_SECRET`
+
+### 国内 `shopApi` 轻量节点
+
+`pay.ldxp.cn`、`pay.qxvx.cn`、`catfk.com` 等 `shopApi` 来源统一在国内节点运行。轻量节点从线上 API 拉取任务并回传结果，不需要 clone 仓库；默认建议使用：
+
+```bash
+curl -fsSL https://priceai.cc/priceai-edge-collector.sh | env \
+  PRICEAI_EDGE_ENDPOINT="https://priceai.cc" \
+  PRICEAI_EDGE_TOKEN="$CRON_SECRET" \
+  bash -s -- --family shopApi --limit 3 --round
+```
+
+长期运行时用 systemd timer 每 30 分钟触发一次；如果遇到 403 风控，节点内部按采集脚本的冷却和重试策略继续处理，避免把 `shopApi` 压回 GitHub Actions。
 
 ## 采集边界
 
