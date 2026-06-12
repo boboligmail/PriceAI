@@ -60,10 +60,47 @@ async function main() {
     cycle += 1;
     const startedAt = new Date().toISOString();
     console.log(`[priceai-edge] cycle ${cycle} start ${startedAt}`);
-    await runCycle().catch((error) => {
-      console.error(`[priceai-edge] cycle ${cycle} failed: ${errorMessage(error)}`);
-      if (!config.loop) process.exitCode = 1;
+    await postCollectorHeartbeat("running", {
+      startedAt,
+      message: `Edge collector cycle ${cycle} started.`,
+      details: { cycle },
+    }).catch((error) => {
+      console.error(`[priceai-edge] heartbeat start failed: ${errorMessage(error)}`);
     });
+
+    await runCycle(startedAt)
+      .then(async (summary) => {
+        const status = edgeHeartbeatStatus(summary);
+        await postCollectorHeartbeat(status, {
+          startedAt: summary.startedAt,
+          finishedAt: summary.finishedAt,
+          successCount: summary.success,
+          failureCount: summary.failed,
+          skippedCount: 0,
+          offerCount: summary.offers,
+          message: `Edge collector processed ${summary.processed} source(s): ${summary.success} success, ${summary.failed} failed.`,
+          details: {
+            cycle,
+            processed: summary.processed,
+            maxRoundTasks: config.maxRoundTasks,
+          },
+        }).catch((error) => {
+          console.error(`[priceai-edge] heartbeat finish failed: ${errorMessage(error)}`);
+        });
+      })
+      .catch(async (error) => {
+        console.error(`[priceai-edge] cycle ${cycle} failed: ${errorMessage(error)}`);
+        await postCollectorHeartbeat("failed", {
+          startedAt,
+          finishedAt: new Date().toISOString(),
+          failureCount: 1,
+          message: errorMessage(error),
+          details: { cycle, phase: "cycle" },
+        }).catch((heartbeatError) => {
+          console.error(`[priceai-edge] heartbeat failure failed: ${errorMessage(heartbeatError)}`);
+        });
+        if (!config.loop) process.exitCode = 1;
+      });
 
     if (!config.loop || cycle >= config.maxCycles) break;
     console.log(`[priceai-edge] sleeping ${config.intervalSeconds}s`);
@@ -71,7 +108,7 @@ async function main() {
   } while (true);
 }
 
-async function runCycle() {
+async function runCycle(startedAt = new Date().toISOString()) {
   let success = 0;
   let failed = 0;
   let offers = 0;
@@ -149,7 +186,9 @@ async function runCycle() {
     if (!config.round || processed >= config.maxRoundTasks) break;
   } while (true);
 
+  const finishedAt = new Date().toISOString();
   console.log(`\n[priceai-edge] done: processed=${processed} success=${success} failed=${failed} offers=${offers}`);
+  return { processed, success, failed, offers, startedAt, finishedAt };
 }
 
 async function fetchTasks(options = {}) {
@@ -321,6 +360,50 @@ async function postCrawlRun(target, status, message, offers, extraDetails = {}) 
   console.log(
     `Uploaded ${status}: successCount=${Number(body.successCount || 0)} written=${Number(body.writtenCount || 0)} refreshed=${Number(body.refreshedCount || 0)}`,
   );
+}
+
+async function postCollectorHeartbeat(status, input = {}) {
+  if (config.dryRun) return;
+
+  const payload = {
+    node: collectorNodeDetails(),
+    scope: `kind:${config.kind};family:${config.family}`,
+    status,
+    startedAt: input.startedAt || null,
+    finishedAt: input.finishedAt || null,
+    successCount: Number(input.successCount || 0),
+    failureCount: Number(input.failureCount || 0),
+    skippedCount: Number(input.skippedCount || 0),
+    offerCount: Number(input.offerCount || 0),
+    message: input.message || null,
+    details: compactObject({
+      version: VERSION,
+      family: config.family,
+      kind: config.kind,
+      limit: config.limit,
+      round: config.round,
+      loop: config.loop,
+      ...(input.details || {}),
+    }),
+  };
+
+  const body = await fetchJson(`${config.endpoint}/api/admin/collector-heartbeat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!body.ok) throw new Error(body.message || "Heartbeat upload failed.");
+}
+
+function edgeHeartbeatStatus(summary) {
+  if (!summary.processed) return "idle";
+  if (summary.failed > 0 && summary.success > 0) return "partial";
+  if (summary.failed > 0) return "failed";
+  return "success";
 }
 
 async function fetchJson(url, init = {}) {

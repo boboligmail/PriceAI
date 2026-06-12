@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Activity,
   AlertTriangle,
   Check,
   CheckCircle2,
@@ -22,6 +23,7 @@ import {
   Plus,
   RefreshCcw,
   Search,
+  Server,
   Store,
   TerminalSquare,
   X,
@@ -87,6 +89,10 @@ type ApiModelAdminPlan = ApiModelAdminData["plans"][number];
 type ApiModelAdminModel = ApiModelAdminData["models"][number];
 type ApiProviderCandidate = ApiModelAdminData["providerCandidates"][number];
 type ApiProviderSubmission = ApiModelAdminData["providerSubmissions"][number];
+type CollectorHealthData = AdminSummary["collectorHealth"];
+type CollectorHealthSourceRow = CollectorHealthData["sources"][number];
+type CollectorHealthNodeRow = CollectorHealthData["nodeSummaries"][number];
+type CollectorHealthRunRow = CollectorHealthData["recentRuns"][number];
 type ApiModelEditableTarget = "model" | "provider" | "plan" | "offer";
 type ApiModelEditablePayload = Record<string, unknown> & {
   target: ApiModelEditableTarget;
@@ -171,7 +177,7 @@ type ApiModelProbeResult = {
   };
 };
 
-type AdminTab = "review" | "todo" | "feedback" | "history" | "collect" | "official" | "apiModels" | "sources" | "manual" | "logs";
+type AdminTab = "review" | "todo" | "feedback" | "history" | "collect" | "health" | "official" | "apiModels" | "sources" | "manual" | "logs";
 
 type RowFeedback = {
   id: string;
@@ -605,6 +611,15 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     () => data.crawlRuns.filter((r) => r.status === "failed").length,
     [data.crawlRuns],
   );
+  const collectorHealthIssueCount = useMemo(() => {
+    const health = data.collectorHealth;
+    return (
+      Number(health.overall.criticalSources || 0) +
+      Number(health.overall.staleSources || 0) +
+      Number(health.overall.downNodes || 0) +
+      Number(health.overall.staleNodes || 0)
+    );
+  }, [data.collectorHealth]);
   const adminTabs: Array<{ id: AdminTab; label: string; count: number | null; icon: ReactNode }> = useMemo(
     () => [
       { id: "review", label: "审核", count: reviewSubmissions.length, icon: <Inbox size={15} /> },
@@ -612,13 +627,14 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       { id: "feedback", label: "反馈", count: pendingFeedbackCount, icon: <Flag size={15} /> },
       { id: "history", label: "历史", count: null, icon: <History size={15} /> },
       { id: "collect", label: "采集", count: failedRunCount || null, icon: <RefreshCcw size={15} /> },
+      { id: "health", label: "健康", count: collectorHealthIssueCount || null, icon: <Activity size={15} /> },
       { id: "official", label: "官方价", count: officialPrices.currentPrices.length || null, icon: <Database size={15} /> },
       { id: "apiModels", label: "API 模型", count: apiModels.offers.length || null, icon: <TerminalSquare size={15} /> },
       { id: "sources", label: "渠道", count: sources.length, icon: <Store size={15} /> },
       { id: "manual", label: "维护", count: null, icon: <Plus size={15} /> },
       { id: "logs", label: "日志", count: data.crawlRuns.length, icon: <Clock size={15} /> },
     ],
-    [apiModels.offers.length, collectorTodoSubmissions.length, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length],
+    [apiModels.offers.length, collectorHealthIssueCount, collectorTodoSubmissions.length, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length],
   );
 
   /* ─── Keyboard shortcuts ─── */
@@ -2605,6 +2621,13 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
               </div>
             )}
 
+            {/* Health tab */}
+            {activeTab === "health" && (
+              <div role="tabpanel" id="tabpanel-health">
+                <CollectorHealthPanel health={data.collectorHealth} />
+              </div>
+            )}
+
             {/* Official prices tab */}
             {activeTab === "official" && (
               <div role="tabpanel" id="tabpanel-official">
@@ -3918,14 +3941,71 @@ function Divider() {
   return <div className="my-4 border-t border-[#adb3b4]/15" />;
 }
 
-function Badge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "info" | "warn" }) {
+function Badge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "info" | "warn" | "success" | "danger" | "muted" }) {
   const styles =
     tone === "info"
       ? "bg-[#eef3f8] text-[#47657a]"
       : tone === "warn"
         ? "bg-[#fff7e8] text-[#7a541b]"
-        : "bg-[#f2f4f4] text-[#5a6061]";
+        : tone === "success"
+          ? "bg-[#e8f3ec] text-[#2f7a4b]"
+          : tone === "danger"
+            ? "bg-[#fbe9e7] text-[#9b3328]"
+            : "bg-[#f2f4f4] text-[#5a6061]";
   return <span className={`rounded-full px-2 py-0.5 text-xs ${styles}`}>{children}</span>;
+}
+
+function HealthPill({ tone, children }: { tone: CollectorHealthData["overall"]["tone"]; children: ReactNode }) {
+  return <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${healthPillClass(tone)}`}>{children}</span>;
+}
+
+function healthTextClass(tone: CollectorHealthData["overall"]["tone"]): string {
+  if (tone === "success") return "text-[#2f7a4b]";
+  if (tone === "info") return "text-[#47657a]";
+  if (tone === "warn") return "text-[#7a541b]";
+  if (tone === "danger") return "text-[#9b3328]";
+  return "text-[#2d3435]";
+}
+
+function healthPillClass(tone: CollectorHealthData["overall"]["tone"]): string {
+  if (tone === "success") return "bg-[#e8f3ec] text-[#2f7a4b]";
+  if (tone === "info") return "bg-[#eef3f8] text-[#47657a]";
+  if (tone === "warn") return "bg-[#fff7e8] text-[#7a541b]";
+  if (tone === "danger") return "bg-[#fbe9e7] text-[#9b3328]";
+  return "bg-[#f2f4f4] text-[#5a6061]";
+}
+
+function collectorSourceStatusLabel(status: CollectorHealthSourceRow["status"]): string {
+  if (status === "fresh") return "正常";
+  if (status === "aging") return "变慢";
+  if (status === "stale") return "超时";
+  if (status === "critical") return "严重超时";
+  if (status === "never") return "未成功";
+  return "已停用";
+}
+
+function collectorNodeHealthLabel(status: CollectorHealthNodeRow["health"]): string {
+  if (status === "online") return "在线";
+  if (status === "quiet") return "最近失败";
+  if (status === "stale") return "延迟";
+  if (status === "down") return "离线";
+  return "未知";
+}
+
+function collectorHeartbeatStatusLabel(status: CollectorHealthNodeRow["status"]): string {
+  if (status === "running") return "运行中";
+  if (status === "success") return "成功";
+  if (status === "partial") return "部分成功";
+  if (status === "failed") return "失败";
+  if (status === "idle") return "空闲";
+  return "未知";
+}
+
+function formatAgeMinutes(value: number): string {
+  if (value < 1) return "刚刚";
+  if (value < 60) return `${value} 分钟前`;
+  if (value < 60 * 24) return `${Math.round(value / 60)} 小时前`;
+  return `${Math.round(value / 60 / 24)} 天前`;
 }
 
 function UrlLine({ label, href, tone = "muted" }: { label: string; href: string; tone?: "muted" | "strong" }) {
@@ -5814,6 +5894,261 @@ function OfficialMetric({
     <div className="rounded-lg bg-[#f2f4f4] px-3 py-2.5">
       <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-[#5a6061]">{label}</p>
       <p className={`mt-1 truncate text-sm font-semibold ${tone === "warn" ? "text-[#7a541b]" : "text-[#2d3435]"}`}>{value}</p>
+    </div>
+  );
+}
+
+function CollectorHealthPanel({ health }: { health: CollectorHealthData }) {
+  const sourceRowsKey = `${health.generatedAt}:${health.sources.length}:${health.staleSources.length}`;
+  const allSourceRows = useAdminExpandableRows(health.sources, `collector-health-sources:${sourceRowsKey}`, 18);
+  const staleRows = useAdminExpandableRows(health.staleSources, `collector-health-stale:${sourceRowsKey}`, 10);
+  const failureRows = useAdminExpandableRows(health.recentFailures, `collector-health-failures:${health.generatedAt}:${health.recentFailures.length}`, 8);
+
+  return (
+    <div className="space-y-5">
+      <Panel title="采集健康总览" icon={<Activity size={17} />}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <HealthMetric label="整体状态" value={health.overall.label} tone={health.overall.tone} />
+          <HealthMetric label="启用渠道" value={`${health.overall.enabledSources}/${health.overall.totalSources}`} />
+          <HealthMetric label="新鲜 / 变慢" value={`${health.overall.freshSources}/${health.overall.agingSources}`} tone={health.overall.agingSources ? "info" : "success"} />
+          <HealthMetric label="超时 / 严重" value={`${health.overall.staleSources}/${health.overall.criticalSources}`} tone={health.overall.criticalSources ? "danger" : health.overall.staleSources ? "warn" : "success"} />
+          <HealthMetric label="失败渠道" value={String(health.overall.failedSources)} tone={health.overall.failedSources ? "warn" : "success"} />
+          <HealthMetric label="最近成功" value={health.overall.latestSuccessAt ? formatRelativeTime(health.overall.latestSuccessAt) : "未记录"} />
+        </div>
+      </Panel>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Panel title="采集器分组" icon={<Database size={17} />}>
+          {health.kindSummaries.length ? (
+            <div className="overflow-x-auto rounded-lg border border-[#adb3b4]/20">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-[#f2f4f4] text-xs font-semibold uppercase tracking-wider text-[#5a6061]">
+                  <tr>
+                    <th className="px-3 py-2.5">采集器</th>
+                    <th className="px-3 py-2.5">渠道</th>
+                    <th className="px-3 py-2.5">健康</th>
+                    <th className="px-3 py-2.5">异常</th>
+                    <th className="px-3 py-2.5">最近成功</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#adb3b4]/15">
+                  {health.kindSummaries.map((summary) => (
+                    <tr key={summary.kind}>
+                      <td className="px-3 py-3 font-medium text-[#2d3435]">{collectorKindLabel(summary.kind)}</td>
+                      <td className="px-3 py-3 text-[#5a6061]">{summary.total}</td>
+                      <td className="px-3 py-3 text-[#5a6061]">
+                        新鲜 {summary.fresh}，变慢 {summary.aging}
+                      </td>
+                      <td className="px-3 py-3 text-[#5a6061]">
+                        超时 {summary.stale}，严重 {summary.critical + summary.never}，失败 {summary.failed}
+                      </td>
+                      <td className="px-3 py-3 text-[#5a6061]">
+                        {summary.latestSuccessAt ? formatRelativeTime(summary.latestSuccessAt) : "未记录"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Database size={32} className="text-[#adb3b4]" />}
+              title="暂无采集器分组"
+              description="启用渠道采集过后会形成分组统计。"
+            />
+          )}
+        </Panel>
+
+        <Panel title="采集节点" icon={<Server size={17} />}>
+          {health.nodeSummaries.length ? (
+            <div className="space-y-2">
+              {health.nodeSummaries.map((node) => (
+                <CollectorNodeCard key={node.node.id} node={node} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Server size={32} className="text-[#adb3b4]" />}
+              title="暂无节点心跳"
+              description="GitHub Actions 或 VPS 上报后会显示在这里。"
+            />
+          )}
+        </Panel>
+      </div>
+
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <Panel title="需要关注的渠道" icon={<AlertTriangle size={17} />}>
+          <CollectorSourceList rows={staleRows.visibleItems} emptyTitle="暂无异常渠道" emptyDescription="已启用渠道都在当前健康窗口内。" />
+          {staleRows.canToggle ? (
+            <AdminListPager
+              expanded={staleRows.expanded}
+              label={staleRows.statusLabel}
+              buttonLabel={staleRows.toggleLabel}
+              onToggle={staleRows.toggle}
+            />
+          ) : null}
+        </Panel>
+
+        <Panel title="最近失败" icon={<Clock size={17} />}>
+          {failureRows.visibleItems.length ? (
+            <div className="divide-y divide-[#adb3b4]/15 rounded-lg border border-[#adb3b4]/20">
+              {failureRows.visibleItems.map((run) => (
+                <CollectorFailureRow key={run.id} run={run} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={<CheckCircle2 size={32} className="text-[#adb3b4]" />}
+              title="暂无失败记录"
+              description="最近采集日志里没有失败或部分失败记录。"
+            />
+          )}
+          {failureRows.canToggle ? (
+            <AdminListPager
+              expanded={failureRows.expanded}
+              label={failureRows.statusLabel}
+              buttonLabel={failureRows.toggleLabel}
+              onToggle={failureRows.toggle}
+            />
+          ) : null}
+        </Panel>
+      </div>
+
+      <Panel title="全部渠道健康" icon={<Store size={17} />}>
+        <CollectorSourceList rows={allSourceRows.visibleItems} emptyTitle="暂无渠道" emptyDescription="渠道源创建后会出现在这里。" />
+        {allSourceRows.canToggle ? (
+          <AdminListPager
+            expanded={allSourceRows.expanded}
+            label={allSourceRows.statusLabel}
+            buttonLabel={allSourceRows.toggleLabel}
+            onToggle={allSourceRows.toggle}
+          />
+        ) : null}
+      </Panel>
+    </div>
+  );
+}
+
+function HealthMetric({
+  label,
+  value,
+  tone = "muted",
+}: {
+  label: string;
+  value: string;
+  tone?: CollectorHealthData["overall"]["tone"];
+}) {
+  return (
+    <div className="rounded-lg bg-[#f2f4f4] px-3 py-2.5">
+      <p className="text-[0.68rem] font-semibold uppercase tracking-wider text-[#5a6061]">{label}</p>
+      <p className={`mt-1 truncate text-sm font-semibold ${healthTextClass(tone)}`}>{value}</p>
+    </div>
+  );
+}
+
+function CollectorNodeCard({ node }: { node: CollectorHealthNodeRow }) {
+  return (
+    <div className="rounded-lg border border-[#adb3b4]/20 px-3 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-sm font-medium text-[#2d3435]">{node.node.name}</span>
+            <HealthPill tone={node.tone}>{collectorNodeHealthLabel(node.health)}</HealthPill>
+            <Badge tone="info">{collectorHeartbeatStatusLabel(node.status)}</Badge>
+          </div>
+          <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">
+            {node.node.id}
+            {node.node.type ? ` · ${collectorNodeTypeLabel(node.node.type)}` : ""}
+            {node.node.runtime ? ` · ${collectorNodeRuntimeLabel(node.node.runtime)}` : ""}
+            {node.node.region ? ` · ${node.node.region}` : ""}
+          </p>
+        </div>
+        <span className="shrink-0 text-xs text-[#5a6061]">{node.lastSeenAt ? formatRelativeTime(node.lastSeenAt) : "未记录"}</span>
+      </div>
+      <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-[#5a6061]">
+        <span>成功 {node.successCount}</span>
+        <span>失败 {node.failureCount}</span>
+        <span>报价 {node.offerCount}</span>
+      </div>
+      {node.scope ? <p className="mt-2 truncate text-xs text-[#adb3b4]">范围：{node.scope}</p> : null}
+      {node.message ? <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">{node.message}</p> : null}
+    </div>
+  );
+}
+
+function CollectorSourceList({
+  rows,
+  emptyTitle,
+  emptyDescription,
+}: {
+  rows: CollectorHealthSourceRow[];
+  emptyTitle: string;
+  emptyDescription: string;
+}) {
+  if (!rows.length) {
+    return (
+      <EmptyState
+        icon={<Store size={32} className="text-[#adb3b4]" />}
+        title={emptyTitle}
+        description={emptyDescription}
+      />
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[#adb3b4]/20">
+      <table className="min-w-full text-left text-sm">
+        <thead className="bg-[#f2f4f4] text-xs font-semibold uppercase tracking-wider text-[#5a6061]">
+          <tr>
+            <th className="px-3 py-2.5">渠道</th>
+            <th className="px-3 py-2.5">采集器</th>
+            <th className="px-3 py-2.5">状态</th>
+            <th className="px-3 py-2.5">最近成功</th>
+            <th className="px-3 py-2.5">失败</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#adb3b4]/15">
+          {rows.map((source) => (
+            <tr key={source.id}>
+              <td className="min-w-[220px] px-3 py-3">
+                <div className="font-medium text-[#2d3435]">{source.name}</div>
+                <div className="mt-0.5 truncate text-xs text-[#adb3b4]">{source.host || source.id}</div>
+              </td>
+              <td className="px-3 py-3 text-[#5a6061]">{collectorKindLabel(source.collectorKind)}</td>
+              <td className="px-3 py-3">
+                <HealthPill tone={source.tone}>{collectorSourceStatusLabel(source.status)}</HealthPill>
+              </td>
+              <td className="px-3 py-3 text-[#5a6061]">
+                {source.lastSuccessAt ? formatRelativeTime(source.lastSuccessAt) : "未记录"}
+                {source.ageMinutes !== null ? <span className="block text-xs text-[#adb3b4]">{formatAgeMinutes(source.ageMinutes)}</span> : null}
+              </td>
+              <td className="max-w-[280px] px-3 py-3 text-[#5a6061]">
+                {source.consecutiveFailures ? `${source.consecutiveFailures} 次` : "0 次"}
+                {source.lastError ? <span className="block truncate text-xs text-[#9b3328]" title={source.lastError}>{source.lastError}</span> : null}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function CollectorFailureRow({ run }: { run: CollectorHealthRunRow }) {
+  return (
+    <div className="px-3 py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-medium text-[#2d3435]">{run.sourceName || run.sourceId || "未知来源"}</span>
+        {run.collector ? <Badge>{collectorKindLabel(run.collector)}</Badge> : null}
+        <Badge tone="info">{run.node.name}</Badge>
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${crawlStatusClass(run.status)}`}>
+          {crawlStatusLabel(run.status)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm text-[#5a6061]">
+        成功 {run.successCount}，失败 {run.failureCount} · {run.finishedAt ? formatRelativeTime(run.finishedAt) : "未记录"}
+      </p>
+      {run.message ? <p className="mt-1 break-words text-xs leading-5 text-[#adb3b4]">{run.message}</p> : null}
     </div>
   );
 }

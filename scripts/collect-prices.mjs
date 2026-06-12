@@ -53,6 +53,20 @@ export async function runPriceCollection(options = {}) {
   const concurrency = concurrencyFor(options);
   let summary;
   try {
+    if (options.post) {
+      await postCollectorHeartbeat("running", options, {
+        startedAt,
+        message: `Price collector started for ${selectedTargets.length} source(s).`,
+        details: {
+          targetCount: selectedTargets.length,
+          groupCount: groups.length,
+          concurrency,
+        },
+      }).catch((error) => {
+        logger?.error(`Failed to post collector heartbeat: ${errorMessage(error)}`);
+      });
+    }
+
     summary = (await runWithConcurrency(
       groups,
       concurrency,
@@ -64,11 +78,69 @@ export async function runPriceCollection(options = {}) {
         return results;
       },
     )).flat();
+  } catch (error) {
+    if (options.post) {
+      await postCollectorHeartbeat("failed", options, {
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        failureCount: 1,
+        message: errorMessage(error),
+        details: {
+          phase: "collection",
+          targetCount: selectedTargets.length,
+          groupCount: groups.length,
+        },
+      }).catch((heartbeatError) => {
+        logger?.error(`Failed to post collector failure heartbeat: ${errorMessage(heartbeatError)}`);
+      });
+    }
+    throw error;
   } finally {
-    if (writeQueue) await writeQueue.flush("final");
+    if (writeQueue) {
+      try {
+        await writeQueue.flush("final");
+      } catch (error) {
+        if (options.post) {
+          await postCollectorHeartbeat("failed", options, {
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            failureCount: 1,
+            message: errorMessage(error),
+            details: {
+              phase: "crawl-log-final-flush",
+              targetCount: selectedTargets.length,
+              groupCount: groups.length,
+            },
+          }).catch((heartbeatError) => {
+            logger?.error(`Failed to post collector failure heartbeat: ${errorMessage(heartbeatError)}`);
+          });
+        }
+        throw error;
+      }
+    }
   }
 
-  if (writeQueue) writeQueue.throwIfFailed();
+  try {
+    if (writeQueue) writeQueue.throwIfFailed();
+  } catch (error) {
+    if (options.post) {
+      await postCollectorHeartbeat("failed", options, {
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        failureCount: 1,
+        message: errorMessage(error),
+        details: {
+          phase: "crawl-log-flush",
+          targetCount: selectedTargets.length,
+          groupCount: groups.length,
+        },
+      }).catch((heartbeatError) => {
+        logger?.error(`Failed to post collector failure heartbeat: ${errorMessage(heartbeatError)}`);
+      });
+    }
+    throw error;
+  }
+
   const finishedAt = new Date().toISOString();
   const performance = buildCollectionPerformanceReport({
     summary,
@@ -80,7 +152,7 @@ export async function runPriceCollection(options = {}) {
     durationMs: Date.now() - startedAtMs,
   });
 
-  return {
+  const result = {
     summary,
     performance,
     targetCount: selectedTargets.length,
@@ -91,6 +163,28 @@ export async function runPriceCollection(options = {}) {
     startedAt,
     finishedAt,
   };
+
+  if (options.post) {
+    await postCollectorHeartbeat(collectorHeartbeatStatusForResult(result), options, {
+      startedAt,
+      finishedAt,
+      successCount: result.successCount,
+      failureCount: result.failureCount,
+      skippedCount: result.skippedCount,
+      offerCount: result.offerCount,
+      message: `Price collector finished: ${result.successCount} success, ${result.failureCount} failed, ${result.skippedCount} skipped.`,
+      details: {
+        targetCount: result.targetCount,
+        durationMs: performance.durationMs,
+        byKind: performance.byKind,
+        byStatus: performance.byStatus,
+      },
+    }).catch((error) => {
+      logger?.error(`Failed to post collector heartbeat: ${errorMessage(error)}`);
+    });
+  }
+
+  return result;
 }
 
 async function collectOneTarget(target, options, logger, lockOwner, familyState, writeQueue = null) {
@@ -1472,6 +1566,70 @@ function crawlLogPostConfig(options = {}) {
     endpoint: endpoint.replace(/\/$/, ""),
     password,
   };
+}
+
+async function postCollectorHeartbeat(status, options = {}, input = {}) {
+  const config = crawlLogPostConfig(options);
+  const payload = {
+    node: collectorNodeDetails(options),
+    scope: collectorHeartbeatScopeForOptions(options),
+    status,
+    startedAt: input.startedAt || null,
+    finishedAt: input.finishedAt || null,
+    successCount: Number(input.successCount || 0),
+    failureCount: Number(input.failureCount || 0),
+    skippedCount: Number(input.skippedCount || 0),
+    offerCount: Number(input.offerCount || 0),
+    message: input.message || null,
+    details: compactObject({
+      ...(input.details || {}),
+      options: compactObject({
+        all: Boolean(options.all),
+        kind: options.kind || options.kinds || options["collector-kind"] || options["collector-kinds"] || null,
+        excludeKind: options.excludeKind || options["exclude-kind"] || options.excludeKinds || options["exclude-kinds"] || null,
+        excludeFamily: options.excludeFamily || options["exclude-family"] || options.excludeFamilies || options["exclude-families"] || null,
+      }),
+    }),
+  };
+  const response = await fetch(`${config.endpoint}/api/admin/collector-heartbeat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-password": config.password,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await response.json().catch(() => null);
+  if (!response.ok || !body?.ok) {
+    throw new Error(body?.message || `Heartbeat failed with HTTP ${response.status}`);
+  }
+  return body;
+}
+
+function collectorHeartbeatScopeForOptions(options = {}) {
+  const selected = options.source || options.id || options.name;
+  if (selected) return `source:${String(selected)}`;
+
+  const kinds = optionList(options.kind || options.kinds || options["collector-kind"] || options["collector-kinds"]);
+  if (kinds.length) return `kind:${kinds.join(",")}`;
+
+  const excludedKinds = optionList(options.excludeKind || options["exclude-kind"] || options.excludeKinds || options["exclude-kinds"]);
+  const excludedFamilies = optionList(options.excludeFamily || options["exclude-family"] || options.excludeFamilies || options["exclude-families"]);
+  const excluded = [
+    excludedKinds.length ? `exclude-kind:${excludedKinds.join(",")}` : null,
+    excludedFamilies.length ? `exclude-family:${excludedFamilies.join(",")}` : null,
+  ].filter(Boolean);
+
+  if (excluded.length) return excluded.join(";");
+  return options.all ? "all" : "filtered";
+}
+
+function collectorHeartbeatStatusForResult(result = {}) {
+  if (Number(result.failureCount || 0) > 0 && Number(result.successCount || 0) > 0) return "partial";
+  if (Number(result.failureCount || 0) > 0) return "failed";
+  if (Number(result.targetCount || 0) === 0) return "idle";
+  return "success";
 }
 
 async function postCrawlLogPayload(payload, options = {}) {

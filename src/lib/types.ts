@@ -135,6 +135,7 @@ export type AdminSummary = DashboardData & {
   hiddenRawOfferTotal: number;
   crawlRuns: CrawlRun[];
   collectionJobs: CollectionJob[];
+  collectorHealth: CollectorHealthSummary;
   officialPrices: OfficialSubscriptionAdminData;
   apiModels: ApiModelAdminData;
   pendingSubmissions: ChannelSubmission[];
@@ -191,6 +192,126 @@ export type CollectionJob = {
   result?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt?: string | null;
+};
+
+export type CollectorNodeInfo = {
+  id: string;
+  name: string;
+  type?: string | null;
+  runtime?: string | null;
+  region?: string | null;
+};
+
+export type CollectorHeartbeatStatus =
+  | "running"
+  | "success"
+  | "partial"
+  | "failed"
+  | "idle"
+  | "unknown";
+
+export type CollectorHeartbeat = {
+  node: CollectorNodeInfo;
+  scope?: string | null;
+  status: CollectorHeartbeatStatus;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  lastSeenAt: string;
+  successCount: number;
+  failureCount: number;
+  skippedCount: number;
+  offerCount: number;
+  message?: string | null;
+  details?: Record<string, unknown> | null;
+};
+
+export type CollectorHealthTone = "success" | "info" | "warn" | "danger" | "muted";
+
+export type CollectorHealthSource = {
+  id: string;
+  name: string;
+  host: string;
+  collectorKind: string;
+  enabled: boolean;
+  status: "fresh" | "aging" | "stale" | "critical" | "never" | "disabled";
+  tone: CollectorHealthTone;
+  ageMinutes: number | null;
+  lastSuccessAt?: string | null;
+  lastCheckedAt?: string | null;
+  consecutiveFailures?: number | null;
+  lastError?: string | null;
+};
+
+export type CollectorHealthKindSummary = {
+  kind: string;
+  label: string;
+  total: number;
+  fresh: number;
+  aging: number;
+  stale: number;
+  critical: number;
+  never: number;
+  failed: number;
+  latestSuccessAt?: string | null;
+  latestAgeMinutes: number | null;
+};
+
+export type CollectorHealthNodeSummary = {
+  node: CollectorNodeInfo;
+  scope?: string | null;
+  status: CollectorHeartbeatStatus;
+  health: "online" | "quiet" | "stale" | "down" | "unknown";
+  tone: CollectorHealthTone;
+  lastSeenAt?: string | null;
+  lastRunAt?: string | null;
+  ageMinutes: number | null;
+  successCount: number;
+  failureCount: number;
+  skippedCount: number;
+  offerCount: number;
+  message?: string | null;
+};
+
+export type CollectorHealthRunSummary = {
+  id: string;
+  sourceId?: string | null;
+  sourceName?: string | null;
+  status: CrawlRun["status"];
+  collector?: string | null;
+  node: CollectorNodeInfo;
+  finishedAt?: string | null;
+  ageMinutes: number | null;
+  successCount: number;
+  failureCount: number;
+  message?: string | null;
+};
+
+export type CollectorHealthSummary = {
+  generatedAt: string;
+  overall: {
+    status: "healthy" | "warning" | "critical";
+    tone: CollectorHealthTone;
+    label: string;
+    totalSources: number;
+    enabledSources: number;
+    freshSources: number;
+    agingSources: number;
+    staleSources: number;
+    criticalSources: number;
+    failedSources: number;
+    latestSuccessAt?: string | null;
+    latestAgeMinutes: number | null;
+    onlineNodes: number;
+    staleNodes: number;
+    downNodes: number;
+  };
+  kindSummaries: CollectorHealthKindSummary[];
+  nodeSummaries: CollectorHealthNodeSummary[];
+  sources: CollectorHealthSource[];
+  staleSources: CollectorHealthSource[];
+  recentFailures: CollectorHealthRunSummary[];
+  recentRuns: CollectorHealthRunSummary[];
+  heartbeats: CollectorHeartbeat[];
 };
 
 export type OfficialSubscriptionPriceStatus =

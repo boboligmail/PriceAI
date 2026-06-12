@@ -165,6 +165,27 @@ create table if not exists collection_jobs (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists collector_heartbeats (
+  node_id text primary key,
+  node_name text not null,
+  node_type text,
+  runtime text,
+  region text,
+  scope text,
+  status text not null default 'unknown' check (status in ('running', 'success', 'partial', 'failed', 'idle', 'unknown')),
+  started_at timestamptz,
+  finished_at timestamptz,
+  last_seen_at timestamptz not null default now(),
+  success_count integer not null default 0,
+  failure_count integer not null default 0,
+  skipped_count integer not null default 0,
+  offer_count integer not null default 0,
+  message text,
+  details jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create index if not exists raw_offers_canonical_product_id_idx on raw_offers(canonical_product_id);
 create index if not exists raw_offers_source_id_idx on raw_offers(source_id);
 create index if not exists raw_offers_status_idx on raw_offers(status);
@@ -193,6 +214,8 @@ create index if not exists crawl_runs_started_at_idx on crawl_runs(started_at de
 create index if not exists collection_jobs_status_created_at_idx on collection_jobs(status, created_at desc);
 create index if not exists collection_jobs_source_status_idx on collection_jobs(source_id, status);
 create index if not exists collection_jobs_locked_until_idx on collection_jobs(locked_until);
+create index if not exists collector_heartbeats_last_seen_at_idx on collector_heartbeats(last_seen_at desc);
+create index if not exists collector_heartbeats_status_last_seen_at_idx on collector_heartbeats(status, last_seen_at desc);
 
 create or replace function acquire_source_collection_lock(
   p_source_id text,
@@ -555,6 +578,11 @@ create trigger collection_jobs_set_updated_at
 before update on collection_jobs
 for each row execute function set_updated_at();
 
+drop trigger if exists collector_heartbeats_set_updated_at on collector_heartbeats;
+create trigger collector_heartbeats_set_updated_at
+before update on collector_heartbeats
+for each row execute function set_updated_at();
+
 -- Default-deny RLS. The Next.js app talks to Supabase via the service role key
 -- (server-only), which bypasses RLS. The anon key cannot read or write.
 alter table canonical_products enable row level security;
@@ -563,6 +591,7 @@ alter table raw_offers enable row level security;
 alter table offer_matches enable row level security;
 alter table crawl_runs enable row level security;
 alter table collection_jobs enable row level security;
+alter table collector_heartbeats enable row level security;
 
 create table if not exists channel_submissions (
   id text primary key,

@@ -12,6 +12,13 @@ import { getSupabaseServerClient } from "./supabase";
 import type {
   AdminSummary,
   CanonicalProduct,
+  CollectorHeartbeat,
+  CollectorHealthKindSummary,
+  CollectorHealthNodeSummary,
+  CollectorHealthRunSummary,
+  CollectorHealthSource,
+  CollectorHealthSummary,
+  CollectorNodeInfo,
   CollectionJob,
   CrawlRun,
   DashboardData,
@@ -364,6 +371,7 @@ export function getEmptyAdminSummary(isAuthenticated = false): AdminSummary {
     isAuthenticated,
     crawlRuns: [],
     collectionJobs: [],
+    collectorHealth: emptyCollectorHealthSummary(new Date().toISOString()),
     officialPrices: {
       configured: isSupabaseConfigured(),
       tableReady: false,
@@ -520,6 +528,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       loadErrors: [],
       crawlRuns: [],
       collectionJobs: [],
+      collectorHealth: emptyCollectorHealthSummary(new Date().toISOString()),
       officialPrices,
       apiModels,
       pendingSubmissions: [],
@@ -538,6 +547,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
     visibleOfferData,
     { data, error },
     collectionJobs,
+    collectorHeartbeats,
     pendingSubmissions,
     pendingOfferFeedback,
     pendingSiteFeedback,
@@ -553,8 +563,9 @@ async function readAdminSummary(): Promise<AdminSummary> {
       .from("crawl_runs")
       .select("*")
       .order("started_at", { ascending: false })
-      .limit(30),
+      .limit(120),
     adminLoad("collection-jobs", "采集任务", listCollectionJobs(), [], loadErrors),
+    adminLoad("collector-heartbeats", "采集节点心跳", listCollectorHeartbeats(), [], loadErrors),
     adminLoad("pending-submissions", "待审核渠道", listSubmissions("pending"), [], loadErrors),
     adminLoad("offer-feedback", "报价反馈", listOfferFeedback("pending"), [], loadErrors),
     adminLoad("site-feedback", "站点反馈", listSiteFeedback("pending"), [], loadErrors),
@@ -607,8 +618,16 @@ async function readAdminSummary(): Promise<AdminSummary> {
     : (productsResult.data || []).map(mapCanonicalProduct);
   const products = (canonicalProducts.length ? canonicalProducts : canonicalCatalog)
     .map(makeEmptyProductGroup);
+  const crawlRuns = error ? [] : (data || []).map(mapCrawlRun);
+  const generatedAt = new Date().toISOString();
+  const collectorHealth = buildCollectorHealthSummary({
+    generatedAt,
+    sources,
+    crawlRuns,
+    heartbeats: collectorHeartbeats,
+  });
   const baseDashboard: DashboardData = {
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     configured: isSupabaseConfigured(),
     products,
     sources,
@@ -624,6 +643,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       loadErrors,
       crawlRuns: [],
       collectionJobs,
+      collectorHealth,
       officialPrices,
       apiModels,
       pendingSubmissions,
@@ -641,8 +661,9 @@ async function readAdminSummary(): Promise<AdminSummary> {
     hiddenRawOfferTotal: hiddenOfferData.total,
     isAuthenticated: false,
     loadErrors,
-    crawlRuns: (data || []).map(mapCrawlRun),
+    crawlRuns,
     collectionJobs,
+    collectorHealth,
     officialPrices,
     apiModels,
     pendingSubmissions,
@@ -700,6 +721,16 @@ function recordAdminLoadError(
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const message = record.message || record.details || record.hint || record.code;
+    if (typeof message === "string" && message.trim()) return message;
+    try {
+      return JSON.stringify(record);
+    } catch {
+      return String(error);
+    }
+  }
   return String(error || "未知错误");
 }
 
@@ -760,6 +791,377 @@ async function listCollectionJobs(): Promise<CollectionJob[]> {
 
   if (error) throw error;
   return (data || []).map(mapCollectionJob);
+}
+
+async function listCollectorHeartbeats(): Promise<CollectorHeartbeat[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("collector_heartbeats")
+    .select("*")
+    .order("last_seen_at", { ascending: false })
+    .limit(50);
+
+  if (error) throw error;
+  return (data || []).map(mapCollectorHeartbeat);
+}
+
+function buildCollectorHealthSummary(input: {
+  generatedAt: string;
+  sources: Source[];
+  crawlRuns: CrawlRun[];
+  heartbeats: CollectorHeartbeat[];
+}): CollectorHealthSummary {
+  const generatedMs = new Date(input.generatedAt).getTime();
+  const enabledSources = input.sources.filter((source) => source.enabled);
+  const healthSources = input.sources
+    .map((source) => sourceHealthFor(source, generatedMs))
+    .sort(compareHealthSources);
+  const enabledHealthSources = healthSources.filter((source) => source.enabled);
+  const kindSummaries = buildCollectorKindSummaries(enabledHealthSources, generatedMs);
+  const recentRuns = input.crawlRuns.map((run) => runSummaryFor(run, generatedMs));
+  const recentFailures = recentRuns
+    .filter((run) => run.status === "failed" || run.failureCount > 0)
+    .slice(0, 20);
+  const nodeSummaries = buildCollectorNodeSummaries(input.heartbeats, recentRuns, generatedMs);
+  const latestSuccessAt = latestIso(enabledHealthSources.map((source) => source.lastSuccessAt || null));
+  const latestAgeMinutes = latestSuccessAt ? minutesSince(latestSuccessAt, generatedMs) : null;
+  const freshSources = enabledHealthSources.filter((source) => source.status === "fresh").length;
+  const agingSources = enabledHealthSources.filter((source) => source.status === "aging").length;
+  const staleSources = enabledHealthSources.filter((source) => source.status === "stale").length;
+  const criticalSources = enabledHealthSources.filter((source) => source.status === "critical" || source.status === "never").length;
+  const failedSources = enabledHealthSources.filter((source) => Number(source.consecutiveFailures || 0) > 0 || source.lastError).length;
+  const downNodes = nodeSummaries.filter((node) => node.health === "down").length;
+  const staleNodes = nodeSummaries.filter((node) => node.health === "stale").length;
+  const onlineNodes = nodeSummaries.filter((node) => node.health === "online" || node.health === "quiet").length;
+  const overallStatus =
+    criticalSources > 0 || downNodes > 0
+      ? "critical"
+      : staleSources > 0 || staleNodes > 0 || agingSources > 0
+        ? "warning"
+        : "healthy";
+
+  return {
+    generatedAt: input.generatedAt,
+    overall: {
+      status: overallStatus,
+      tone: overallStatus === "healthy" ? "success" : overallStatus === "warning" ? "warn" : "danger",
+      label: overallStatus === "healthy" ? "采集正常" : overallStatus === "warning" ? "部分渠道待刷新" : "存在采集异常",
+      totalSources: input.sources.length,
+      enabledSources: enabledSources.length,
+      freshSources,
+      agingSources,
+      staleSources,
+      criticalSources,
+      failedSources,
+      latestSuccessAt,
+      latestAgeMinutes,
+      onlineNodes,
+      staleNodes,
+      downNodes,
+    },
+    kindSummaries,
+    nodeSummaries,
+    sources: healthSources,
+    staleSources: enabledHealthSources
+      .filter((source) => source.status !== "fresh")
+      .slice(0, 80),
+    recentFailures,
+    recentRuns: recentRuns.slice(0, 30),
+    heartbeats: input.heartbeats,
+  };
+}
+
+function emptyCollectorHealthSummary(generatedAt: string): CollectorHealthSummary {
+  return {
+    generatedAt,
+    overall: {
+      status: "warning",
+      tone: "warn",
+      label: "暂无采集健康数据",
+      totalSources: 0,
+      enabledSources: 0,
+      freshSources: 0,
+      agingSources: 0,
+      staleSources: 0,
+      criticalSources: 0,
+      failedSources: 0,
+      latestSuccessAt: null,
+      latestAgeMinutes: null,
+      onlineNodes: 0,
+      staleNodes: 0,
+      downNodes: 0,
+    },
+    kindSummaries: [],
+    nodeSummaries: [],
+    sources: [],
+    staleSources: [],
+    recentFailures: [],
+    recentRuns: [],
+    heartbeats: [],
+  };
+}
+
+function sourceHealthFor(source: Source, nowMs: number): CollectorHealthSource {
+  const ageMinutes = source.lastSuccessAt ? minutesSince(source.lastSuccessAt, nowMs) : null;
+  const status: CollectorHealthSource["status"] = !source.enabled
+    ? "disabled"
+    : ageMinutes === null
+      ? "never"
+      : ageMinutes <= 45
+        ? "fresh"
+        : ageMinutes <= 90
+          ? "aging"
+          : ageMinutes <= 180
+            ? "stale"
+            : "critical";
+  return {
+    id: source.id,
+    name: source.name,
+    host: sourceHost(source),
+    collectorKind: source.collectorKind || source.collectionMethod || "unknown",
+    enabled: source.enabled,
+    status,
+    tone: healthSourceTone(status),
+    ageMinutes,
+    lastSuccessAt: source.lastSuccessAt || null,
+    lastCheckedAt: source.lastCheckedAt || null,
+    consecutiveFailures: source.consecutiveFailures ?? null,
+    lastError: source.lastError || null,
+  };
+}
+
+function buildCollectorKindSummaries(
+  sources: CollectorHealthSource[],
+  nowMs: number,
+): CollectorHealthKindSummary[] {
+  const map = new Map<string, CollectorHealthKindSummary>();
+  for (const source of sources) {
+    const kind = source.collectorKind || "unknown";
+    const current = map.get(kind) || {
+      kind,
+      label: kind,
+      total: 0,
+      fresh: 0,
+      aging: 0,
+      stale: 0,
+      critical: 0,
+      never: 0,
+      failed: 0,
+      latestSuccessAt: null,
+      latestAgeMinutes: null,
+    };
+    current.total++;
+    if (source.status === "fresh") current.fresh++;
+    if (source.status === "aging") current.aging++;
+    if (source.status === "stale") current.stale++;
+    if (source.status === "critical") current.critical++;
+    if (source.status === "never") current.never++;
+    if (source.lastError || Number(source.consecutiveFailures || 0) > 0) current.failed++;
+    if (source.lastSuccessAt && (!current.latestSuccessAt || source.lastSuccessAt > current.latestSuccessAt)) {
+      current.latestSuccessAt = source.lastSuccessAt;
+      current.latestAgeMinutes = minutesSince(source.lastSuccessAt, nowMs);
+    }
+    map.set(kind, current);
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const leftRisk = a.critical + a.never + a.stale;
+    const rightRisk = b.critical + b.never + b.stale;
+    if (leftRisk !== rightRisk) return rightRisk - leftRisk;
+    return b.total - a.total;
+  });
+}
+
+function buildCollectorNodeSummaries(
+  heartbeats: CollectorHeartbeat[],
+  recentRuns: CollectorHealthRunSummary[],
+  nowMs: number,
+): CollectorHealthNodeSummary[] {
+  const map = new Map<string, CollectorHealthNodeSummary>();
+
+  for (const heartbeat of heartbeats) {
+    const ageMinutes = minutesSince(heartbeat.lastSeenAt, nowMs);
+    const health = nodeHealthFor(ageMinutes, heartbeat.status);
+    map.set(heartbeat.node.id, {
+      node: heartbeat.node,
+      scope: heartbeat.scope || null,
+      status: heartbeat.status,
+      health,
+      tone: nodeHealthTone(health, heartbeat.status),
+      lastSeenAt: heartbeat.lastSeenAt,
+      lastRunAt: heartbeat.finishedAt || heartbeat.startedAt || heartbeat.lastSeenAt,
+      ageMinutes,
+      successCount: heartbeat.successCount,
+      failureCount: heartbeat.failureCount,
+      skippedCount: heartbeat.skippedCount,
+      offerCount: heartbeat.offerCount,
+      message: heartbeat.message || null,
+    });
+  }
+
+  for (const run of recentRuns) {
+    if (map.has(run.node.id)) continue;
+    const ageMinutes = run.finishedAt ? minutesSince(run.finishedAt, nowMs) : null;
+    const health = nodeHealthFor(ageMinutes, run.status === "failed" ? "failed" : "unknown");
+    map.set(run.node.id, {
+      node: run.node,
+      scope: run.collector || null,
+      status: run.status === "failed" ? "failed" : "unknown",
+      health,
+      tone: nodeHealthTone(health, run.status === "failed" ? "failed" : "unknown"),
+      lastSeenAt: run.finishedAt || null,
+      lastRunAt: run.finishedAt || null,
+      ageMinutes,
+      successCount: run.successCount,
+      failureCount: run.failureCount,
+      skippedCount: 0,
+      offerCount: run.successCount,
+      message: run.message || null,
+    });
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    const riskOrder = { down: 4, stale: 3, quiet: 2, unknown: 1, online: 0 };
+    const riskDiff = riskOrder[b.health] - riskOrder[a.health];
+    if (riskDiff) return riskDiff;
+    return (b.ageMinutes ?? 999999) - (a.ageMinutes ?? 999999);
+  });
+}
+
+function runSummaryFor(run: CrawlRun, nowMs: number): CollectorHealthRunSummary {
+  const node = collectorNodeFromRunDetails(run.details);
+  const finishedAt = run.finishedAt || run.startedAt;
+  return {
+    id: run.id,
+    sourceId: run.sourceId || null,
+    sourceName: run.sourceName || null,
+    status: run.status,
+    collector: stringFromRecord(run.details, "collector"),
+    node,
+    finishedAt,
+    ageMinutes: finishedAt ? minutesSince(finishedAt, nowMs) : null,
+    successCount: run.successCount,
+    failureCount: run.failureCount,
+    message: run.message || null,
+  };
+}
+
+function mapCollectorHeartbeat(row: Record<string, unknown>): CollectorHeartbeat {
+  return {
+    node: {
+      id: String(row.node_id || "unknown-node"),
+      name: String(row.node_name || row.node_id || "未知节点"),
+      type: row.node_type ? String(row.node_type) : null,
+      runtime: row.runtime ? String(row.runtime) : null,
+      region: row.region ? String(row.region) : null,
+    },
+    scope: row.scope ? String(row.scope) : null,
+    status: String(row.status || "unknown") as CollectorHeartbeat["status"],
+    startedAt: row.started_at ? String(row.started_at) : null,
+    finishedAt: row.finished_at ? String(row.finished_at) : null,
+    lastSeenAt: String(row.last_seen_at || row.updated_at || new Date().toISOString()),
+    successCount: Number(row.success_count || 0),
+    failureCount: Number(row.failure_count || 0),
+    skippedCount: Number(row.skipped_count || 0),
+    offerCount: Number(row.offer_count || 0),
+    message: row.message ? String(row.message) : null,
+    details:
+      row.details && typeof row.details === "object"
+        ? (row.details as Record<string, unknown>)
+        : null,
+  };
+}
+
+function collectorNodeFromRunDetails(details: Record<string, unknown> | null | undefined): CollectorNodeInfo {
+  const rawNode = details?.collectorNode;
+  if (rawNode && typeof rawNode === "object") {
+    const node = rawNode as Record<string, unknown>;
+    const id = node.id ? String(node.id) : "unknown-node";
+    return {
+      id,
+      name: node.name ? String(node.name) : id,
+      type: node.type ? String(node.type) : null,
+      runtime: node.runtime ? String(node.runtime) : null,
+      region: node.region ? String(node.region) : null,
+    };
+  }
+  return {
+    id: "legacy-collector",
+    name: "历史采集记录",
+    type: "unknown",
+    runtime: "legacy",
+    region: null,
+  };
+}
+
+function sourceHost(source: Source): string {
+  const raw = source.baseUrl || source.entryUrl || "";
+  try {
+    return new URL(raw.includes("://") ? raw : `https://${raw}`).hostname.replace(/^www\./, "");
+  } catch {
+    return raw.replace(/^https?:\/\//, "").split("/")[0].replace(/^www\./, "");
+  }
+}
+
+function minutesSince(value: string, nowMs: number): number {
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return 999999;
+  return Math.max(0, Math.round((nowMs - timestamp) / 60_000));
+}
+
+function latestIso(values: Array<string | null | undefined>): string | null {
+  return values.filter((value): value is string => Boolean(value)).sort().at(-1) || null;
+}
+
+function compareHealthSources(left: CollectorHealthSource, right: CollectorHealthSource): number {
+  const statusOrder: Record<CollectorHealthSource["status"], number> = {
+    never: 5,
+    critical: 4,
+    stale: 3,
+    aging: 2,
+    fresh: 1,
+    disabled: 0,
+  };
+  const statusDiff = statusOrder[right.status] - statusOrder[left.status];
+  if (statusDiff) return statusDiff;
+  return (right.ageMinutes ?? 999999) - (left.ageMinutes ?? 999999);
+}
+
+function healthSourceTone(status: CollectorHealthSource["status"]): CollectorHealthSource["tone"] {
+  if (status === "fresh") return "success";
+  if (status === "aging") return "info";
+  if (status === "stale") return "warn";
+  if (status === "critical" || status === "never") return "danger";
+  return "muted";
+}
+
+function nodeHealthFor(
+  ageMinutes: number | null,
+  status: CollectorHeartbeat["status"],
+): CollectorHealthNodeSummary["health"] {
+  if (ageMinutes === null) return "unknown";
+  if (status === "running" && ageMinutes <= 90) return "online";
+  if (ageMinutes <= 45) return status === "failed" ? "quiet" : "online";
+  if (ageMinutes <= 90) return "stale";
+  return "down";
+}
+
+function nodeHealthTone(
+  health: CollectorHealthNodeSummary["health"],
+  status: CollectorHeartbeat["status"],
+): CollectorHealthNodeSummary["tone"] {
+  if (health === "online" && status !== "failed") return "success";
+  if (health === "quiet") return "warn";
+  if (health === "stale") return "warn";
+  if (health === "down") return "danger";
+  return "muted";
+}
+
+function stringFromRecord(record: Record<string, unknown> | null | undefined, key: string): string | null {
+  const value = record?.[key];
+  return typeof value === "string" && value ? value : null;
 }
 
 async function listSourceOfferStats(): Promise<SourceOfferStats[]> {
