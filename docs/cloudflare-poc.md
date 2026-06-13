@@ -66,10 +66,10 @@ Cloudflare 资源：
 |------|--------|
 | Worker | `priceai-cloudflare-poc` |
 | 测试域名 | `https://cf.priceai.cc` |
-| Worker version | `5b2643b2-2774-4c23-8c51-2c9b27ffc6be` |
+| Worker version | `ea3b2342-4d4c-44f9-8b80-963c4dfc2165` |
 | R2 bucket | `priceai-cloudflare-poc-opennext-cache` |
-| R2 incremental cache | 部署时填充 207 条 |
-| Worker startup time | 约 27ms |
+| R2 incremental cache | 部署时填充 245 条 |
+| Worker startup time | 约 28ms |
 | 上传体积 | 约 18.3MiB，gzip 约 3.4MiB |
 
 运行时配置结论：
@@ -88,12 +88,12 @@ Cloudflare 资源：
 | `/guides/are-ai-subscription-card-shops-reliable` | 200 | 92KB | MDX guide 页正常 |
 | `/api/health` | 200 | 209B | `ok=true`，Supabase configured/reachable |
 | `/api/explorer` | 200 | 48.6KB | `configured=true`，真实数据 35 个产品 |
-| `/api/offers?limit=80` | 200 | 74.9KB | 80 条报价，体积仍在预期范围 |
-| `/api/products/chatgpt-plus/offers?limit=80` | 200 | 65.7KB | 80 条产品报价，体积仍在预期范围 |
+| `/api/offers?limit=80` | 200 | 74.8KB | 80 条报价，体积仍在预期范围 |
+| `/api/products/chatgpt-plus/offers?limit=80` | 200 | 65.0KB | 80 条产品报价，体积仍在预期范围 |
 | `/api/cron/collect-prices` | 401 | 52B | 无密钥拒绝，说明 `CRON_SECRET` 已配置 |
 | `/api/cron/official-prices` | 401 | 67B | 无密钥拒绝 |
 | `/robots.txt` | 200 | 232B | 可访问，仍指向生产 canonical |
-| `/sitemap.xml` | 200 | 13.3KB | 可访问，仍指向生产 canonical |
+| `/sitemap.xml` | 200 | 17.9KB | 可访问，仍指向生产 canonical |
 
 缓存观察：
 
@@ -112,9 +112,8 @@ Cloudflare 资源：
    - `SUPABASE_SERVICE_ROLE_KEY`
    - `ADMIN_PASSWORD`
    - `ADMIN_SESSION_SECRET`
+   - `ADMIN_SESSION_VERSION`
    - `CRON_SECRET`
-   - `NEXT_PUBLIC_UMAMI_SCRIPT_URL`
-   - `NEXT_PUBLIC_UMAMI_WEBSITE_ID`
    - `NEXT_PUBLIC_GA_MEASUREMENT_ID`
 5. 在测试域名验证：
    - 首页、产品页、平台页、guide 页和 sitemap / robots。
