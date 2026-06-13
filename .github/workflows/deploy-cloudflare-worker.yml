@@ -1,4 +1,4 @@
-name: Deploy Cloudflare Preview
+name: Deploy Cloudflare Worker
 
 on:
   workflow_dispatch:
@@ -6,10 +6,10 @@ on:
       smoke_base_url:
         description: "URL to smoke test after deployment"
         required: false
-        default: "https://cf.priceai.cc"
+        default: "https://priceai.cc"
 
 jobs:
-  deploy-cloudflare-preview:
+  deploy-cloudflare-worker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -26,8 +26,8 @@ jobs:
       ADMIN_SESSION_VERSION: ${{ secrets.ADMIN_SESSION_VERSION }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       NEXT_PUBLIC_GA_MEASUREMENT_ID: ${{ secrets.NEXT_PUBLIC_GA_MEASUREMENT_ID }}
-      NEXT_PUBLIC_UMAMI_SCRIPT_URL: ${{ secrets.NEXT_PUBLIC_UMAMI_SCRIPT_URL }}
-      NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${{ secrets.NEXT_PUBLIC_UMAMI_WEBSITE_ID }}
+      NEXT_PUBLIC_UMAMI_SCRIPT_URL: ${{ vars.NEXT_PUBLIC_UMAMI_SCRIPT_URL }}
+      NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${{ vars.NEXT_PUBLIC_UMAMI_WEBSITE_ID }}
       NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS: ${{ vars.NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS }}
     steps:
       - uses: actions/checkout@v4

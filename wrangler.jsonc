@@ -19,6 +19,14 @@
     {
       "pattern": "cf.priceai.cc",
       "custom_domain": true
+    },
+    {
+      "pattern": "priceai.cc/*",
+      "zone_name": "priceai.cc"
+    },
+    {
+      "pattern": "www.priceai.cc/*",
+      "zone_name": "priceai.cc"
     }
   ],
   "services": [
@@ -46,7 +54,9 @@
     ]
   },
   "vars": {
-    "CRON_PUBLIC_BASE_URL": "https://cf.priceai.cc",
+    "CRON_PUBLIC_BASE_URL": "https://priceai.cc",
+    "NEXT_PUBLIC_UMAMI_SCRIPT_URL": "https://umami.dimthink.com/script.js",
+    "NEXT_PUBLIC_UMAMI_WEBSITE_ID": "ded26a4f-77c4-45ed-86ef-774b0fed0ef6",
     "NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS": "priceai.cc,www.priceai.cc"
   }
 }

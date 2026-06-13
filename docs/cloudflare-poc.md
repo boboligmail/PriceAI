@@ -1,6 +1,6 @@
 # Cloudflare Workers POC
 
-本分支用于验证 PriceAI 是否能通过 OpenNext 运行在 Cloudflare Workers 上，不用于直接切换生产域名。
+本文件记录 PriceAI 通过 OpenNext 运行在 Cloudflare Workers 上的 POC、预览部署和生产切换过程。
 
 后续迁移路线见 `docs/cloudflare-migration-plan.md`。
 
@@ -10,6 +10,7 @@
 - `next` / `eslint-config-next` 已升级到 `16.2.9`，用于满足 `@opennextjs/cloudflare@1.19.11` 的 peer dependency。
 - Cloudflare 本地预览已跑通：首页、`/api-models`、公开 API 和 `/admin` 页面都能从 Wrangler 返回。
 - Cloudflare Workers Paid 测试环境已跑通：`cf.priceai.cc` 当前可访问真实 Supabase 数据，`/api/health` 返回 `ok`。
+- 生产主域 `priceai.cc` 已切到 Cloudflare Workers route，最终验证版本为 `2b35131f-ccc0-493b-8eea-aa73a8711869`。
 - 采集任务暂时继续运行在 GitHub Actions / 云服务器。`/api/cron/collect-prices` 在 Worker 中只验证了无密钥拒绝路径；真正执行采集会跑 Node 脚本，不应放入 Worker 请求路径。
 
 ## 本地验证
@@ -102,6 +103,48 @@ Cloudflare 资源：
 - 同时发送 `CDN-Cache-Control: public, s-maxage=120`、`Cloudflare-CDN-Cache-Control: public, s-maxage=120`、`Vercel-CDN-Cache-Control: public, s-maxage=120, stale-while-revalidate=600`。
 - Worker 响应未暴露 `cf-cache-status` / `age`，生产切换前仍需结合 Cloudflare Analytics 和 Supabase egress 观察实际缓存收益。
 
+## 生产切换记录
+
+切换日期：2026-06-14。
+
+最终生产 Worker version：`2b35131f-ccc0-493b-8eea-aa73a8711869`。
+
+生产路由：
+
+| 域名 | 当前状态 |
+|------|----------|
+| `priceai.cc/*` | 已由 Cloudflare Workers route 接管 |
+| `www.priceai.cc/*` | Worker route 已配置，但 DNS 仍由 Vercel 返回 307 到主域，待 DNS edit 权限收口 |
+| `cf.priceai.cc` | 保留为 Cloudflare custom domain 预览 / 排障入口 |
+
+生产 smoke test：
+
+| 路径 | 状态 | 响应体积 | 说明 |
+|------|------|----------|------|
+| `/` | 200 | 约 290KB | `server: cloudflare`，`x-opennext: 1`，首页 HTML 正常 |
+| `/api-models` | 200 | 约 211KB | API 模型页正常 |
+| `/guides/are-ai-subscription-card-shops-reliable` | 200 | 约 92KB | MDX guide 页正常 |
+| `/api/health` | 200 | 209B | `ok=true`，Supabase configured/reachable |
+| `/api/explorer` | 200 | 约 48KB | `Cloudflare-CDN-Cache-Control: public, s-maxage=120` |
+| `/api/offers?limit=80` | 200 | 约 74KB | 80 条报价，体积仍在预期范围 |
+| `/api/products/chatgpt-plus/offers?limit=80` | 200 | 约 65KB | 80 条产品报价，体积仍在预期范围 |
+| `/api/cron/collect-prices` | 401 | 52B | 无密钥拒绝，说明 `CRON_SECRET` 已配置 |
+| `/api/cron/official-prices` | 401 | 67B | 无密钥拒绝 |
+| `/robots.txt` | 200 | 232B | 正常 |
+| `/sitemap.xml` | 200 | 17.9KB | 正常 |
+
+生产 analytics：
+
+- `wrangler.jsonc` 已把 `NEXT_PUBLIC_UMAMI_SCRIPT_URL`、`NEXT_PUBLIC_UMAMI_WEBSITE_ID`、`NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS` 写入 Worker vars。
+- 用带 Umami 公开变量的 `npm run build:cloudflare` 重新生成预渲染产物后再部署，避免首页静态 HTML 缺少统计脚本。
+- 线上首页 HTML 已确认包含 `https://umami.dimthink.com/script.js`、Website ID `ded26a4f-77c4-45ed-86ef-774b0fed0ef6` 和 `data-priceai-umami`，不包含 `cloud.umami`。
+
+当前遗留：
+
+1. 当前可用的 Cloudflare OAuth / 本地 token 没有 DNS record edit 权限；`www.priceai.cc` 暂时继续由 Vercel 307 到主域。
+2. 获取 DNS edit 权限后，把 `www.priceai.cc` DNS 记录改成 Cloudflare 代理状态，让已配置的 `www.priceai.cc/*` Worker route 生效。
+3. 生产后继续观察 24-72 小时 Worker 5xx、Supabase egress、R2 incremental cache 和 Umami 访问数据。
+
 ## 生产部署前置项
 
 1. 购买 Workers Paid 计划（5 美元/月）。本 POC 走 Workers，不依赖 Pages 的静态托管能力。
@@ -137,5 +180,6 @@ Cloudflare 资源：
 
 - 保留 Supabase 作为数据库，不在本 POC 中迁移 D1。
 - 使用 OpenNext 的 R2 incremental cache，以便支持 ISR / revalidate 类页面。
-- `priceai.cc` 生产域名继续由 Vercel 承载，直到 POC 完整通过。
-- `wrangler.jsonc` 中的 `CRON_PUBLIC_BASE_URL` 指向 `https://cf.priceai.cc`，避免 POC 环境误触采集时写回生产域。
+- `priceai.cc` 生产域名已由 Cloudflare Workers route 承载。
+- `wrangler.jsonc` 中的 `CRON_PUBLIC_BASE_URL` 指向 `https://priceai.cc`。
+- `www.priceai.cc` 仍需 DNS 代理收口；在此之前用户会先经 Vercel 307 跳到主域。

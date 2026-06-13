@@ -11,6 +11,8 @@
 - 旧的两个无用域名不纳入迁移。
 - Vercel 保留为短期回滚目标，直到 Cloudflare 生产运行稳定。
 
+当前状态：`priceai.cc` 已于 2026-06-14 切到 Cloudflare Workers route；`www.priceai.cc` 仍由 Vercel 返回 307 跳转到主域名，用户访问不中断，但待补 DNS 编辑权限后应把 `www` DNS 记录改为 Cloudflare 代理入口，让 Worker route 直接接管。
+
 ## 目标架构
 
 | 层 | 迁移后形态 | 说明 |
@@ -44,7 +46,7 @@
 
 ## 阶段 1：Cloudflare 账号与资源准备
 
-状态：已完成 POC 资源准备。
+状态：已完成生产主域切换。
 
 已完成：
 
@@ -58,8 +60,8 @@
 
 仍需准备：
 
-1. 确认 `priceai.cc` / `www.priceai.cc` 的正式切换窗口。
-2. 如需在 Cloudflare 预览环境统计访问，再补 `NEXT_PUBLIC_UMAMI_SCRIPT_URL` 和 `NEXT_PUBLIC_UMAMI_WEBSITE_ID`；当前测试阶段继续不配置，避免预览流量进入生产 Umami。
+1. 获取 Cloudflare DNS edit 权限，把 `www.priceai.cc` 的 DNS 记录改成 Cloudflare 代理状态，使 `www.priceai.cc/*` Worker route 真正接管。
+2. 连续观察 24-72 小时 Worker 5xx、Supabase egress、R2 incremental cache 和 Umami 访问数据。
 
 Cloudflare Worker runtime secrets：
 
@@ -92,11 +94,13 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID
 Cloudflare Worker runtime variables：
 
 ```text
-CRON_PUBLIC_BASE_URL=https://cf.priceai.cc
+CRON_PUBLIC_BASE_URL=https://priceai.cc
+NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://umami.dimthink.com/script.js
+NEXT_PUBLIC_UMAMI_WEBSITE_ID=ded26a4f-77c4-45ed-86ef-774b0fed0ef6
 NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS=priceai.cc,www.priceai.cc
 ```
 
-备注：测试域名阶段可暂时不把 `cf.priceai.cc` 加入 Umami allowed domains，避免预览流量污染生产统计。
+备注：不把 `cf.priceai.cc` 加入 Umami allowed domains，避免预览流量污染生产统计。
 
 ## 阶段 2：测试域名部署
 
@@ -152,12 +156,12 @@ npm run deploy:cloudflare
 
 ## 生产中断评估
 
-按当前计划执行，生产不需要明显中断。
+按当前执行结果，主域切换没有出现明显中断。
 
 原因：
 
-1. `priceai.cc` 当前继续由 Vercel 承载；Cloudflare 先跑 `cf.priceai.cc`，不会碰主域名。
-2. 主域名切换动作可以只改 Cloudflare Worker route / custom domain，Vercel 保持在线作为回滚目标。
+1. `priceai.cc` 通过 Cloudflare Worker route 接管，不需要数据库搬迁或 schema 切换。
+2. 主域名切换动作只改 Worker route，Vercel 保持在线作为回滚目标。
 3. 数据库仍是同一个 Supabase，迁移不涉及数据搬迁或 schema 切换。
 4. 采集任务暂不迁入 Worker，不会因为切主站运行时就改变采集脚本执行环境。
 
@@ -196,8 +200,8 @@ npm run deploy:cloudflare
 
 测试域名稳定后，再把手动部署变成可重复流程。
 
-已新增手动 GitHub Actions workflow：`.github/workflows/deploy-cloudflare-preview.yml`。
-2026-06-14 已验证 workflow run `27472035881` 全部通过，并部署 Worker version `c66d1573-1393-477f-9665-80d21d265b27` 到 `cf.priceai.cc`。
+已新增手动 GitHub Actions workflow：`.github/workflows/deploy-cloudflare-worker.yml`。
+2026-06-14 已验证旧 workflow run `27472035881` 全部通过，并部署 Worker version `c66d1573-1393-477f-9665-80d21d265b27` 到 `cf.priceai.cc`。生产切换后 workflow 已改为 Cloudflare Worker 部署语义，默认 smoke `https://priceai.cc`。
 
 - 手动触发 `workflow_dispatch`。
 - 使用 GitHub secrets 保存 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`。
@@ -205,10 +209,23 @@ npm run deploy:cloudflare
 - 执行 `npm ci`、`npm run lint`、`npm run build:cloudflare`、`npm run deploy:cloudflare`。
 - `deploy:cloudflare` 会把 `--keep-vars` 透传给 Wrangler，避免部署时覆盖 Cloudflare Dashboard 中维护的 runtime variables。
 - 部署后自动执行 `npm run smoke:cloudflare`。
+- Umami 的公开配置也作为构建必需变量检查，避免静态预渲染页面漏掉自部署 Umami 脚本。
 
-不建议在这一阶段自动切生产域名。域名切换仍应手动执行，并保留回滚窗口。
+不建议让普通 push 自动切生产。Cloudflare Worker 部署仍使用手动触发，并保留回滚窗口。
 
 ## 阶段 5：生产切换
+
+状态：主域已完成，`www` 待 DNS 代理收口。
+
+2026-06-14 执行结果：
+
+- `wrangler.jsonc` 已加入 `priceai.cc/*` 和 `www.priceai.cc/*` Workers route，并把 `CRON_PUBLIC_BASE_URL` 改为 `https://priceai.cc`。
+- 最终上线 Worker version：`2b35131f-ccc0-493b-8eea-aa73a8711869`。
+- `https://priceai.cc/` 返回 `server: cloudflare`、`x-opennext: 1`、`x-nextjs-cache: HIT`。
+- `npm run smoke:cloudflare -- https://priceai.cc` 全部通过：`/`、`/api-models`、guide、`/api/health`、公开价格 API、cron 未授权拒绝、`robots.txt`、`sitemap.xml`。
+- 公开价格 API 继续返回 `Cloudflare-CDN-Cache-Control: public, s-maxage=120`。
+- 首页 HTML 已确认包含 `https://umami.dimthink.com/script.js`、Umami Website ID 和 `data-priceai-umami`，且不包含 `cloud.umami`。
+- `https://www.priceai.cc/` 目前仍由 Vercel 返回 307 到 `https://priceai.cc/`；用户访问正常，但不是最终形态。
 
 切换前准备：
 
@@ -275,9 +292,9 @@ curl -sS -o /tmp/health.json -w '%{http_code} %{size_download} %{time_total}\n' 
 
 ## 当前下一步
 
-当前最值得做的是阶段 2 收尾和阶段 3 加固：
+当前最值得做的是生产后观察和 `www` 收口：
 
-1. 用后台真实登录做一次低风险写操作验证。
-2. 观察 `cf.priceai.cc` 24 小时内 Worker 5xx、CPU、请求量、R2 增长和 Supabase egress。
-3. 确认官方价格采集和第三方价格采集只有一个生产入口，避免 Vercel / Cloudflare 双触发。
-4. 上述通过后，再安排 `priceai.cc` / `www.priceai.cc` 的切换窗口。
+1. 获取 DNS edit 权限，把 `www.priceai.cc` 从 Vercel CNAME / 灰云状态收口到 Cloudflare 代理入口。
+2. 用后台真实登录做一次低风险写操作验证。
+3. 观察 `priceai.cc` 24-72 小时内 Worker 5xx、CPU、请求量、R2 增长、Supabase egress 和 Umami 访问数据。
+4. 确认官方价格采集和第三方价格采集只有一个生产入口，避免 Vercel / Cloudflare 双触发。
