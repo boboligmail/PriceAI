@@ -1,4 +1,4 @@
-import { Gift, GraduationCap, Layers3, Mail, MessageCircleMore, Send, type LucideIcon } from "lucide-react";
+import { Gift, GraduationCap, Layers3, Mail, MessageCircleMore, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 
 const iconByPlatform: Record<string, string> = {
@@ -25,13 +25,13 @@ const iconByProductId: Record<string, string> = {
   "suno-account": "/brand-icons/suno.png",
   "apple-id-account": "/brand-icons/apple.png",
   "x-twitter-account": "/brand-icons/x.png",
+  "telegram-account": "/brand-icons/telegram.svg",
 };
 
 const semanticIconByProductId: Record<string, LucideIcon> = {
   "education-email": GraduationCap,
   "email-account": Mail,
   "phone-verification": MessageCircleMore,
-  "telegram-account": Send,
   "gift-card": Gift,
 };
 
