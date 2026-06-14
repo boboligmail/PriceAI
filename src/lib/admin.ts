@@ -59,6 +59,24 @@ type SubmissionProbeResult = {
   finishedAt?: string;
 };
 
+type ShopGoodsLookupResult = {
+  checkedAt: string;
+  goodsKey: string;
+  httpStatus?: number;
+  apiCode?: number | string | null;
+  apiMessage?: string | null;
+  token?: string | null;
+  sourceUrl?: string | null;
+  sourceName?: string | null;
+  title?: string | null;
+  price?: number | null;
+  realPrice?: number | null;
+  status?: string | null;
+  category?: string | null;
+  descriptionPreview?: string | null;
+  error?: string | null;
+};
+
 export function getAdminPasswordFromRequest(request: Request): string | null {
   const header = request.headers.get("x-admin-password");
   if (header) return header;
@@ -1145,6 +1163,10 @@ export async function parseSubmissionMetadata(rawUrl: string): Promise<{
   Object.assign(meta, analyzeSubmissionUrl(parsed, null));
 
   Object.assign(meta, await resolveSubmittedSource(parsed, null));
+  parsedTitle = submittedProductTitleFromMeta(meta);
+  if (parsedTitle) {
+    Object.assign(meta, classifySubmissionTitleMeta(parsedTitle));
+  }
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -1161,11 +1183,11 @@ export async function parseSubmissionMetadata(rawUrl: string): Promise<{
     meta.http_status = response.status;
     if (!response.ok) {
       meta.parse_error = `HTTP ${response.status}`;
-      return { url: parsed.toString(), parsedTitle: null, parsedMeta: meta };
+      return { url: parsed.toString(), parsedTitle, parsedMeta: meta };
     }
     const reader = response.body?.getReader();
     if (!reader) {
-      return { url: parsed.toString(), parsedTitle: null, parsedMeta: meta };
+      return { url: parsed.toString(), parsedTitle, parsedMeta: meta };
     }
 
     const decoder = new TextDecoder("utf-8", { fatal: false });
@@ -1193,11 +1215,10 @@ export async function parseSubmissionMetadata(rawUrl: string): Promise<{
     }
 
     if (parsedTitle) {
-      const canonical = classifyOffer(parsedTitle);
-      meta.canonical_product_id = canonical.id;
-      meta.platform = canonical.platform;
-      meta.product_type = canonical.productType;
-      Object.assign(meta, await resolveSubmittedSource(parsed, parsedTitle, html));
+      Object.assign(meta, classifySubmissionTitleMeta(parsedTitle));
+      if (!stringValue(meta.canonical_source_url)) {
+        Object.assign(meta, await resolveSubmittedSource(parsed, parsedTitle, html));
+      }
     }
     Object.assign(meta, refineSubmissionCollectorFromHtml(parsed, html, meta));
   } catch (error) {
@@ -1207,6 +1228,21 @@ export async function parseSubmissionMetadata(rawUrl: string): Promise<{
   }
 
   return { url: parsed.toString(), parsedTitle, parsedMeta: meta };
+}
+
+function classifySubmissionTitleMeta(title: string): Record<string, unknown> {
+  const canonical = classifyOffer(title);
+  return {
+    canonical_product_id: canonical.id,
+    platform: canonical.platform,
+    product_type: canonical.productType,
+  };
+}
+
+function submittedProductTitleFromMeta(meta: Record<string, unknown>): string | null {
+  const preview = meta.submitted_product_preview;
+  if (!preview || typeof preview !== "object" || Array.isArray(preview)) return null;
+  return stringValue((preview as Record<string, unknown>).title);
 }
 
 function analyzeSubmissionUrl(parsed: URL, parsedTitle: string | null): Record<string, unknown> {
@@ -1259,28 +1295,39 @@ async function resolveSubmittedSource(
   }
 
   const baseUrl = `${parsed.protocol}//${parsed.host}`;
+  const goodsKey = getGoodsKey(parsed.pathname) || "";
   const tokenFromHtml = getShopTokenFromHtml(html);
-  const tokenFromApi = tokenFromHtml || await fetchShopTokenFromGoods(baseUrl, parsed.toString(), getGoodsKey(parsed.pathname) || "");
-  if (!tokenFromApi) {
+  const goodsLookup = tokenFromHtml
+    ? null
+    : await fetchShopGoodsFromGoods(baseUrl, parsed.toString(), goodsKey);
+  const tokenFromApi = goodsLookup?.token || null;
+  const productMeta = goodsLookup ? shopGoodsLookupMeta(goodsLookup) : {};
+  const sourceToken = tokenFromHtml || tokenFromApi;
+  if (!sourceToken) {
+    const detail = goodsLookup?.apiMessage || goodsLookup?.error;
     return {
       ...baseMeta,
+      ...productMeta,
       submitted_url_type: "product",
       canonical_source_status: "unresolved",
-      canonical_source_reason: "商品链接暂未反查到店铺入口；请重新解析，或手动填写真实店铺入口后再通过。",
+      canonical_source_reason: detail
+        ? `商品接口未返回店铺入口：${detail}`
+        : "商品链接暂未反查到店铺入口；请重新解析，或手动填写真实店铺入口后再通过。",
     };
   }
 
-  const shopUrl = `${baseUrl}/shop/${encodeURIComponent(tokenFromApi)}`;
-  const suggestedName = inferSubmittedSourceName(host, parsedTitle, tokenFromApi);
+  const shopUrl = goodsLookup?.sourceUrl || `${baseUrl}/shop/${encodeURIComponent(sourceToken)}`;
+  const suggestedName = goodsLookup?.sourceName || inferSubmittedSourceName(host, parsedTitle, sourceToken);
   return {
     ...baseMeta,
+    ...productMeta,
     submitted_url_type: "product",
     canonical_source_status: "resolved",
     canonical_source_reason: "已从商品链接反查到店铺入口，审核通过时会按渠道入口入库。",
     canonical_source_url: shopUrl,
-    shop_token: tokenFromApi,
+    shop_token: sourceToken,
     suggested_source_name: suggestedName,
-    suggested_source_id: inferSubmittedSourceId(host, suggestedName, tokenFromApi),
+    suggested_source_id: inferSubmittedSourceId(host, suggestedName, sourceToken),
   };
 }
 
@@ -1419,12 +1466,14 @@ function getShopTokenFromHtml(html: string | null): string | null {
   return null;
 }
 
-async function fetchShopTokenFromGoods(baseUrl: string, itemUrl: string, goodsKey: string): Promise<string | null> {
+async function fetchShopGoodsFromGoods(baseUrl: string, itemUrl: string, goodsKey: string): Promise<ShopGoodsLookupResult | null> {
   if (!goodsKey) return null;
 
+  let lastResult: ShopGoodsLookupResult | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
+    const checkedAt = new Date().toISOString();
     try {
-      const response = await safeFetch(`${baseUrl}/shopApi/Shop/goodsInfo`, {
+      const response = await fetch(`${baseUrl}/shopApi/Shop/goodsInfo`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -1439,35 +1488,131 @@ async function fetchShopTokenFromGoods(baseUrl: string, itemUrl: string, goodsKe
         body: JSON.stringify({ goods_key: goodsKey, trade_no: "" }),
         signal: AbortSignal.timeout(SHOP_API_TIMEOUT_MS),
       });
-      if (!response.ok) continue;
       const payload = await response.json().catch(() => null);
-      const token = getShopTokenFromGoodsPayload(payload);
-      if (token) return token;
-    } catch {
-      /* retry once with a browser-like user agent */
+      lastResult = getShopGoodsLookupResult(payload, {
+        baseUrl,
+        goodsKey,
+        checkedAt,
+        httpStatus: response.status,
+      });
+      if (lastResult.token) return lastResult;
+    } catch (error) {
+      lastResult = {
+        checkedAt,
+        goodsKey,
+        error: error instanceof Error ? error.message : String(error),
+      };
     }
   }
-  return null;
+  return lastResult;
 }
 
-function getShopTokenFromGoodsPayload(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null;
-  const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== "object") return null;
-  const user = (data as { user?: unknown }).user;
-  if (!user || typeof user !== "object") return null;
-
-  const token = (user as { token?: unknown }).token;
-  if (typeof token === "string" && token.trim()) return token.trim();
-
-  const link = (user as { link?: unknown }).link;
-  if (typeof link === "string" && link.trim()) {
-    const parsed = safeUrl(link);
-    const tokenFromLink = parsed ? getShopToken(parsed.pathname) : null;
-    if (tokenFromLink) return tokenFromLink;
+function getShopGoodsLookupResult(
+  payload: unknown,
+  context: { baseUrl: string; goodsKey: string; checkedAt: string; httpStatus?: number },
+): ShopGoodsLookupResult {
+  const result: ShopGoodsLookupResult = {
+    checkedAt: context.checkedAt,
+    goodsKey: context.goodsKey,
+    httpStatus: context.httpStatus,
+  };
+  if (!payload || typeof payload !== "object") {
+    return { ...result, error: "商品接口未返回 JSON。" };
   }
 
-  return null;
+  const record = payload as Record<string, unknown>;
+  result.apiCode = stringValue(record.code) || numberValue(record.code);
+  result.apiMessage = stringValue(record.msg) || stringValue(record.message);
+
+  const data = record.data;
+  if (!data || typeof data !== "object" || Array.isArray(data)) return result;
+  const dataRecord = data as Record<string, unknown>;
+  const user = dataRecord.user && typeof dataRecord.user === "object" && !Array.isArray(dataRecord.user)
+    ? dataRecord.user as Record<string, unknown>
+    : {};
+
+  const token = stringValue(user.token) || shopTokenFromUserLink(user.link);
+  result.token = token;
+  result.sourceUrl = token
+    ? stringValue(user.link) || `${context.baseUrl}/shop/${encodeURIComponent(token)}`
+    : stringValue(user.link);
+  result.sourceName = stringValue(user.nickname);
+  result.title = stringValue(dataRecord.name);
+  result.price = numberValue(dataRecord.price);
+  result.realPrice = numberValue(dataRecord.real_price);
+  result.status = stringValue(dataRecord.status) || (numberValue(dataRecord.status) !== null ? String(numberValue(dataRecord.status)) : null);
+  result.descriptionPreview = summarizeHtmlText(stringValue(dataRecord.description));
+
+  const category = dataRecord.category;
+  if (category && typeof category === "object" && !Array.isArray(category)) {
+    result.category = stringValue((category as Record<string, unknown>).name);
+  } else {
+    result.category = stringValue(category);
+  }
+
+  return result;
+}
+
+function shopTokenFromUserLink(value: unknown): string | null {
+  const link = stringValue(value);
+  if (!link) return null;
+  const parsed = safeUrl(link);
+  return parsed ? getShopToken(parsed.pathname) : null;
+}
+
+function shopGoodsLookupMeta(lookup: ShopGoodsLookupResult): Record<string, unknown> {
+  const meta: Record<string, unknown> = {
+    shop_api_checked_at: lookup.checkedAt,
+    shop_api_goods_key: lookup.goodsKey,
+  };
+  if (typeof lookup.httpStatus === "number") meta.shop_api_http_status = lookup.httpStatus;
+  if (lookup.apiCode !== undefined && lookup.apiCode !== null) meta.shop_api_code = lookup.apiCode;
+  if (lookup.apiMessage) meta.shop_api_message = lookup.apiMessage;
+  if (lookup.error) meta.shop_api_error = lookup.error;
+
+  const preview: Record<string, unknown> = {
+    checkedAt: lookup.checkedAt,
+    goodsKey: lookup.goodsKey,
+    currency: "CNY",
+  };
+  if (lookup.title) preview.title = lookup.title;
+  if (lookup.sourceName) preview.sourceName = lookup.sourceName;
+  if (lookup.sourceUrl) preview.sourceUrl = lookup.sourceUrl;
+  if (typeof lookup.price === "number") preview.price = lookup.price;
+  if (typeof lookup.realPrice === "number") preview.realPrice = lookup.realPrice;
+  if (lookup.status) {
+    preview.status = lookup.status;
+    preview.statusText = shopGoodsStatusLabel(lookup.status);
+  }
+  if (lookup.category) preview.category = lookup.category;
+  if (lookup.descriptionPreview) preview.descriptionPreview = lookup.descriptionPreview;
+  if (lookup.apiMessage) preview.apiMessage = lookup.apiMessage;
+
+  if (Object.keys(preview).length > 3) meta.submitted_product_preview = preview;
+  return meta;
+}
+
+function shopGoodsStatusLabel(value: string): string {
+  if (value === "1" || value.toLowerCase() === "available") return "上架";
+  if (value === "0" || value.toLowerCase() === "unavailable") return "未上架";
+  return value;
+}
+
+function summarizeHtmlText(value: string | null): string | null {
+  if (!value) return null;
+  const text = value
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? text.slice(0, 260) : null;
 }
 
 async function findSourceFromKnownOfferUrl(itemUrl: string): Promise<Source | null> {
@@ -1609,7 +1754,7 @@ export async function createSubmission(input: {
   let parsedMeta: Record<string, unknown> = {};
   try {
     const parsed = await parseSubmissionMetadata(normalizedUrl);
-    parsedTitle = parsed.parsedTitle;
+    parsedTitle = parsed.parsedTitle || submittedProductTitleFromMeta(parsed.parsedMeta);
     parsedMeta = parsed.parsedMeta;
   } catch (error) {
     parsedMeta = buildFallbackSubmissionMeta(normalizedUrl, error);
@@ -1907,7 +2052,7 @@ export async function reparseSubmission(id: string): Promise<ChannelSubmission> 
   let parsedMeta: Record<string, unknown> = {};
   try {
     const parsed = await parseSubmissionMetadata(submission.url);
-    parsedTitle = parsed.parsedTitle;
+    parsedTitle = parsed.parsedTitle || submittedProductTitleFromMeta(parsed.parsedMeta);
     parsedMeta = parsed.parsedMeta;
   } catch (parseError) {
     parsedMeta = buildFallbackSubmissionMeta(submission.url, parseError);

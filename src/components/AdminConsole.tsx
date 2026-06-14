@@ -126,6 +126,21 @@ type ProbeResult = {
   finishedAt?: string;
 };
 
+type SubmissionProductPreview = {
+  title?: string;
+  sourceName?: string;
+  sourceUrl?: string;
+  price?: number;
+  realPrice?: number;
+  currency?: string;
+  status?: string;
+  statusText?: string;
+  category?: string;
+  descriptionPreview?: string;
+  apiMessage?: string;
+  checkedAt?: string;
+};
+
 type OfficialProbeResult = {
   ok: boolean;
   message?: string;
@@ -349,14 +364,25 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     () => filterOfferFeedbackByWorkFilter(offerFeedback, feedbackFilter, offerById),
     [feedbackFilter, offerById, offerFeedback],
   );
+  const selectedOfferFeedback = useMemo(
+    () => filteredOfferFeedback.filter((item) => selectedFeedbackIds.has(item.id)),
+    [filteredOfferFeedback, selectedFeedbackIds],
+  );
+  const selectedFeedbackWithOffer = useMemo(
+    () => selectedOfferFeedback.filter((item) => Boolean(item.offerId)),
+    [selectedOfferFeedback],
+  );
+  const selectedFeedbackWithSource = useMemo(
+    () => selectedOfferFeedback.filter((item) => Boolean(item.sourceId)),
+    [selectedOfferFeedback],
+  );
   const safeBatchFeedback = useMemo(
     () =>
-      filteredOfferFeedback.filter((item) => {
-        if (!selectedFeedbackIds.has(item.id)) return false;
+      selectedOfferFeedback.filter((item) => {
         const verdict = getOfferFeedbackVerdict(item, item.offerId ? offerById.get(item.offerId) : null);
         return verdict.batchSafe;
       }),
-    [filteredOfferFeedback, offerById, selectedFeedbackIds],
+    [offerById, selectedOfferFeedback],
   );
   const feedbackFilterCounts = useMemo(
     () => getFeedbackWorkFilterCounts(offerFeedback, siteFeedback, offerById),
@@ -447,7 +473,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     for (const s of filteredReview) {
       const meta = s.parsedMeta || {};
       const probe = probeResults[s.id] || probeResultFromMeta(s.parsedMeta || {});
-      const existing = sourceById.get(suggestedSourceIdForSubmission(s) || "");
+      const existing = existingSourceForSubmission(s, sourceById);
       const suggestedCollector = collectorKindMeta(meta, "suggested_collector_kind");
       const hasValidSourceUrl = Boolean(displayableCanonicalSourceUrlForSubmission(s) || stringMeta(meta, "submitted_url_type") !== "product");
       if (hasValidSourceUrl && (existing || (probe?.status === "success" && probe.offerCount > 0) || isRunnableCollector(suggestedCollector))) {
@@ -1440,8 +1466,22 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     });
   }
 
+  function clearCompletedOfferFeedback(succeededIds: Set<string>) {
+    if (!succeededIds.size) return;
+
+    setOfferFeedback((prev) => prev.filter((item) => !succeededIds.has(item.id)));
+    setSelectedFeedbackIds((prev) => {
+      const next = new Set(prev);
+      for (const id of succeededIds) next.delete(id);
+      return next;
+    });
+    if (feedbackStatusFilter === "pending") {
+      setPendingOfferFeedbackCount((count) => Math.max(0, count - succeededIds.size));
+    }
+  }
+
   async function batchUpdateSelectedOfferFeedback(status: OfferFeedbackStatus) {
-    const selected = filteredOfferFeedback.filter((item) => selectedFeedbackIds.has(item.id));
+    const selected = selectedOfferFeedback;
     if (!selected.length) {
       setGlobalMessage({ type: "error", text: "请先选择要处理的报价举报。" });
       return;
@@ -1476,19 +1516,132 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       }
     }
 
-    setOfferFeedback((prev) => prev.filter((item) => !succeededIds.has(item.id)));
-    setSelectedFeedbackIds((prev) => {
-      const next = new Set(prev);
-      for (const id of succeededIds) next.delete(id);
-      return next;
-    });
-    if (feedbackStatusFilter === "pending" && succeededIds.size) {
-      setPendingOfferFeedbackCount((count) => Math.max(0, count - succeededIds.size));
-    }
+    clearCompletedOfferFeedback(succeededIds);
     setLoadingAction(null);
     setGlobalMessage({
       type: success === targets.length ? "success" : "info",
       text: `${status === "resolved" ? "批量标记已处理" : "批量忽略"}完成：${success}/${targets.length} 条成功。`,
+    });
+    router.refresh();
+  }
+
+  async function batchHideSelectedFeedbackOffers() {
+    if (!selectedOfferFeedback.length) {
+      setGlobalMessage({ type: "error", text: "请先选择要下架报价的反馈。" });
+      return;
+    }
+    const targets = selectedFeedbackWithOffer;
+    if (!targets.length) {
+      setGlobalMessage({ type: "error", text: "已选反馈没有可下架的报价 ID。" });
+      return;
+    }
+
+    const skipped = selectedOfferFeedback.length - targets.length;
+    const confirmed = window.confirm(
+      `确定批量下架 ${targets.length} 条报价，并将对应反馈标记为已处理吗？${skipped ? `\n${skipped} 条已选反馈缺少报价 ID，会跳过。` : ""}`,
+    );
+    if (!confirmed) return;
+
+    setLoadingAction("batch-feedback-hide-offer");
+    let hiddenSuccess = 0;
+    let resolvedSuccess = 0;
+    const succeededIds = new Set<string>();
+
+    for (const item of targets) {
+      const hideResult = await request("/api/admin/toggle-offer", password, {
+        id: item.offerId,
+        hidden: true,
+        reason: `用户反馈：${feedbackReasonLabel(item.reason)}`,
+      });
+      if (!hideResult.ok) continue;
+
+      hiddenSuccess++;
+      const feedbackResult = await requestWithMethod("/api/admin/feedback", "PATCH", password, {
+        id: item.id,
+        status: "resolved",
+        reviewerNote: "已批量按用户反馈下架报价",
+      });
+      if (feedbackResult.ok) {
+        resolvedSuccess++;
+        succeededIds.add(item.id);
+      }
+    }
+
+    clearCompletedOfferFeedback(succeededIds);
+    setLoadingAction(null);
+    setGlobalMessage({
+      type: hiddenSuccess === targets.length && resolvedSuccess === targets.length ? "success" : "info",
+      text: `批量下架报价完成：下架 ${hiddenSuccess}/${targets.length} 条，标记已处理 ${resolvedSuccess}/${targets.length} 条反馈。`,
+    });
+    router.refresh();
+  }
+
+  async function batchHideSelectedFeedbackSources() {
+    if (!selectedOfferFeedback.length) {
+      setGlobalMessage({ type: "error", text: "请先选择要下架渠道的反馈。" });
+      return;
+    }
+    const targets = selectedFeedbackWithSource;
+    if (!targets.length) {
+      setGlobalMessage({ type: "error", text: "已选反馈没有可下架的渠道 ID。" });
+      return;
+    }
+
+    const feedbackBySource = new Map<string, OfferFeedback[]>();
+    for (const item of targets) {
+      if (!item.sourceId) continue;
+      const items = feedbackBySource.get(item.sourceId) || [];
+      items.push(item);
+      feedbackBySource.set(item.sourceId, items);
+    }
+
+    const skipped = selectedOfferFeedback.length - targets.length;
+    const confirmed = window.confirm(
+      `确定批量下架 ${feedbackBySource.size} 个渠道的可见报价，并将 ${targets.length} 条反馈标记为已处理吗？${skipped ? `\n${skipped} 条已选反馈缺少渠道 ID，会跳过。` : ""}`,
+    );
+    if (!confirmed) return;
+
+    setLoadingAction("batch-feedback-hide-source");
+    let sourceSuccess = 0;
+    let updatedOfferCount = 0;
+    let resolvedSuccess = 0;
+    const succeededIds = new Set<string>();
+    const sourceUpdates: Record<string, Source> = {};
+
+    for (const [sourceId, items] of feedbackBySource) {
+      const reasonLabels = Array.from(new Set(items.map((item) => feedbackReasonLabel(item.reason)))).join("、");
+      const sourceResult = await requestWithMethod("/api/admin/sources", "PATCH", password, {
+        id: sourceId,
+        offersHidden: true,
+        reason: `用户反馈批量下架渠道：${reasonLabels}`,
+      });
+      if (!sourceResult.ok) continue;
+
+      sourceSuccess++;
+      updatedOfferCount += Number(sourceResult.updatedOfferCount || 0);
+      if (sourceResult.source) sourceUpdates[sourceId] = sourceResult.source as Source;
+
+      for (const item of items) {
+        const feedbackResult = await requestWithMethod("/api/admin/feedback", "PATCH", password, {
+          id: item.id,
+          status: "resolved",
+          reviewerNote: "已批量按用户反馈下架渠道报价",
+        });
+        if (feedbackResult.ok) {
+          resolvedSuccess++;
+          succeededIds.add(item.id);
+        }
+      }
+    }
+
+    if (Object.keys(sourceUpdates).length) {
+      setSourcePatches((prev) => ({ ...prev, ...sourceUpdates }));
+    }
+    clearCompletedOfferFeedback(succeededIds);
+    setLoadingAction(null);
+    setGlobalMessage({
+      type: sourceSuccess === feedbackBySource.size && resolvedSuccess === targets.length ? "success" : "info",
+      text: `批量下架渠道完成：下架 ${sourceSuccess}/${feedbackBySource.size} 个渠道，处理 ${updatedOfferCount} 条报价，标记已处理 ${resolvedSuccess}/${targets.length} 条反馈。`,
     });
     router.refresh();
   }
@@ -1666,8 +1819,14 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     });
     setLoadingAction(null);
     if (result.ok && result.submission) {
-      setSubmissions((prev) => replaceSubmission(prev, result.submission as ChannelSubmission));
-      showRowFeedback(submission.id, "success", "已重新解析该提交，旧的未反查状态已刷新。");
+      const updatedSubmission = result.submission as ChannelSubmission;
+      setSubmissions((prev) => replaceSubmission(prev, updatedSubmission));
+      const resolved = stringMeta(updatedSubmission.parsedMeta || {}, "canonical_source_status") === "resolved";
+      showRowFeedback(
+        submission.id,
+        resolved ? "success" : "info",
+        reparseFeedbackText(updatedSubmission),
+      );
     } else {
       showRowFeedback(submission.id, "error", result.message || "重新解析失败。");
     }
@@ -1678,17 +1837,22 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
     if (!items.length) return;
     setLoadingAction("batch-reparse");
     let successCount = 0;
+    let resolvedCount = 0;
+    let unresolvedCount = 0;
     for (const item of items) {
       const result = await request("/api/admin/submissions/reparse", password, { id: item.id });
       if (result.ok && result.submission) {
+        const updatedSubmission = result.submission as ChannelSubmission;
         successCount++;
-        setSubmissions((prev) => replaceSubmission(prev, result.submission as ChannelSubmission));
+        if (stringMeta(updatedSubmission.parsedMeta || {}, "canonical_source_status") === "resolved") resolvedCount++;
+        else unresolvedCount++;
+        setSubmissions((prev) => replaceSubmission(prev, updatedSubmission));
       }
     }
     setLoadingAction(null);
     setGlobalMessage({
-      type: successCount === items.length ? "success" : "info",
-      text: `重新解析完成：${successCount}/${items.length} 条成功。`,
+      type: resolvedCount > 0 && unresolvedCount === 0 ? "success" : "info",
+      text: `重新解析完成：请求成功 ${successCount}/${items.length}，已反查 ${resolvedCount} 条，仍需处理 ${unresolvedCount} 条。`,
     });
   }
 
@@ -2169,7 +2333,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                       <SubmissionCard
                         key={submission.id}
                         submission={submission}
-                        existingSource={sourceById.get(suggestedSourceIdForSubmission(submission) || "") || null}
+                        existingSource={existingSourceForSubmission(submission, sourceById)}
                         loadingAction={loadingAction}
                         probeResult={probeResults[submission.id]}
                         expanded={expandedId === submission.id}
@@ -2367,7 +2531,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                         <h3 className="text-sm font-semibold text-[#202829]">反馈工作台</h3>
                       </div>
                       <p className="mt-1 text-xs leading-5 text-[#5a6061]">
-                        先按反馈性质分流，轻量核验只给处理建议，不自动下架报价或渠道。
+                        先按反馈性质分流，轻量核验只给处理建议；下架报价或渠道需要选中后确认执行。
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2401,6 +2565,24 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                           >
                             {loadingAction === "batch-feedback-resolved" ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
                             批量已处理 ({safeBatchFeedback.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={batchHideSelectedFeedbackOffers}
+                            disabled={!selectedFeedbackWithOffer.length || loadingAction === "batch-feedback-hide-offer"}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7] disabled:opacity-50"
+                          >
+                            {loadingAction === "batch-feedback-hide-offer" ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                            批量下架报价 ({selectedFeedbackWithOffer.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={batchHideSelectedFeedbackSources}
+                            disabled={!selectedFeedbackWithSource.length || loadingAction === "batch-feedback-hide-source"}
+                            className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#9b3328]/20 bg-white px-3 text-xs font-medium text-[#9b3328] transition-colors hover:bg-[#fbe9e7] disabled:opacity-50"
+                          >
+                            {loadingAction === "batch-feedback-hide-source" ? <Loader2 size={14} className="animate-spin" /> : <Store size={14} />}
+                            批量下架渠道 ({selectedFeedbackWithSource.length})
                           </button>
                           <button
                             type="button"
@@ -2951,6 +3133,7 @@ function SubmissionCard({
   const canonicalSourceReason = stringMeta(meta, "canonical_source_reason");
   const submittedUrlType = stringMeta(meta, "submitted_url_type");
   const parseError = typeof meta.parse_error === "string" ? meta.parse_error : null;
+  const productPreview = submissionProductPreviewFromMeta(meta);
   const currentProbe = probeResult || probeResultFromMeta(meta);
   const hasSuccessfulProbe = currentProbe?.status === "success" && currentProbe.offerCount > 0;
   const hasKnownCollector = isRunnableCollector(suggestedCollector);
@@ -3121,6 +3304,8 @@ function SubmissionCard({
             {canonicalSourceReason && <p><span className="font-medium text-[#2d3435]">渠道解析：</span>{canonicalSourceReason}</p>}
             {existingSource && <p><span className="font-medium text-[#2d3435]">合并目标：</span>{existingSource.name}</p>}
           </div>
+
+          {productPreview && <SubmissionProductPreviewPanel preview={productPreview} />}
 
           {submission.notes && <p className="mt-2 text-xs text-[#5a6061]">备注：{submission.notes}</p>}
 
@@ -3366,6 +3551,64 @@ function SubmissionCard({
   );
 }
 
+function SubmissionProductPreviewPanel({ preview }: { preview: SubmissionProductPreview }) {
+  const hasPrice = typeof preview.price === "number";
+  const statusText = preview.statusText || preview.status || null;
+  return (
+    <div className="mt-3 rounded-lg bg-[#f8f8f8] px-3 py-3 text-xs text-[#5a6061] ring-1 ring-[#adb3b4]/15">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-medium text-[#2d3435]">商品摘要</span>
+            {statusText && (
+              <span className={`rounded-full px-2 py-0.5 font-medium ${
+                statusText === "上架"
+                  ? "bg-[#e8f3ec] text-[#2f7a4b]"
+                  : "bg-[#fff7e8] text-[#7a541b]"
+              }`}>
+                {statusText}
+              </span>
+            )}
+            {preview.category && <Badge>{preview.category}</Badge>}
+          </div>
+          {preview.title ? (
+            <p className="mt-1 line-clamp-2 text-sm font-medium leading-6 text-[#2d3435]">{preview.title}</p>
+          ) : (
+            <p className="mt-1 text-sm font-medium leading-6 text-[#7a541b]">
+              {preview.apiMessage || "商品接口未返回可展示商品。"}
+            </p>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          {hasPrice ? (
+            <p className="text-sm font-semibold text-[#2d3435]">{formatCurrency(preview.price ?? null, preview.currency || "CNY")}</p>
+          ) : (
+            <p className="text-xs text-[#adb3b4]">暂无价格</p>
+          )}
+          {preview.realPrice !== undefined && preview.realPrice !== preview.price ? (
+            <p className="mt-0.5 text-[11px] text-[#adb3b4]">实付 {formatCurrency(preview.realPrice, preview.currency || "CNY")}</p>
+          ) : null}
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#5a6061]">
+        {preview.sourceName && <span>店铺：{preview.sourceName}</span>}
+        {preview.sourceUrl && (
+          <a href={preview.sourceUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-[#47657a] hover:text-[#2d3435]">
+            店铺入口
+          </a>
+        )}
+        {preview.checkedAt && <span>接口：{formatRelativeTime(preview.checkedAt)}</span>}
+      </div>
+      {preview.descriptionPreview && (
+        <p className="mt-2 line-clamp-2 leading-5 text-[#5a6061]">简介：{preview.descriptionPreview}</p>
+      )}
+      {preview.apiMessage && preview.title && (
+        <p className="mt-1 text-[11px] leading-4 text-[#adb3b4]">接口返回：{preview.apiMessage}</p>
+      )}
+    </div>
+  );
+}
+
 function ProbePreview({ result }: { result: ProbeResult }) {
   return (
     <div className="mt-3 rounded-lg border border-[#adb3b4]/20 bg-white p-3">
@@ -3510,7 +3753,7 @@ function OfferFeedbackList({
           ? currentProduct.displayName
           : null;
         const productName = displayProduct?.displayName || item.productName || "未记录标准商品";
-        const isLegacyCategoryFeedback = item.reason === "wrong_category";
+        const isCategoryFeedback = item.reason === "wrong_category";
         const hasEvidence = Boolean(item.evidenceText || item.evidenceUrls.length);
 
         return (
@@ -3621,9 +3864,9 @@ function OfferFeedbackList({
                     ) : null}
                   </div>
                 ) : null}
-                {isLegacyCategoryFeedback ? (
+                {isCategoryFeedback ? (
                   <p className="mt-2 rounded-lg bg-[#eef3f8] px-3 py-2 text-xs leading-5 text-[#47657a]">
-                    这是历史分类反馈。分类问题后续走分类规则和模型辅助归类流程，这里建议标记已处理或忽略。
+                    分类问题优先用于修正归类；如果确认这条报价或整个渠道不该展示，也可以直接下架报价或渠道。
                   </p>
                 ) : null}
                 {item.contact ? (
@@ -3646,7 +3889,7 @@ function OfferFeedbackList({
                 <div className="flex shrink-0 flex-wrap gap-2 xl:max-w-[360px] xl:justify-end">
                   <button
                     type="button"
-                    disabled={isLegacyCategoryFeedback || !item.offerId || hideOfferLoading}
+                    disabled={!item.offerId || hideOfferLoading}
                     onClick={() => onHideOffer(item)}
                     className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors disabled:opacity-50 ${
                       item.suggestedAction === "hide_offer"
@@ -3659,7 +3902,7 @@ function OfferFeedbackList({
                   </button>
                   <button
                     type="button"
-                    disabled={isLegacyCategoryFeedback || !item.sourceId || hideSourceLoading}
+                    disabled={!item.sourceId || hideSourceLoading}
                     onClick={() => onHideSource(item)}
                     className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors disabled:opacity-50 ${
                       item.suggestedAction === "hide_source"
@@ -6617,7 +6860,7 @@ function getOfferFeedbackVerdict(feedback: OfferFeedback, currentOffer: RawOffer
   if (bucket === "category") {
     return {
       label: "分类待修",
-      description: "这类反馈不建议和库存、价格问题混在一起处理，后续应进入分类规则或模型辅助归类流程。",
+      description: "这类反馈优先进入分类规则或模型辅助归类流程；如果用户明确希望下架，也可以手动或批量下架报价/渠道。",
       tone: "info",
       batchSafe: false,
     };
@@ -7432,6 +7675,54 @@ function buildCollectorContext(submission: ChannelSubmission): string {
     "- 期望输出字段：sourceTitle, price, status, url, stockCount",
     `- 验证方式：npm run collect:prices -- --source ${stringMeta(meta, "suggested_source_id") || domain || "<source-id>"}`,
   ].join("\n");
+}
+
+function existingSourceForSubmission(submission: ChannelSubmission, sourceById: Map<string, Source>): Source | null {
+  const sourceId = suggestedSourceIdForSubmission(submission);
+  if (!sourceId) return null;
+
+  const meta = submission.parsedMeta || {};
+  if (stringMeta(meta, "submitted_url_type") === "product" && !displayableCanonicalSourceUrlForSubmission(submission)) {
+    return null;
+  }
+
+  return sourceById.get(sourceId) || null;
+}
+
+function reparseFeedbackText(submission: ChannelSubmission): string {
+  const meta = submission.parsedMeta || {};
+  if (stringMeta(meta, "canonical_source_status") === "resolved") {
+    const sourceName = stringMeta(meta, "suggested_source_name");
+    return sourceName ? `已反查到渠道入口：${sourceName}。` : "已反查到渠道入口。";
+  }
+
+  const apiMessage = stringMeta(meta, "shop_api_message");
+  const apiError = stringMeta(meta, "shop_api_error");
+  if (apiMessage) return `已重新解析，但仍未反查到渠道：${apiMessage}`;
+  if (apiError) return `已重新解析，但商品接口失败：${apiError}`;
+  return "已重新解析，但仍未反查到渠道入口。";
+}
+
+function submissionProductPreviewFromMeta(meta: Record<string, unknown>): SubmissionProductPreview | null {
+  const value = meta.submitted_product_preview;
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  const preview: SubmissionProductPreview = {
+    title: stringMeta(record, "title") || undefined,
+    sourceName: stringMeta(record, "sourceName") || undefined,
+    sourceUrl: stringMeta(record, "sourceUrl") || undefined,
+    price: numberMeta(record, "price") ?? undefined,
+    realPrice: numberMeta(record, "realPrice") ?? undefined,
+    currency: stringMeta(record, "currency") || undefined,
+    status: stringMeta(record, "status") || undefined,
+    statusText: stringMeta(record, "statusText") || undefined,
+    category: stringMeta(record, "category") || undefined,
+    descriptionPreview: stringMeta(record, "descriptionPreview") || undefined,
+    apiMessage: stringMeta(record, "apiMessage") || undefined,
+    checkedAt: stringMeta(record, "checkedAt") || undefined,
+  };
+
+  return Object.values(preview).some((item) => item !== undefined) ? preview : null;
 }
 
 function suggestedSourceIdForSubmission(submission: ChannelSubmission): string | null {
