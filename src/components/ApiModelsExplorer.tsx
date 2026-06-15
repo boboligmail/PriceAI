@@ -18,7 +18,7 @@ import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "re
 import { ApiModelIcon } from "@/components/ApiModelIcon";
 import { CategoryTabBar, CategoryTabStrip, type CategoryTabItem } from "@/components/CategoryTabBar";
 import { SiteHeader } from "@/components/SiteHeader";
-import { API_MODELS_RETURN_INTENT_KEY, listDetailHref, markListReturnIntent } from "@/lib/list-return";
+import { listDetailHref } from "@/lib/list-return";
 import {
   apiProviderTypeLabels,
   formatApiBillingMode,
@@ -643,7 +643,7 @@ function ApiOfferTable({
                 <tr key={offer.id} className="align-top transition hover:bg-[#f7f9f9]">
                   <td className="px-5 py-4">
                     <div className="grid min-w-0 gap-3">
-                      <Link href={apiModelDetailHref(offer.modelId, returnQuery)} onClick={trackApiModelDetailOpen} className="group flex min-w-0 items-center gap-3">
+                      <Link href={apiModelDetailHref(offer.modelId, returnQuery)} className="group flex min-w-0 items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] ring-1 ring-[#adb3b4]/15">
                           <ApiModelIcon family={offer.model.family} className="h-7 w-7" />
                         </span>
@@ -653,7 +653,7 @@ function ApiOfferTable({
                         </span>
                       </Link>
                       <div className="flex min-w-0 flex-wrap items-center gap-2 pl-[52px]">
-                        <Link href={apiProviderDetailHref(offer.providerId, returnQuery)} onClick={trackApiModelDetailOpen} className="group inline-flex min-w-0 items-center gap-2">
+                        <Link href={apiProviderDetailHref(offer.providerId, returnQuery)} className="group inline-flex min-w-0 items-center gap-2">
                           <ApiProviderIcon provider={offer.provider} size="sm" />
                           <span className="min-w-0 truncate text-sm font-semibold text-[#202829] group-hover:text-[#2f7a4b]">
                             {offer.provider.name}
@@ -725,7 +725,7 @@ function ApiOfferMobileList({
               <div className="min-w-0 flex-1">
                 <div className="flex min-w-0 items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Link href={apiModelDetailHref(offer.modelId, returnQuery)} onClick={trackApiModelDetailOpen} className="block truncate text-base font-bold leading-6 text-[#202829]">
+                    <Link href={apiModelDetailHref(offer.modelId, returnQuery)} className="block truncate text-base font-bold leading-6 text-[#202829]">
                       {offer.model.displayName}
                     </Link>
                     <p className="mt-0.5 truncate text-sm text-[#5a6061]">{offer.routeModelId ?? offer.model.modelId}</p>
@@ -733,7 +733,7 @@ function ApiOfferMobileList({
                   <TypeChip type={offer.provider.type} />
                 </div>
 
-                <Link href={apiProviderDetailHref(offer.providerId, returnQuery)} onClick={trackApiModelDetailOpen} className="mt-3 inline-flex max-w-full items-center gap-2">
+                <Link href={apiProviderDetailHref(offer.providerId, returnQuery)} className="mt-3 inline-flex max-w-full items-center gap-2">
                   <ApiProviderIcon provider={offer.provider} size="sm" />
                   <span className="truncate text-sm font-semibold text-[#202829]">{offer.provider.name}</span>
                 </Link>
@@ -789,7 +789,7 @@ function ApiModelSummaryMobileList({
         const primaryOffer = summary.primaryOffer;
 
         return (
-          <Link key={summary.id} href={href} onClick={trackApiModelDetailOpen} className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition active:scale-[0.995]">
+          <Link key={summary.id} href={href} className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition active:scale-[0.995]">
             <div className="flex min-w-0 items-start gap-3">
               <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] ring-1 ring-[#adb3b4]/15">
                 <ApiModelIcon family={summary.family} className="h-7 w-7" />
@@ -860,7 +860,7 @@ function ApiModelSummaryTable({
               return (
                 <tr key={summary.id} className="transition hover:bg-[#f7f9f9]">
                   <td className="max-w-[330px] px-5 py-4">
-                    <Link href={href} onClick={trackApiModelDetailOpen} className="group flex min-w-0 items-center gap-3">
+                    <Link href={href} className="group flex min-w-0 items-center gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] ring-1 ring-[#adb3b4]/15">
                         <ApiModelIcon family={summary.family} className="h-7 w-7" />
                       </span>
@@ -898,7 +898,6 @@ function ApiModelSummaryTable({
                   <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={href}
-                      onClick={trackApiModelDetailOpen}
                       className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
@@ -947,7 +946,7 @@ function ApiProviderSummaryTable({
               return (
                 <tr key={summary.id} className="align-top transition hover:bg-[#f7f9f9]">
                   <td className="max-w-[330px] px-5 py-4">
-                    <Link href={href} onClick={trackApiModelDetailOpen} className="group flex min-w-0 items-center gap-3">
+                    <Link href={href} className="group flex min-w-0 items-center gap-3">
                       <ApiProviderIcon provider={provider} />
                       <span className="min-w-0">
                         <span className="block truncate font-semibold text-[#202829] group-hover:text-[#2f7a4b]">{provider.name}</span>
@@ -977,7 +976,6 @@ function ApiProviderSummaryTable({
                   <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={href}
-                      onClick={trackApiModelDetailOpen}
                       className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
@@ -1010,7 +1008,7 @@ function ApiProviderSummaryMobileList({
         const provider = summary.provider;
 
         return (
-          <Link key={summary.id} href={href} onClick={trackApiModelDetailOpen} className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition active:scale-[0.995]">
+          <Link key={summary.id} href={href} className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition active:scale-[0.995]">
             <div className="flex min-w-0 items-start gap-3">
               <ApiProviderIcon provider={provider} />
               <div className="min-w-0 flex-1">
@@ -1276,10 +1274,6 @@ function apiModelDetailHref(id: string, returnQuery: string): string {
 
 function apiProviderDetailHref(id: string, returnQuery: string): string {
   return listDetailHref(`/api-models/providers/${id}`, returnQuery);
-}
-
-function trackApiModelDetailOpen() {
-  markListReturnIntent(API_MODELS_RETURN_INTENT_KEY);
 }
 
 function buildApiModelsSearchParams({

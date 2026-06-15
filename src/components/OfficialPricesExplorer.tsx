@@ -13,7 +13,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrandIcon } from "@/components/BrandIcon";
 import { CategoryTabBar, CategoryTabStrip, type CategoryTabItem } from "@/components/CategoryTabBar";
 import { SiteHeader } from "@/components/SiteHeader";
-import { OFFICIAL_PRICE_RETURN_INTENT_KEY, listDetailHref, markListReturnIntent } from "@/lib/list-return";
+import { listDetailHref } from "@/lib/list-return";
 import {
   buildOfficialPriceOfferRows,
   buildOfficialPricePlanSummaries,
@@ -254,7 +254,6 @@ function OfficialPlanMobileList({
           <Link
             key={summary.id}
             href={href}
-            onClick={trackOfficialDetailOpen}
             className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition active:scale-[0.995]"
           >
             <div className="flex min-w-0 items-start gap-3">
@@ -317,7 +316,7 @@ function OfficialPlanTable({
               return (
                 <tr key={summary.id} className="transition hover:bg-[#f7f9f9]">
                   <td className="max-w-[320px] px-5 py-4">
-                    <Link href={href} onClick={trackOfficialDetailOpen} className="group flex min-w-0 items-center gap-3">
+                    <Link href={href} className="group flex min-w-0 items-center gap-3">
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4]">
                         <BrandIcon platform={summary.platform} className="h-[18px] w-[18px]" />
                       </span>
@@ -345,7 +344,6 @@ function OfficialPlanTable({
                   <td className="w-[120px] px-5 py-4 text-center">
                     <Link
                       href={href}
-                      onClick={trackOfficialDetailOpen}
                       className="inline-flex h-9 min-w-[76px] items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
@@ -385,7 +383,6 @@ function OfficialOfferMobileList({
                 <div className="min-w-0">
                   <Link
                     href={officialDetailHref(`${row.appSlug}__${row.planSlug}`, returnQuery)}
-                    onClick={trackOfficialDetailOpen}
                     className="block truncate text-base font-bold leading-6 text-[#202829]"
                   >
                     {row.plan.label}
@@ -452,7 +449,6 @@ function OfficialOfferTable({
                 <td className="max-w-[260px] px-5 py-4">
                   <Link
                     href={officialDetailHref(`${row.appSlug}__${row.planSlug}`, returnQuery)}
-                    onClick={trackOfficialDetailOpen}
                     className="block truncate font-semibold text-[#202829] hover:text-[#2f7a4b]"
                   >
                     {row.plan.label}
@@ -553,10 +549,6 @@ function buildTitle(dataset: Pick<OfficialPricesDataset, "apps">, platform: Offi
 
 function officialDetailHref(id: string, returnQuery: string): string {
   return listDetailHref(`/official-prices/${id}`, returnQuery);
-}
-
-function trackOfficialDetailOpen() {
-  markListReturnIntent(OFFICIAL_PRICE_RETURN_INTENT_KEY);
 }
 
 function buildOfficialSearchParams({
