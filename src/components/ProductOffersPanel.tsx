@@ -129,7 +129,7 @@ export function ProductOffersPanel({
         setLoading(false);
         setError(null);
 
-        if (!isGeneratedDatasetStale(cachedData)) return;
+        if (!isGeneratedDatasetStale(cachedData, PRODUCT_OFFERS_CACHE_TTL_MS)) return;
       } else {
         setLoading(true);
       }
@@ -396,7 +396,7 @@ function productOffersCacheKey(
   query = "",
   excludeQuery = "",
 ): string {
-  return `priceai:product-offers:v6:${productId}:${offset}:${OFFER_PAGE_SIZE}:${filterTags.join(",") || "all"}:${query || "none"}:${excludeQuery || "none"}`;
+  return `priceai:product-offers:v7:${productId}:${offset}:${OFFER_PAGE_SIZE}:${filterTags.join(",") || "all"}:${query || "none"}:${excludeQuery || "none"}`;
 }
 
 function rememberProductOffers(cacheKey: string, value: ProductOffersResponse) {

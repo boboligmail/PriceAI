@@ -10,6 +10,7 @@ import { normalizeCollectorKind } from "@/lib/collector-registry";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminOrCronPassword } from "@/lib/env";
 import { pruneOperationalLogs } from "@/lib/operational-logs";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { stableId } from "@/lib/utils";
 import { z } from "zod";
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
 
     if (shouldClearCache) {
       clearPublicDataCache();
+      revalidatePublicOfferPaths();
     }
 
     const totals = aggregateResults(results);

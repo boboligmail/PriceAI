@@ -3,8 +3,8 @@ import { getAdminPasswordFromRequest } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import { getSupabaseServerClient } from "@/lib/supabase";
-import { revalidatePath } from "next/cache";
 
 export async function POST(request: Request) {
   try {
@@ -89,9 +89,7 @@ export async function POST(request: Request) {
     }
 
     clearPublicDataCache();
-    revalidatePath("/");
-    revalidatePath("/products/[id]", "page");
-    revalidatePath("/sitemap.xml");
+    revalidatePublicOfferPaths();
 
     return Response.json({
       ok: true,

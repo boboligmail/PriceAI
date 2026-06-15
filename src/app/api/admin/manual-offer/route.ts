@@ -2,6 +2,7 @@ import { getAdminPasswordFromRequest, upsertRawOffer } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import { z } from "zod";
 
 const schema = z.object({
@@ -23,6 +24,7 @@ export async function POST(request: Request) {
     const payload = schema.parse(await request.json());
     const offer = await upsertRawOffer(payload);
     clearPublicDataCache();
+    revalidatePublicOfferPaths();
 
     return Response.json({ ok: true, offer });
   } catch (error) {
