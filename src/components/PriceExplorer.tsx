@@ -260,7 +260,7 @@ export function PriceExplorer({
   const totalOutOfStock = explorerData.products.reduce((sum, product) => sum + product.outOfStockCount, 0);
   const showingOffers = scopeMode === "offers";
   const title = buildTitle(platform, productType, showingOffers);
-  const activeFilters = buildActiveFilters({ platform, productType, stock, minPrice, maxPrice });
+  const activeFilterChips = buildActiveFilterChips({ productType, stock, minPrice, maxPrice });
   const platformOffers = offerResponse?.rows ?? [];
   const resultCount = showingOffers ? offerResponse?.total ?? 0 : products.length;
   const hasMoreOffers = showingOffers && Boolean(offerResponse) && platformOffers.length < (offerResponse?.total ?? 0);
@@ -676,7 +676,7 @@ export function PriceExplorer({
               className="inline-flex h-11 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[#e4e9ea] px-5 text-sm font-semibold text-[#2d3435] transition hover:bg-[#dde4e5]"
             >
               <Filter size={17} />
-              筛选{activeFilters.length ? ` ${activeFilters.length}` : ""}
+              筛选{activeFilterChips.length ? ` ${activeFilterChips.length}` : ""}
             </button>
             <div className="inline-flex h-11 shrink-0 items-center rounded-full bg-[#e4e9ea] p-1">
               <ViewToggleButton
@@ -730,9 +730,9 @@ export function PriceExplorer({
               提交渠道
             </button>
           </div>
-          {activeFilters.length ? (
+          {activeFilterChips.length ? (
             <div className="hidden flex-wrap items-center gap-2 md:flex">
-              {activeFilters.map((filter) => (
+              {activeFilterChips.map((filter) => (
                 <span
                   key={filter}
                   className="rounded-full bg-[#e4e9ea] px-3 py-1 text-xs font-medium text-[#2d3435]"
@@ -941,14 +941,20 @@ function ProductTable({
                     {productTypeLabels[product.productType] || product.productType}
                   </td>
                   <td className="px-5 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-lg font-bold text-[#202829]">
+                    <Link
+                      href={productHref}
+                      onClick={() => trackProductDetailOpen(product)}
+                      aria-label={`查看 ${product.displayName} 最低价报价`}
+                      title="查看最低价报价"
+                      className="group inline-flex flex-col gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5a6061]/30 focus-visible:ring-offset-2"
+                    >
+                      <span className="text-lg font-bold text-[#202829] group-hover:text-[#5e5e5e]">
                         {formatCurrency(product.lowestPrice, previewOffer?.currency)}
                       </span>
-                      <span className={`w-fit rounded-full px-2 py-0.5 text-[0.65rem] font-semibold ${tableStatusClass(isAvailable)}`}>
+                      <span className={`w-fit rounded-full px-2 py-0.5 text-[0.65rem] font-semibold transition group-hover:brightness-95 ${tableStatusClass(isAvailable)}`}>
                         {isAvailable ? "有货" : "缺货"}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   <td className="px-5 py-4">
                     <WarrantyLowestPrice
@@ -1892,21 +1898,18 @@ function trackProductDetailOpen(product: Pick<CanonicalProduct, "id" | "platform
   });
 }
 
-function buildActiveFilters({
-  platform,
+function buildActiveFilterChips({
   productType,
   stock,
   minPrice,
   maxPrice,
 }: {
-  platform: string;
   productType: string;
   stock: string;
   minPrice: string;
   maxPrice: string;
 }): string[] {
   const filters: string[] = [];
-  if (platform !== "全部") filters.push(platform);
   if (productType !== "全部") filters.push(productTypeLabels[productType] || productType);
   if (stock === "available") filters.push("有货");
   if (stock === "out_of_stock") filters.push("缺货");
