@@ -16,12 +16,13 @@ import {
   Table2,
 } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrandIcon } from "@/components/BrandIcon";
 import { CategoryTabBar, CategoryTabStrip, type CategoryTabItem } from "@/components/CategoryTabBar";
 import { OfferActions, OfferFeedbackButton, OfferFeedbackDialog, OfferLink } from "@/components/ProductOffersPanel";
 import { SiteHeader } from "@/components/SiteHeader";
+import { listDetailNavigationHref, shouldHandleListDetailClick } from "@/lib/list-return";
 import {
   comparePlatformOrder,
   isAvailable,
@@ -916,13 +917,14 @@ function ProductTable({
               const previewOffer = product.lowestOffer;
               const isAvailable = product.inStockCount > 0;
               const productHref = productDetailHref(product.slug, returnQuery);
+              const handleProductClick = listDetailClickHandler(productHref, returnQuery, () => trackProductDetailOpen(product));
 
               return (
                 <tr key={product.id} className="transition hover:bg-[#f7f9f9]">
                   <td className="max-w-[310px] px-5 py-4">
                     <Link
                       href={productHref}
-                      onClick={() => trackProductDetailOpen(product)}
+                      onClick={handleProductClick}
                       className="group flex min-w-0 items-center gap-3"
                     >
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5e5e5e]">
@@ -943,7 +945,7 @@ function ProductTable({
                   <td className="px-5 py-4">
                     <Link
                       href={productHref}
-                      onClick={() => trackProductDetailOpen(product)}
+                      onClick={handleProductClick}
                       aria-label={`查看 ${product.displayName} 最低价报价`}
                       title="查看最低价报价"
                       className="group inline-flex flex-col gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5a6061]/30 focus-visible:ring-offset-2"
@@ -984,7 +986,7 @@ function ProductTable({
                   <td className="px-5 py-4">
                     <Link
                       href={productHref}
-                      onClick={() => trackProductDetailOpen(product)}
+                      onClick={handleProductClick}
                       className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
                     >
                       查看
@@ -1290,6 +1292,7 @@ function ProductCard({
   const previewOffer = product.lowestOffer;
   const flags = previewOffer?.sourceTitle.includes("无质保") ? ["无质保"] : [];
   const productHref = productDetailHref(product.slug, returnQuery);
+  const handleProductClick = listDetailClickHandler(productHref, returnQuery, () => trackProductDetailOpen(product));
 
   return (
       <article className="group relative flex min-h-[340px] flex-col overflow-hidden rounded-lg bg-white p-6 shadow-[0_20px_55px_rgba(45,52,53,0.045)] ring-1 ring-[#adb3b4]/15 transition hover:-translate-y-0.5 hover:shadow-[0_24px_65px_rgba(45,52,53,0.07)]">
@@ -1311,7 +1314,7 @@ function ProductCard({
 
       <Link
         href={productHref}
-        onClick={() => trackProductDetailOpen(product)}
+        onClick={handleProductClick}
         className="block"
       >
         <h2 className="font-serif text-2xl font-semibold leading-tight tracking-normal text-[#202829] transition group-hover:text-[#5e5e5e]">
@@ -1359,7 +1362,7 @@ function ProductCard({
       <div className="mt-auto pt-6">
         <Link
           href={productHref}
-          onClick={() => trackProductDetailOpen(product)}
+          onClick={handleProductClick}
           className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-gradient-to-br from-[#5e5e5e] to-[#525252] px-5 text-sm font-semibold text-[#f8f8f8] transition hover:opacity-90"
         >
           查看对比
@@ -1380,6 +1383,7 @@ function MobileProductCard({
   const previewOffer = product.lowestOffer;
   const available = product.inStockCount > 0;
   const productHref = productDetailHref(product.slug, returnQuery);
+  const handleProductClick = listDetailClickHandler(productHref, returnQuery, () => trackProductDetailOpen(product));
 
   return (
     <article className="rounded-lg bg-white p-4 shadow-[0_16px_45px_rgba(45,52,53,0.04)] ring-1 ring-[#adb3b4]/15 md:hidden">
@@ -1412,7 +1416,7 @@ function MobileProductCard({
         </div>
         <Link
           href={productHref}
-          onClick={() => trackProductDetailOpen(product)}
+          onClick={handleProductClick}
           className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#2d3435] px-4 text-sm font-semibold text-[#f8f8f8] transition hover:bg-[#1f2526]"
         >
           查看
@@ -1444,7 +1448,10 @@ function WarrantyLowestPrice({
 }) {
   const warrantyOffer = product.warrantyLowestOffer;
   const hasWarrantyPrice = product.warrantyLowestPrice !== null && warrantyOffer;
-  const href = `${productDetailHref(product.slug, returnQuery)}&tags=warranty_long`;
+  const href = productDetailHref(product.slug, returnQuery);
+  const handleWarrantyClick = listDetailClickHandler(href, returnQuery, () => trackProductDetailOpen(product), {
+    tags: "warranty_long",
+  });
 
   if (mode === "table") {
     if (!hasWarrantyPrice) {
@@ -1461,7 +1468,7 @@ function WarrantyLowestPrice({
     return (
       <Link
         href={href}
-        onClick={() => trackProductDetailOpen(product)}
+        onClick={handleWarrantyClick}
         title="查看长期质保报价"
         className="group inline-flex flex-col gap-1"
       >
@@ -1481,7 +1488,7 @@ function WarrantyLowestPrice({
     return (
       <Link
         href={href}
-        onClick={() => trackProductDetailOpen(product)}
+        onClick={handleWarrantyClick}
         className="mt-1 inline-flex max-w-full items-center gap-1.5 text-xs font-semibold text-[#47657a]"
       >
         <span className="shrink-0 rounded-full bg-[#eef3f8] px-2 py-0.5">质保</span>
@@ -1495,7 +1502,7 @@ function WarrantyLowestPrice({
   return (
     <Link
       href={href}
-      onClick={() => trackProductDetailOpen(product)}
+      onClick={handleWarrantyClick}
       className="mt-3 flex min-h-[40px] items-center justify-between gap-3 rounded-lg bg-[#eef3f8] px-4 py-2 text-sm text-[#47657a] transition hover:bg-[#e3edf5]"
     >
       <span className="font-semibold">质保最低价</span>
@@ -1751,9 +1758,23 @@ function tableStatusClass(isAvailable: boolean): string {
   return isAvailable ? "bg-[#e8f3ec] text-[#2f7a4b]" : "bg-[#fbe9e7] text-[#9b3328]";
 }
 
-function productDetailHref(slug: string, returnQuery: string): string {
-  const path = `/products/${slug}`;
-  return `${path}?back=${encodeURIComponent(returnQuery || "home")}`;
+function productDetailHref(slug: string, _returnQuery: string): string {
+  void _returnQuery;
+  return `/products/${slug}`;
+}
+
+function listDetailClickHandler(
+  path: string,
+  returnQuery: string,
+  onOpen: () => void,
+  extraParams: Record<string, string> = {},
+) {
+  return (event: MouseEvent<HTMLAnchorElement>) => {
+    onOpen();
+    if (!shouldHandleListDetailClick(event)) return;
+    event.preventDefault();
+    window.location.assign(listDetailNavigationHref(path, returnQuery, extraParams));
+  };
 }
 
 async function fetchOfferPage(

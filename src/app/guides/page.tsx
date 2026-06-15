@@ -52,7 +52,7 @@ const communityActions = [
   {
     title: "提交新渠道",
     text: "如果你手里有更低价、更稳定的 AI 订阅渠道，可以提交给 PriceAI。每个人发现的渠道都有限，但大家把自己的低价渠道贡献出来，后面所有人都能少翻 Telegram、少刷闲鱼，直接在 PriceAI 里完成比价。好的平台需要大家一起共创。",
-    href: "/?submit=channel",
+    href: "/#submit-channel",
     label: "提交渠道",
     icon: Send,
   },

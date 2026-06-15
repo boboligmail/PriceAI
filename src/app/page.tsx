@@ -44,11 +44,6 @@ function buildHomeJsonLd() {
       inLanguage: "zh-CN",
       description:
         "PriceAI 是 AI 订阅卡网与模型 API 比价雷达，聚合 AI 订阅卡网渠道、官方地区价和模型 API 渠道报价。",
-      potentialAction: {
-        "@type": "SearchAction",
-        target: "https://priceai.cc/?q={search_term_string}",
-        "query-input": "required name=search_term_string",
-      },
     },
     {
       "@context": "https://schema.org",

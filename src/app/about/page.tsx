@@ -203,7 +203,7 @@ export default async function AboutPage() {
           <div className="flex items-center gap-2">
             <ThemeToggle compact labelFrom="never" />
             <Link
-              href="/?submit=channel"
+              href="/#submit-channel"
               className="hidden h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] sm:inline-flex"
             >
               提交渠道
@@ -241,7 +241,7 @@ export default async function AboutPage() {
                 <ArrowRight size={16} />
               </Link>
               <Link
-                href="/?submit=channel"
+                href="/#submit-channel"
                 className="inline-flex h-12 items-center gap-2 rounded-full bg-[#dde4e5] px-6 text-sm font-semibold text-[#2d3435] transition hover:-translate-y-0.5 hover:bg-[#d3dcdd]"
               >
                 提交渠道
