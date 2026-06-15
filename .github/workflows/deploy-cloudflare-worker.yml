@@ -1,15 +1,15 @@
-name: Deploy Cloudflare Worker
+name: Upload Cloudflare Worker Candidate
 
 on:
   workflow_dispatch:
     inputs:
-      smoke_base_url:
-        description: "URL to smoke test after deployment"
+      preview_url:
+        description: "Worker Version Preview URL to smoke test after upload"
         required: false
-        default: "https://priceai.cc"
+        default: ""
 
 jobs:
-  deploy-cloudflare-worker:
+  upload-cloudflare-worker:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -17,7 +17,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_SMOKE_BASE_URL: ${{ inputs.smoke_base_url }}
+      CLOUDFLARE_SMOKE_BASE_URL: ${{ inputs.preview_url }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -45,6 +45,13 @@ jobs:
 
       - run: npm run build:cloudflare
 
-      - run: npm run deploy:cloudflare
+      - run: npm run upload:cloudflare
 
-      - run: npm run smoke:cloudflare -- "$CLOUDFLARE_SMOKE_BASE_URL"
+      - name: Smoke preview URL
+        if: ${{ inputs.preview_url != '' }}
+        run: npm run smoke:cloudflare -- "$CLOUDFLARE_SMOKE_BASE_URL"
+
+      - name: Next step
+        run: |
+          echo "Worker candidate uploaded. Smoke the Worker Version Preview URL, then promote manually with:"
+          echo "wrangler versions deploy <version-id>@100 --name priceai-cloudflare-poc --message 'promote <git-sha>' --yes"

@@ -1,6 +1,6 @@
 # 部署与定时采集
 
-PriceAI 推荐使用 Vercel 部署前台和 API，Supabase 保存数据，GitHub Actions 或云服务器负责定时采集。
+PriceAI 当前主运行时是 Cloudflare Workers + OpenNext，Supabase 保存数据，GitHub Actions 或云服务器负责定时采集。Cloudflare/OpenNext 发布流程以 `docs/cloudflare-deployment-runbook.md` 为准；Vercel 内容仅保留为历史部署和短期回滚参考。
 
 ## Vercel 部署
 
