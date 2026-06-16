@@ -11,6 +11,7 @@
     "build": "node_modules/node/bin/node node_modules/next/dist/bin/next build --webpack",
     "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "preview:cloudflare": "opennextjs-cloudflare preview",
+    "deploy:production": "node scripts/deploy-production.mjs",
     "deploy:cloudflare": "node scripts/check-cloudflare-env.mjs && node scripts/sanitize-opennext-env.mjs && opennextjs-cloudflare deploy -- --keep-vars",
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
     "check:cloudflare-env": "node scripts/check-cloudflare-env.mjs",
