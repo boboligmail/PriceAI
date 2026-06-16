@@ -2,7 +2,7 @@ import { getAdminPasswordFromRequest, setRawOfferHidden } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
-import { revalidatePath } from "next/cache";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import { z } from "zod";
 
 const schema = z.object({
@@ -18,8 +18,7 @@ export async function POST(request: Request) {
     const payload = schema.parse(await request.json());
     const result = await setRawOfferHidden(payload);
     clearPublicDataCache();
-    revalidatePath("/");
-    revalidatePath("/products/[id]", "page");
+    revalidatePublicOfferPaths();
 
     return Response.json({ ok: true, ...result });
   } catch (error) {

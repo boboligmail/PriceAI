@@ -139,7 +139,7 @@ export function ProductOffersPanel({
         setLoading(false);
         setError(null);
 
-        if (!isGeneratedDatasetStale(cachedData)) return;
+        if (!isGeneratedDatasetStale(cachedData, PRODUCT_OFFERS_CACHE_TTL_MS)) return;
       } else {
         setLoading(true);
       }

@@ -4,6 +4,7 @@ import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { normalizeCollectorKind } from "@/lib/collector-registry";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import type { CollectorKind } from "@/lib/types";
 
 const collectorKindSchema = z.custom<CollectorKind>((value) => normalizeCollectorKind(value) === value);
@@ -27,6 +28,7 @@ export async function POST(request: Request) {
       collectorKind: payload.collectorKind,
     });
     clearPublicDataCache();
+    revalidatePublicOfferPaths();
     return Response.json({ ok: true, ...result });
   } catch (error) {
     logApiError("admin submission approve", error);

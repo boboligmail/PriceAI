@@ -1,5 +1,7 @@
 # Cloudflare 迁移执行计划
 
+> 状态更新：本文保留迁移历史。2026-06-15 后的 Cloudflare/OpenNext 发布流程以 `docs/cloudflare-deployment-runbook.md` 为准。`cf.priceai.cc` 当前不是独立 staging，并且会 308 跳转到 `priceai.cc`；不要再把它当作新版本验收入口。
+
 本文档用于规划 PriceAI 从 Vercel 迁移到 Cloudflare Workers / OpenNext 的执行路径。目标是先完成测试域名验证，再安排生产域名切换，避免因为账号额度、DNS、缓存或采集任务混在一起导致不可控停机。
 
 ## 迁移目标

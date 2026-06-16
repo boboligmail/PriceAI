@@ -82,8 +82,8 @@ const productTypeLabels: Record<string, string> = {
 
 const OFFER_PAGE_SIZE = 80;
 const PRODUCT_SKELETON_ROWS = [0, 1, 2];
-const EXPLORER_CACHE_KEY = "priceai:explorer:v2";
-const EXPLORER_CACHE_TTL_MS = 5 * 60 * 1000;
+const EXPLORER_CACHE_KEY = "priceai:explorer:v3";
+const EXPLORER_CACHE_TTL_MS = 2 * 60 * 1000;
 const OFFER_LIST_CACHE_TTL_MS = 2 * 60 * 1000;
 const OFFER_LIST_MEMORY_CACHE_LIMIT = 40;
 const stockOptions = ["all", "available", "out_of_stock"] as const;
@@ -315,7 +315,7 @@ export function PriceExplorer({
     explorerMemoryCache = seededData;
     writeSessionCache(EXPLORER_CACHE_KEY, seededData);
 
-    if (!isGeneratedDatasetStale(seededData)) return;
+    if (!isGeneratedDatasetStale(seededData, EXPLORER_CACHE_TTL_MS)) return;
 
     const timeout = createTimeoutSignal();
     let active = true;
@@ -1800,7 +1800,7 @@ async function fetchExplorerData(signal?: AbortSignal): Promise<ExplorerData> {
 }
 
 function offerListCacheKey(queryString: string, offset: number): string {
-  return `priceai:offers:v1:${queryString || "all"}:${offset}:${OFFER_PAGE_SIZE}`;
+  return `priceai:offers:v2:${queryString || "all"}:${offset}:${OFFER_PAGE_SIZE}`;
 }
 
 function rememberOfferList(cacheKey: string, value: OfferListResponse) {

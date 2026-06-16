@@ -32,6 +32,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Dispatch, FormEvent, ReactNode, SetStateAction, UIEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ApiTransitAdminPanel } from "@/components/ApiTransitAdminConsole";
 import { apiProviderTypeLabels } from "@/lib/api-models";
 import { classifyOffer } from "@/lib/catalog";
 import {
@@ -192,7 +193,7 @@ type ApiModelProbeResult = {
   };
 };
 
-type AdminTab = "review" | "todo" | "feedback" | "history" | "collect" | "health" | "official" | "apiModels" | "sources" | "manual" | "logs";
+type AdminTab = "review" | "todo" | "feedback" | "history" | "collect" | "health" | "official" | "apiModels" | "apiTransit" | "sources" | "manual" | "logs";
 
 type RowFeedback = {
   id: string;
@@ -656,11 +657,12 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       { id: "health", label: "健康", count: collectorHealthIssueCount || null, icon: <Activity size={15} /> },
       { id: "official", label: "官方价", count: officialPrices.currentPrices.length || null, icon: <Database size={15} /> },
       { id: "apiModels", label: "API 模型", count: apiModels.offers.length || null, icon: <TerminalSquare size={15} /> },
+      { id: "apiTransit", label: "中转 API", count: data.apiTransit.metrics.candidateOffers || data.apiTransit.metrics.pendingStations || null, icon: <Server size={15} /> },
       { id: "sources", label: "渠道", count: sources.length, icon: <Store size={15} /> },
       { id: "manual", label: "维护", count: null, icon: <Plus size={15} /> },
       { id: "logs", label: "日志", count: data.crawlRuns.length, icon: <Clock size={15} /> },
     ],
-    [apiModels.offers.length, collectorHealthIssueCount, collectorTodoSubmissions.length, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length],
+    [apiModels.offers.length, collectorHealthIssueCount, collectorTodoSubmissions.length, data.apiTransit.metrics.candidateOffers, data.apiTransit.metrics.pendingStations, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length],
   );
 
   /* ─── Keyboard shortcuts ─── */
@@ -2845,6 +2847,13 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   onReviewProviderSubmission={reviewApiProviderSubmission}
                   onSaveEditable={saveApiModelEditable}
                 />
+              </div>
+            )}
+
+            {/* API transit tab */}
+            {activeTab === "apiTransit" && (
+              <div role="tabpanel" id="tabpanel-apiTransit">
+                <ApiTransitAdminPanel data={data.apiTransit} />
               </div>
             )}
 

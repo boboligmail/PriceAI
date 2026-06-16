@@ -1,5 +1,7 @@
 # Cloudflare Workers POC
 
+> 状态更新：本文保留 POC 历史。2026-06-15 后的 Cloudflare/OpenNext 发布流程以 `docs/cloudflare-deployment-runbook.md` 为准。`cf.priceai.cc` 当前不是独立 staging，并且会 308 跳转到 `priceai.cc`；不要再把它当作新版本验收入口。
+
 本文件记录 PriceAI 通过 OpenNext 运行在 Cloudflare Workers 上的 POC、预览部署和生产切换过程。
 
 后续迁移路线见 `docs/cloudflare-migration-plan.md`。

@@ -3,7 +3,7 @@ import { getExplorerData } from "@/lib/data";
 import { platformPageConfigs } from "@/lib/platform-pages";
 import type { ExplorerProductSummary } from "@/lib/types";
 
-export const revalidate = 1800;
+export const revalidate = 300;
 export const metadata = platformPageConfigs.api.metadata;
 
 export default async function ApiPlatformPage() {

@@ -3,7 +3,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { OfficialPricesExplorer } from "@/components/OfficialPricesExplorer";
 import { getOfficialPricesDataset } from "@/lib/official-prices-db";
 
-export const revalidate = 1800;
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "官方订阅地区价",

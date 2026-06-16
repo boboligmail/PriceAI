@@ -3,8 +3,8 @@ import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { normalizeCollectorKind } from "@/lib/collector-registry";
 import { clearPublicDataCache } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
+import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import type { CollectorKind } from "@/lib/types";
-import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 const collectorKindSchema = z.custom<CollectorKind>((value) => normalizeCollectorKind(value) === value);
@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const payload = createSchema.parse(await request.json());
     const source = await upsertSource(payload);
     clearPublicDataCache();
+    revalidatePublicOfferPaths();
 
     return Response.json({ ok: true, source });
   } catch (error) {
@@ -62,8 +63,7 @@ export async function PATCH(request: Request) {
         reason: payload.reason,
       });
       clearPublicDataCache();
-      revalidatePath("/");
-      revalidatePath("/products/[id]", "page");
+      revalidatePublicOfferPaths();
 
       return Response.json({ ok: true, ...result });
     }
@@ -76,6 +76,7 @@ export async function PATCH(request: Request) {
       notes: payload.notes,
     });
     clearPublicDataCache();
+    revalidatePublicOfferPaths();
 
     return Response.json({ ok: true, source });
   } catch (error) {
@@ -93,6 +94,7 @@ export async function DELETE(request: Request) {
     const payload = deleteSchema.parse(await request.json());
     const result = await deleteSource(payload);
     clearPublicDataCache();
+    revalidatePublicOfferPaths();
 
     return Response.json({ ok: true, ...result });
   } catch (error) {

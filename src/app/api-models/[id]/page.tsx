@@ -23,7 +23,7 @@ import { getApiModelDataset } from "@/lib/api-models-db";
 import { formatDateDay } from "@/lib/utils";
 
 export const dynamicParams = true;
-export const revalidate = 1800;
+export const revalidate = 300;
 
 const API_MODELS_RETURN_KEYS = ["family", "scope", "q", "type", "currency", "sort"] as const;
 
