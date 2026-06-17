@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, type KeyboardEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -360,11 +360,32 @@ function ModelExpandedPanel({ summary, stationId }: { summary: TransitModelSumma
 }
 
 function ModelExpandedEntryRow({ entry }: { entry: TransitModelPriceEntry }) {
+  const router = useRouter();
+  const stationHref = `/api-transit/${entry.station.slug}`;
+
+  function navigateToStation() {
+    router.push(stationHref);
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLTableRowElement>) {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigateToStation();
+    }
+  }
+
   return (
-    <tr>
+    <tr
+      className="cursor-pointer transition hover:bg-[#f7f9f9] focus-visible:bg-[#f7f9f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#45bf78]/40"
+      onClick={navigateToStation}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      aria-label={`查看 ${entry.station.name} 详情`}
+    >
       <td className="px-4 py-3">
         <Link
-          href={`/api-transit/${entry.station.slug}`}
+          href={stationHref}
+          onClick={(event) => event.stopPropagation()}
           className="font-semibold text-[#202829] transition-colors hover:text-[#2f7a4b]"
         >
           {entry.station.name}
@@ -394,12 +415,23 @@ function ModelExpandedEntryRow({ entry }: { entry: TransitModelPriceEntry }) {
 
 function ModelMobileExpandedPanel({ summary, stationId }: { summary: TransitModelSummary; stationId: string }) {
   const entries = getExpandedEntries(summary, stationId);
+  const router = useRouter();
+
+  function navigateToStation(slug: string) {
+    router.push(`/api-transit/${slug}`);
+  }
 
   return (
     <div className="mb-3 rounded-lg border border-[#dfe4e5] bg-[#fbfcfc] p-3">
       <div className="space-y-2">
         {entries.slice(0, 8).map((entry) => (
-          <div key={`${entry.station.id}-${entry.price.groupName}`} className="flex items-start justify-between gap-3 border-b border-[#edf0f1] pb-2 last:border-0 last:pb-0">
+          <button
+            key={`${entry.station.id}-${entry.price.groupName}`}
+            type="button"
+            onClick={() => navigateToStation(entry.station.slug)}
+            className="flex w-full items-start justify-between gap-3 border-b border-[#edf0f1] pb-2 text-left transition hover:bg-[#f7f9f9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#45bf78]/35 last:border-0 last:pb-0"
+            aria-label={`查看 ${entry.station.name} 详情`}
+          >
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-[#202829]">{entry.station.name}</p>
               <p className="mt-1 truncate text-[11px] text-[#5a6061]">{entry.price.groupName} · {TRANSIT_CHANNEL_TYPE_LABELS[entry.price.channelType]}</p>
@@ -415,7 +447,7 @@ function ModelMobileExpandedPanel({ summary, stationId }: { summary: TransitMode
                 {formatRate(entry.combinedRate)}
               </p>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </div>
