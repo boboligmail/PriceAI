@@ -152,10 +152,7 @@ export default function TransitStationDetail({ station, backHref }: Props) {
       writeRiskConfirmation(station.slug, targetUrl);
     }
     closeOutboundRiskDialog();
-    const opened = window.open(targetUrl, "_blank", "noopener,noreferrer");
-    if (!opened) {
-      window.location.assign(targetUrl);
-    }
+    window.open(targetUrl, "_blank", "noopener,noreferrer");
   }, [closeOutboundRiskDialog, pendingOutbound, rememberRiskConfirmation, station.slug]);
 
   return (

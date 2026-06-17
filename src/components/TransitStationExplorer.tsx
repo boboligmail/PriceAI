@@ -592,7 +592,7 @@ function formatListOfferLabel(offer: NonNullable<TransitStation["commercialOffer
     offer.title,
     offer.description,
   ].filter(Boolean).join(" "));
-  if (amount) return offer.code ? `填码送 $${amount}` : `注册送 $${amount}`;
+  if (amount) return `注册赠送 $${amount}`;
   if (/首充|充值/.test(offer.title)) return "首充优惠";
   return offer.title;
 }
