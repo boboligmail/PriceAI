@@ -31,6 +31,20 @@ const ADMIN_STATION_LIMIT = 80;
 const ADMIN_OFFER_LIMIT = 600;
 const ADMIN_SUBMISSION_LIMIT = 120;
 const ADMIN_RUN_LIMIT = 60;
+const ADMIN_LATEST_RUN_SCAN_LIMIT = ADMIN_STATION_LIMIT * 5;
+const ADMIN_RUN_SELECT = [
+  "id",
+  "station_id",
+  "run_type",
+  "status",
+  "model_count",
+  "offer_count",
+  "error_message",
+  "source_url",
+  "started_at",
+  "finished_at",
+  "api_transit_stations(name)",
+].join(",");
 
 type DbRow = Record<string, unknown>;
 
@@ -395,7 +409,7 @@ async function listAdminTransitRuns(): Promise<ApiTransitAdminRun[]> {
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from("api_transit_detection_runs")
-    .select("*, api_transit_stations(name)")
+    .select(ADMIN_RUN_SELECT)
     .order("started_at", { ascending: false })
     .limit(ADMIN_RUN_LIMIT);
 
@@ -455,9 +469,10 @@ async function getLatestRunsByStationIds(stationIds: string[]): Promise<Map<stri
   const supabase = getSupabaseOrThrow();
   const { data, error } = await supabase
     .from("api_transit_detection_runs")
-    .select("*, api_transit_stations(name)")
+    .select(ADMIN_RUN_SELECT)
     .in("station_id", ids)
-    .order("started_at", { ascending: false });
+    .order("started_at", { ascending: false })
+    .limit(ADMIN_LATEST_RUN_SCAN_LIMIT);
 
   if (error) throw error;
 

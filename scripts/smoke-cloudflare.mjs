@@ -1,4 +1,5 @@
 const DEFAULT_BASE_URL = "https://priceai.cc";
+const SMOKE_FETCH_TIMEOUT_MS = Number(process.env.CLOUDFLARE_SMOKE_TIMEOUT_MS || 15_000);
 
 const baseUrl = normalizeBaseUrl(
   process.argv[2] || process.env.CLOUDFLARE_SMOKE_BASE_URL || DEFAULT_BASE_URL,
@@ -86,7 +87,7 @@ for (const check of checks) {
   const startedAt = Date.now();
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         "user-agent": "PriceAI Cloudflare smoke check",
       },
@@ -204,7 +205,7 @@ async function validateNextStaticAssets(baseUrl) {
   const strictCache = !isLocalhostBaseUrl(baseUrl);
 
   try {
-    const response = await fetch(pageUrl, {
+    const response = await fetchWithTimeout(pageUrl, {
       headers: {
         "user-agent": "PriceAI Cloudflare smoke check",
       },
@@ -239,7 +240,7 @@ async function validateNextStaticAssets(baseUrl) {
       for (const assetPath of group.paths) {
         const assetUrl = new URL(assetPath, baseUrl);
         const assetStartedAt = Date.now();
-        const assetResponse = await fetch(assetUrl, {
+        const assetResponse = await fetchWithTimeout(assetUrl, {
           headers: {
             "user-agent": "PriceAI Cloudflare smoke check",
           },
@@ -275,4 +276,11 @@ async function validateNextStaticAssets(baseUrl) {
 function isLocalhostBaseUrl(baseUrl) {
   const { hostname } = new URL(baseUrl);
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function fetchWithTimeout(input, init = {}) {
+  return fetch(input, {
+    ...init,
+    signal: AbortSignal.timeout(SMOKE_FETCH_TIMEOUT_MS),
+  });
 }

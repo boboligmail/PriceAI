@@ -12,6 +12,9 @@ let cached: TransitStation[] | null = null;
 let cachedAt = 0;
 let hasWarnedMissingEnhancementColumns = false;
 const CACHE_TTL_MS = 30_000;
+const PUBLIC_TRANSIT_READ_TIMEOUT_MS = 2_500;
+const PUBLIC_TRANSIT_BUILD_READ_TIMEOUT_MS = 15_000;
+const NEXT_PRODUCTION_BUILD_PHASE = "phase-production-build";
 
 export function clearTransitStationsCache(): void {
   cached = null;
@@ -36,6 +39,7 @@ async function readStationsFromSupabase(): Promise<TransitStation[]> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return seedStations;
   const client = supabase;
+  const signal = publicTransitReadSignal();
 
   try {
     const [stationsResult, offersResult] = await Promise.all([
@@ -76,7 +80,8 @@ async function readStationsFromSupabase(): Promise<TransitStation[]> {
           ].join(",")
         )
         .eq("published", true)
-        .order("last_updated_at", { ascending: false }),
+        .order("last_updated_at", { ascending: false })
+        .abortSignal(signal),
       supabase
         .from("api_transit_offers")
         .select(
@@ -104,7 +109,8 @@ async function readStationsFromSupabase(): Promise<TransitStation[]> {
           ].join(",")
         )
         .eq("status", "active")
-        .order("standard_model", { ascending: true }),
+        .order("standard_model", { ascending: true })
+        .abortSignal(signal),
     ]);
 
     if (stationsResult.error || offersResult.error) {
@@ -154,7 +160,8 @@ async function readStationsFromSupabase(): Promise<TransitStation[]> {
             "verification_events",
           ].join(",")
         )
-        .eq("published", true);
+        .eq("published", true)
+        .abortSignal(signal);
       if (error) throw error;
       return dbRows(data);
     } catch (error) {
@@ -168,6 +175,16 @@ async function readStationsFromSupabase(): Promise<TransitStation[]> {
 }
 
 type DbRow = Record<string, unknown>;
+
+function publicTransitReadSignal(): AbortSignal {
+  return AbortSignal.timeout(publicTransitReadTimeoutMs());
+}
+
+function publicTransitReadTimeoutMs(): number {
+  return process.env.NEXT_PHASE === NEXT_PRODUCTION_BUILD_PHASE
+    ? PUBLIC_TRANSIT_BUILD_READ_TIMEOUT_MS
+    : PUBLIC_TRANSIT_READ_TIMEOUT_MS;
+}
 
 function mapStationRow(
   row: DbRow,

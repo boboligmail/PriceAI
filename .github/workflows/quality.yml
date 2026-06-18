@@ -24,5 +24,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Performance guard
+        run: npm run check:performance
+
       - name: Build
         run: npm run build

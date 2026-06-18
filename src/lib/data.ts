@@ -1398,12 +1398,12 @@ export async function getPublicProductGroup(id: string) {
 }
 
 export async function getPublicProductSummary(id: string) {
-  const summary = await getPublicProductSummaryFromDatabase(id);
-  if (summary) return summary;
-
   const explorerData = await getExplorerData();
   const product = explorerData.products.find((item) => item.id === id || item.slug === id);
   if (product) return product;
+
+  const summary = await getPublicProductSummaryFromDatabase(id);
+  if (summary) return summary;
 
   const catalogProduct = canonicalCatalog.find((item) => item.id === id || item.slug === id);
   return catalogProduct ? toExplorerProductSummary(makeEmptyProductGroup(catalogProduct)) : null;
