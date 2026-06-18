@@ -31,6 +31,26 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/tmp/
+
+# local agent/workflow artifacts
+/.agents/
+/.claude/
+/.codex/
+/.impeccable/
+/.trellis/
+
+# local/manual workflow drafts
+/.github/workflows/probe-api-transit.yml
+/scripts/refine-ldxp-probe-relevance.mjs
+
+# local audit notes and generated image assets
+/docs/engineering-audit-2026-06-07.md
+/docs/engineering-audit-2026-06-12.md
+/docs/performance-audit-2026-06-13.md
+/docs/assets/priceai-day5-*.png
+/docs/assets/priceai-free-quota-cover-bg.png
+/docs/assets/priceai-logo-*.png
 
 # env files (can opt-in for committing if needed)
 .env*

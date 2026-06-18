@@ -81,13 +81,13 @@ function RateChip({
           {formatRate(effectiveRate)}
         </span>
       </div>
-      <div className="mt-0.5 flex min-w-0 items-baseline gap-1.5">
+      <div className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
         {officialPrice !== null ? (
           <span className="shrink-0 text-[10px] font-semibold text-[var(--color-text-soft)] line-through decoration-[var(--color-text-soft)]/70">
             {formatUsdPerMTok(officialPrice)}
           </span>
         ) : null}
-        <span className="truncate text-[13px] font-extrabold tabular-nums text-[var(--color-text-primary)]">
+        <span className="text-[13px] font-extrabold tabular-nums text-[var(--color-text-primary)]">
           {formatUsdPerMTok(convertedPrice)}
         </span>
       </div>

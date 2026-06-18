@@ -77,7 +77,7 @@ export default async function ApiTransitDetailPage({
         <SiteHeader activeSection="transit" />
       </div>
 
-      <main className="mx-auto max-w-[1500px] px-5 py-7 pb-20">
+      <main className="mx-auto max-w-[1500px] px-4 py-6 pb-20 sm:px-5 sm:py-7">
         <TransitStationDetail station={station} backHref={backHref} />
       </main>
     </div>

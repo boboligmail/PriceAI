@@ -779,10 +779,11 @@ function PriceTable({
 }) {
   const groups = getFamilyPriceGroups(station, family);
   const summary = getFamilyRateSummary(station, family);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   return (
     <section className="overflow-hidden rounded-lg border border-[#dfe4e5] bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dfe4e5] bg-[#f2f4f4] px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dfe4e5] bg-[#f2f4f4] px-4 py-3 sm:px-5">
         <h2 className="text-base font-extrabold text-[#202829]">
           {TRANSIT_MODEL_FAMILY_LABELS[family]} 价格表
         </h2>
@@ -791,23 +792,34 @@ function PriceTable({
         </span>
       </div>
       {groups.length ? (
-        <div>
-          <table className="w-full table-fixed border-collapse">
-            <colgroup>
-              <col className="w-[30%]" />
-              <col className="w-[14%]" />
-              <col className="w-[28%]" />
-              <col className="w-[28%]" />
-            </colgroup>
-            <thead>
-              <tr className="bg-[#f2f4f4]/50">
-                <DataTableHead compact>分组 / 模型</DataTableHead>
-                <DataTableHead compact>综合倍率</DataTableHead>
-                <DataTableHead compact>监测模型价格</DataTableHead>
-                <DataTableHead compact>监测 / 确认</DataTableHead>
-              </tr>
-            </thead>
-            <tbody>
+        isDesktop === false ? (
+          <div className="divide-y divide-[#dfe4e5]">
+            {groups.map((group) => (
+              <PriceGroupMobileCard
+                key={`${family}-${group.groupName}`}
+                station={station}
+                group={group}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] table-fixed border-collapse">
+              <colgroup>
+                <col className="w-[30%]" />
+                <col className="w-[14%]" />
+                <col className="w-[28%]" />
+                <col className="w-[28%]" />
+              </colgroup>
+              <thead>
+                <tr className="bg-[#f2f4f4]/50">
+                  <DataTableHead compact>分组 / 模型</DataTableHead>
+                  <DataTableHead compact>综合倍率</DataTableHead>
+                  <DataTableHead compact>监测模型价格</DataTableHead>
+                  <DataTableHead compact>监测 / 确认</DataTableHead>
+                </tr>
+              </thead>
+              <tbody>
               {groups.map((group) => (
                 <PriceGroupRow
                   key={`${family}-${group.groupName}`}
@@ -815,13 +827,106 @@ function PriceTable({
                   group={group}
                 />
               ))}
-            </tbody>
-          </table>
-        </div>
+              </tbody>
+            </table>
+          </div>
+        )
       ) : (
-        <div className="px-5 py-8 text-sm text-[#5a6061]">这个站点暂未收录 {TRANSIT_MODEL_FAMILY_LABELS[family]} 报价。</div>
+        <div className="px-4 py-8 text-sm text-[#5a6061] sm:px-5">这个站点暂未收录 {TRANSIT_MODEL_FAMILY_LABELS[family]} 报价。</div>
       )}
     </section>
+  );
+}
+
+function PriceGroupMobileCard({
+  station,
+  group,
+}: {
+  station: TransitStation;
+  group: TransitPriceGroup;
+}) {
+  const primaryPrice = group.primaryPrice;
+  const channelLabels = uniqueStrings(group.prices.map((price) => TRANSIT_CHANNEL_TYPE_LABELS[price.channelType]));
+  const poolLabels = uniqueStrings(group.prices.map((price) => TRANSIT_ACCOUNT_POOL_LABELS[price.accountPool]));
+
+  return (
+    <article className="px-4 py-4">
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="break-words text-sm font-extrabold leading-5 text-[#202829]">{group.groupName}</h3>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {group.prices.map((price) => (
+              <span
+                key={`${group.groupName}-${price.standardModel}`}
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                  price.standardModel === primaryPrice.standardModel
+                    ? "bg-[#e8f3ec] text-[#2f7a4b]"
+                    : "bg-[#f2f4f4] text-[#5a6061]"
+                }`}
+              >
+                {shortModelLabel(price.standardModel)}
+              </span>
+            ))}
+          </div>
+        </div>
+        <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-extrabold ${getRateBadgeClass(group.combinedRate)}`}>
+          {formatRate(group.combinedRate)}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <MobilePriceFact label="充值" value={formatRate(group.rechargeCoefficient)} />
+        <MobilePriceFact label="模型" value={formatModelRateRange(group.modelMultiplierMin, group.modelMultiplierMax)} />
+        <MobilePriceFact label="覆盖" value={`${group.prices.length} 个模型`} />
+        <MobilePriceFact label="可用率" value={formatPercent(group.sevenDayRate)} />
+      </div>
+
+      <div className="mt-3">
+        <TransitPriceBreakdown station={station} price={primaryPrice} mode="detail" />
+        <p className="mt-1.5 text-[11px] leading-5 text-[#5a6061]">
+          按 {primaryPrice.standardModel} 官方价换算
+        </p>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {channelLabels.map((label) => (
+          <StatusChip key={label} tone="success" className="px-2 py-0.5 text-[10px]">
+            {label}
+          </StatusChip>
+        ))}
+        {poolLabels.map((label) => (
+          <StatusChip key={label} tone="info" className="px-2 py-0.5 text-[10px]">
+            {label}
+          </StatusChip>
+        ))}
+        <ProbePolicyTag
+          label={`监测 ${shortModelLabel(primaryPrice.standardModel)}`}
+          title="PriceAI 先拉取该分组 Key 的可用模型列表，再按最新且级别最高的可用模型发起一次请求。模型可用性计划每 5 分钟监测；价格和分组倍率计划每天刷新一次。"
+        />
+      </div>
+
+      <div className="mt-3 flex min-w-0 items-center gap-2">
+        <TransitAvailabilityStrip
+          rate={group.sevenDayRate}
+          samples={group.sevenDaySamples}
+          lastCheckedAt={group.lastCheckedAt}
+          className="shrink-0"
+        />
+        <span className="min-w-0 break-words text-xs font-semibold leading-5 text-[#2d3435]">
+          {group.priceSource || "未公开"}
+        </span>
+      </div>
+      <div className="mt-1 text-[11px] text-[#5a6061]">{formatDateShortMinute(group.latestVerifiedAt)}</div>
+    </article>
+  );
+}
+
+function MobilePriceFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-md bg-[#f7f9f9] px-2.5 py-2 ring-1 ring-[#adb3b4]/15">
+      <div className="truncate text-[10px] font-bold text-[#7a8182]">{label}</div>
+      <div className="mt-0.5 break-words text-xs font-extrabold tabular-nums text-[#202829]">{value}</div>
+    </div>
   );
 }
 
@@ -1008,15 +1113,47 @@ function ProbePolicyTag({
 }
 
 function AvailabilityTable({ station }: { station: TransitStation }) {
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const rows: AvailabilityRow[] = [
+    {
+      label: "站点整体",
+      rate: station.availability.sevenDayRate,
+      sevenDaySamples: station.availability.sevenDaySamples,
+      firstCheckedAt: station.availability.firstCheckedAt,
+      lastCheckedAt: station.availability.lastCheckedAt,
+      monitorModel: "GPT + Claude 代表模型",
+      note: station.availability.note ?? "—",
+    },
+    ...(["claude", "gpt"] as const).map((family) => {
+      const summary = getFamilyRateSummary(station, family);
+      return {
+        label: TRANSIT_MODEL_FAMILY_LABELS[family],
+        rate: summary.sevenDayRate,
+        sevenDaySamples: summary.sevenDaySamples,
+        firstCheckedAt: summary.firstCheckedAt,
+        lastCheckedAt: summary.lastCheckedAt,
+        monitorModel: getFamilyMonitorModelLabel(station, family),
+        note: formatAvailability({ sevenDayRate: summary.sevenDayRate, sevenDaySamples: summary.sevenDaySamples }),
+      };
+    }),
+  ];
+
   return (
     <section className="overflow-hidden rounded-lg border border-[#dfe4e5] bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)]">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dfe4e5] bg-[#f2f4f4] px-5 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dfe4e5] bg-[#f2f4f4] px-4 py-3 sm:px-5">
         <h2 className="text-base font-extrabold text-[#202829]">监测样本</h2>
         <ProbePolicyTag
           label="5 分钟模型探测"
           title="模型可用性：先拉取可用模型列表，再按最新且级别最高的可用模型实际请求。频率计划为每 5 分钟一次；价格和分组倍率计划每天刷新一次。"
         />
       </div>
+      {isDesktop === false ? (
+        <div className="divide-y divide-[#dfe4e5]">
+          {rows.map((row) => (
+            <AvailabilityMobileCard key={row.label} row={row} />
+          ))}
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[780px] border-collapse">
           <thead>
@@ -1030,46 +1167,61 @@ function AvailabilityTable({ station }: { station: TransitStation }) {
             </tr>
           </thead>
           <tbody>
-            <tr className="border-b border-[#dfe4e5]">
-              <td className="px-4 py-3 text-xs font-semibold text-[#202829]">站点整体</td>
-              <td className="px-4 py-3">
-                <AvailabilityStatus
-                  rate={station.availability.sevenDayRate}
-                  samples={station.availability.sevenDaySamples}
-                  lastCheckedAt={station.availability.lastCheckedAt}
-                />
-              </td>
-              <td className="px-4 py-3 text-sm text-[#2d3435]">{station.availability.sevenDaySamples}</td>
-              <td className="px-4 py-3 text-xs text-[#5a6061]">{formatMonitoringWindow(station.availability)}</td>
-              <td className="px-4 py-3 text-xs text-[#5a6061]">GPT + Claude 代表模型</td>
-              <td className="px-4 py-3 text-xs text-[#5a6061]">{station.availability.note ?? "—"}</td>
-            </tr>
-            {(["claude", "gpt"] as const).map((family) => {
-              const summary = getFamilyRateSummary(station, family);
-              const monitorModel = getFamilyMonitorModelLabel(station, family);
-              return (
-                <tr key={family} className="border-b border-[#dfe4e5]">
-                  <td className="px-4 py-3 text-xs font-semibold text-[#202829]">
-                    {TRANSIT_MODEL_FAMILY_LABELS[family]}
-                  </td>
+            {rows.map((row) => (
+                <tr key={row.label} className="border-b border-[#dfe4e5]">
+                  <td className="px-4 py-3 text-xs font-semibold text-[#202829]">{row.label}</td>
                   <td className="px-4 py-3">
-                    <AvailabilityStatus
-                      rate={summary.sevenDayRate}
-                      samples={summary.sevenDaySamples}
-                      lastCheckedAt={summary.lastCheckedAt}
-                    />
+                    <AvailabilityStatus rate={row.rate} samples={row.sevenDaySamples} lastCheckedAt={row.lastCheckedAt} />
                   </td>
-                  <td className="px-4 py-3 text-sm text-[#2d3435]">{summary.sevenDaySamples}</td>
-                  <td className="px-4 py-3 text-xs text-[#5a6061]">{formatMonitoringWindow(summary)}</td>
-                  <td className="px-4 py-3 text-xs text-[#5a6061]">{monitorModel}</td>
-                  <td className="px-4 py-3 text-xs text-[#5a6061]">{formatAvailability({ sevenDayRate: summary.sevenDayRate, sevenDaySamples: summary.sevenDaySamples })}</td>
+                  <td className="px-4 py-3 text-sm text-[#2d3435]">{row.sevenDaySamples}</td>
+                  <td className="px-4 py-3 text-xs text-[#5a6061]">{formatMonitoringWindow(row)}</td>
+                  <td className="px-4 py-3 text-xs text-[#5a6061]">{row.monitorModel}</td>
+                  <td className="px-4 py-3 text-xs text-[#5a6061]">{row.note}</td>
                 </tr>
-              );
-            })}
+              ))}
           </tbody>
         </table>
       </div>
+      )}
     </section>
+  );
+}
+
+type AvailabilityRow = {
+  label: string;
+  rate: number | null;
+  sevenDaySamples: number;
+  firstCheckedAt?: string | null;
+  lastCheckedAt: string | null;
+  monitorModel: string;
+  note: string;
+};
+
+function AvailabilityMobileCard({ row }: { row: AvailabilityRow }) {
+  return (
+    <article className="px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-extrabold text-[#202829]">{row.label}</h3>
+          <p className="mt-1 text-xs text-[#5a6061]">样本 {row.sevenDaySamples}</p>
+        </div>
+        <AvailabilityStatus rate={row.rate} samples={row.sevenDaySamples} lastCheckedAt={row.lastCheckedAt} />
+      </div>
+      <div className="mt-3 grid gap-2">
+        <MobileTextBlock label="监测区间" value={formatMonitoringWindow(row)} />
+        <MobileTextBlock label="监测模型" value={row.monitorModel} />
+        <MobileTextBlock label="说明" value={row.note} />
+      </div>
+    </article>
+  );
+}
+
+function MobileTextBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-[#f7f9f9] px-3 py-2 ring-1 ring-[#adb3b4]/15">
+      <div className="text-[10px] font-bold text-[#7a8182]">{label}</div>
+      <div className="mt-0.5 break-words text-xs font-semibold leading-5 text-[#2d3435]">{value}</div>
+    </div>
   );
 }
 
@@ -1170,4 +1322,20 @@ function nullableSortValue(value: number | null): number {
 
 function uniqueStrings(items: string[]): string[] {
   return Array.from(new Set(items.filter(Boolean)));
+}
+
+function useMediaQuery(query: string) {
+  const [matches, setMatches] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(query);
+    const updateMatches = () => setMatches(mediaQuery.matches);
+
+    updateMatches();
+    mediaQuery.addEventListener("change", updateMatches);
+
+    return () => mediaQuery.removeEventListener("change", updateMatches);
+  }, [query]);
+
+  return matches;
 }
