@@ -60,6 +60,9 @@ export type RawOffer = {
   sourceStoreName?: string | null;
   sourceTitle: string;
   price: number | null;
+  listedPrice?: number | null;
+  feeAmount?: number | null;
+  priceBasis?: "settled" | "listed" | "listed_fallback" | null;
   currency: string;
   status: OfferStatus;
   url: string;
@@ -610,6 +613,9 @@ export type OfferInput = {
   sourceStoreName?: string;
   sourceTitle: string;
   price?: number | null;
+  listedPrice?: number | null;
+  feeAmount?: number | null;
+  priceBasis?: "settled" | "listed" | "listed_fallback" | null;
   currency?: string;
   status?: OfferStatus;
   url: string;
