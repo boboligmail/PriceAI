@@ -2,11 +2,12 @@ import {
   createFeedbackRecollectionJob,
   getAdminPasswordFromRequest,
   listOfferFeedback,
+  runOfferFeedbackRiskPrecheck,
   updateOfferFeedbackStatus,
   updateOfferFeedbackVerification,
 } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
-import { clearAdminDataCache, listRawOffersByIds } from "@/lib/data";
+import { clearPublicDataCache, listRawOffersByIds } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
 import { z } from "zod";
 
@@ -31,7 +32,7 @@ const verificationResultSchema = z.enum([
 ]);
 
 const patchSchema = z.object({
-  action: z.enum(["status", "verification", "recollect"]).optional(),
+  action: z.enum(["status", "verification", "recollect", "risk_precheck"]).optional(),
   id: z.string().min(1),
   status: statusSchema.optional(),
   reviewerNote: z.string().max(500).nullable().optional(),
@@ -68,8 +69,14 @@ export async function PATCH(request: Request) {
     const action = payload.action || "status";
     if (action === "recollect") {
       const result = await createFeedbackRecollectionJob({ feedbackId: payload.id });
-      clearAdminDataCache();
+      clearPublicDataCache();
       return Response.json({ ok: true, feedback: result.feedback, jobId: result.jobId });
+    }
+
+    if (action === "risk_precheck") {
+      const feedback = await runOfferFeedbackRiskPrecheck(payload.id);
+      clearPublicDataCache();
+      return Response.json({ ok: true, feedback });
     }
 
     if (action === "verification") {
@@ -83,7 +90,7 @@ export async function PATCH(request: Request) {
         verificationMessage: payload.verificationMessage || null,
         reviewerNote: payload.reviewerNote || null,
       });
-      clearAdminDataCache();
+      clearPublicDataCache();
       return Response.json({ ok: true, feedback });
     }
 
@@ -96,7 +103,7 @@ export async function PATCH(request: Request) {
       status: payload.status,
       reviewerNote: payload.reviewerNote || null,
     });
-    clearAdminDataCache();
+    clearPublicDataCache();
     return Response.json({ ok: true, feedback });
   } catch (error) {
     logApiError("admin feedback update", error);

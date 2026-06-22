@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { createOfferFeedback } from "@/lib/admin";
+import { after } from "next/server";
+import { createOfferFeedback, runOfferFeedbackRiskPrecheck } from "@/lib/admin";
+import { clearPublicDataCache } from "@/lib/data";
 import { isFeedbackEvidenceReference } from "@/lib/feedback-evidence";
 import { offerFeedbackReasonValues } from "@/lib/types";
 
@@ -93,6 +95,15 @@ export async function POST(request: Request) {
       notes: payload.notes || null,
       contact: payload.contact || null,
       submitterIp: getClientIp(request),
+    });
+
+    after(async () => {
+      try {
+        await runOfferFeedbackRiskPrecheck(result.id);
+        clearPublicDataCache();
+      } catch (error) {
+        console.warn("Offer feedback risk precheck failed:", error instanceof Error ? error.message : error);
+      }
     });
 
     return Response.json({ ok: true, ...result });

@@ -898,17 +898,18 @@ function OfferRiskDetailDialog({ offer, onClose }: { offer: RawOffer; onClose: (
   const offerCount = risk.offerCount ?? (risk.scope === "offer" ? risk.count : 0);
   const sourceCount = risk.sourceCount ?? (risk.scope === "source" ? risk.count : 0);
   const reasonLabels = (risk.reasons?.length ? risk.reasons : ["fraud" as const]).map(riskFeedbackReasonLabel);
+  const summaries = risk.summaries?.filter(Boolean).slice(0, 3) || [];
   const sourceOnly = risk.scope === "source";
-  const title = sourceOnly ? "商家风险提示" : risk.scope === "mixed" ? "商品与商家风险提示" : "商品风险提示";
+  const title = sourceOnly ? "商家临时风险提示" : risk.scope === "mixed" ? "商品与商家临时风险提示" : "商品临时风险提示";
   const scopeSummary = [
     offerCount ? `商品 ${offerCount} 条` : null,
     sourceCount ? `商家 ${sourceCount} 条` : null,
   ].filter(Boolean).join(" / ") || `${risk.count} 条反馈`;
   const description = sourceOnly
-    ? "已有用户反馈该商家或渠道存在可信度风险。购买前请先查看店铺信息、历史评价和售后路径，再判断是否值得购买。"
+    ? "已有用户反馈该商家或渠道存在可信度风险，系统正在核验。购买前请先查看店铺信息、历史评价和售后路径，再判断是否值得购买。"
     : risk.scope === "mixed"
-      ? "已有用户反馈这条报价及其商家存在高风险问题。付款前请先联系商家确认商品细节、发货方式和售后边界。"
-      : "已有用户反馈这条报价存在高风险问题。付款前请先联系商家确认商品细节、发货方式和售后边界，不建议直接付款。";
+      ? "已有用户反馈这条报价及其商家存在高风险问题，系统正在核验。付款前请先联系商家确认商品细节、发货方式和售后边界。"
+      : "已有用户反馈这条报价存在高风险问题，系统正在核验。付款前请先联系商家确认商品细节、发货方式和售后边界，不建议直接付款。";
 
   return (
     <div
@@ -951,6 +952,10 @@ function OfferRiskDetailDialog({ offer, onClose }: { offer: RawOffer; onClose: (
 
         <div className="mt-4 grid gap-2 text-sm">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-[#edf0f1] px-3 py-2">
+            <span className="text-[#6c7677]">当前状态</span>
+            <span className="text-right font-semibold text-[#7a541b]">用户反馈，待核验</span>
+          </div>
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-[#edf0f1] px-3 py-2">
             <span className="text-[#6c7677]">风险类型</span>
             <span className="text-right font-semibold text-[#202829]">{Array.from(new Set(reasonLabels)).join("、")}</span>
           </div>
@@ -968,8 +973,19 @@ function OfferRiskDetailDialog({ offer, onClose }: { offer: RawOffer; onClose: (
           </div>
         </div>
 
+        {summaries.length ? (
+          <div className="mt-4 rounded-lg border border-[#efd38a] bg-[#fffaf2] px-3 py-2.5">
+            <p className="text-xs font-semibold text-[#7a541b]">反馈摘要</p>
+            <ul className="mt-2 space-y-1.5 text-xs leading-5 text-[#5a6061]">
+              {summaries.map((summary) => (
+                <li key={summary}>• {summary}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <p className="mt-4 text-xs leading-5 text-[#7a8587]">
-          这里展示的是后台待处理的高风险用户反馈，不等同于平台裁定。PriceAI 不售卖、不担保商品，购买前仍需你和原店铺确认。
+          这里展示的是系统预审后的用户高风险反馈摘要，不等同于平台最终裁定。PriceAI 不售卖、不担保商品，购买前仍需你和原店铺确认。
         </p>
 
         <button

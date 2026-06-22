@@ -19,7 +19,7 @@ import {
 } from "./offer-filter-tags";
 import { seedRawOffers, seedSources } from "./sample-data";
 import { getSupabaseServerClient } from "./supabase";
-import { HIGH_RISK_FEEDBACK_REASONS, apiCdkPublicVisible, isPublicCatalogProduct } from "./trust-risk";
+import { apiCdkPublicVisible, getPublicRiskPrecheck, isPublicCatalogProduct } from "./trust-risk";
 import type {
   AdminSummary,
   CanonicalProduct,
@@ -35,7 +35,6 @@ import type {
   DashboardData,
   ExplorerData,
   ExplorerProductSummary,
-  OfferFeedbackReason,
   PublicOfferSummary,
   PublicRiskFeedback,
   ProductGroup,
@@ -107,6 +106,7 @@ type PublicRiskFeedbackAggregate = {
   count: number;
   latestAt: string | null;
   reasons: Set<PublicRiskFeedbackReason>;
+  summaries: Set<string>;
 };
 
 const DATA_UNAVAILABLE_MESSAGE = "真实报价数据暂时不可用，请稍后刷新。";
@@ -1843,7 +1843,7 @@ async function listPublicRiskFeedbackSummary(): Promise<PublicRiskFeedbackSummar
 
   const { data, error } = await supabase
     .from("offer_feedback")
-    .select("offer_id,source_id,reason,user_expected_action,created_at")
+    .select("offer_id,source_id,ai_review_result,created_at")
     .eq("status", "pending")
     .order("created_at", { ascending: false })
     .limit(1000)
@@ -1858,15 +1858,18 @@ async function listPublicRiskFeedbackSummary(): Promise<PublicRiskFeedbackSummar
   for (const row of (data || []) as Array<Record<string, unknown>>) {
     const offerId = typeof row.offer_id === "string" ? row.offer_id : null;
     const sourceId = typeof row.source_id === "string" ? row.source_id : null;
-    const reason = typeof row.reason === "string" ? row.reason : "";
-    const expectedAction = typeof row.user_expected_action === "string" ? row.user_expected_action : "";
     const createdAt = typeof row.created_at === "string" ? row.created_at : null;
-    if (!isPublicRiskFeedbackReason(reason)) continue;
+    const precheck = getPublicRiskPrecheck(row.ai_review_result);
+    if (!precheck) continue;
 
-    const explicitSourceLevel = reason === "bad_source" || expectedAction === "hide_source";
-    const sourceLevel = explicitSourceLevel || (!offerId && Boolean(sourceId));
-    if (offerId && (!explicitSourceLevel || !sourceId)) addPublicRiskFeedbackAggregate(summary.byOfferId, offerId, reason, createdAt);
-    if (sourceId && sourceLevel) addPublicRiskFeedbackAggregate(summary.bySourceId, sourceId, reason, createdAt);
+    const sourceLevel = precheck.riskScope === "source" || precheck.riskScope === "mixed";
+    const offerLevel = precheck.riskScope === "offer" || precheck.riskScope === "mixed" || !sourceId;
+    if (offerId && offerLevel) {
+      addPublicRiskFeedbackAggregate(summary.byOfferId, offerId, precheck.riskCategory, createdAt, precheck.publicSummary);
+    }
+    if (sourceId && sourceLevel) {
+      addPublicRiskFeedbackAggregate(summary.bySourceId, sourceId, precheck.riskCategory, createdAt, precheck.publicSummary);
+    }
   }
 
   return summary;
@@ -1892,13 +1895,14 @@ function attachPublicRiskFeedback(offers: RawOffer[], summary: PublicRiskFeedbac
           ...(offerFeedback ? Array.from(offerFeedback.reasons) : []),
           ...(sourceFeedback ? Array.from(sourceFeedback.reasons) : []),
         ])),
+        summaries: Array.from(new Set([
+          ...(offerFeedback ? Array.from(offerFeedback.summaries) : []),
+          ...(sourceFeedback ? Array.from(sourceFeedback.summaries) : []),
+        ])).slice(0, 3),
+        status: "user_report_pending_verification",
       },
     };
   });
-}
-
-function isPublicRiskFeedbackReason(value: string): value is PublicRiskFeedbackReason {
-  return HIGH_RISK_FEEDBACK_REASONS.has(value as OfferFeedbackReason);
 }
 
 function addPublicRiskFeedbackAggregate(
@@ -1906,6 +1910,7 @@ function addPublicRiskFeedbackAggregate(
   key: string,
   reason: PublicRiskFeedbackReason,
   createdAt: string | null,
+  summary: string,
 ) {
   const current = map.get(key);
   if (!current) {
@@ -1913,6 +1918,7 @@ function addPublicRiskFeedbackAggregate(
       count: 1,
       latestAt: createdAt,
       reasons: new Set([reason]),
+      summaries: new Set(summary ? [summary] : []),
     });
     return;
   }
@@ -1920,6 +1926,7 @@ function addPublicRiskFeedbackAggregate(
   current.count += 1;
   current.latestAt = latestIso([current.latestAt, createdAt]);
   current.reasons.add(reason);
+  if (summary) current.summaries.add(summary);
 }
 
 function compactPublicOfferRow(row: { offer: RawOffer; product: ExplorerProductSummary }) {

@@ -90,6 +90,8 @@ export type PublicRiskFeedback = {
   scope: "offer" | "source" | "mixed";
   latestAt: string | null;
   reasons?: Array<Extract<OfferFeedbackReason, "aftersales_shipping" | "fraud" | "bad_source">>;
+  summaries?: string[];
+  status?: "user_report_pending_verification";
 };
 
 export type CanonicalProduct = {
@@ -716,6 +718,7 @@ export type OfferFeedback = {
   evidenceText: string | null;
   evidenceUrls: string[];
   aiReviewResult: Record<string, unknown> | null;
+  riskPrecheck: OfferFeedbackRiskPrecheck | null;
   verificationStatus: OfferFeedbackVerificationStatus;
   verificationResult: OfferFeedbackVerificationResult | null;
   verifiedAt: string | null;
@@ -728,6 +731,24 @@ export type OfferFeedback = {
   submitterIp: string | null;
   createdAt: string;
   reviewedAt: string | null;
+};
+
+export type OfferFeedbackRiskPrecheck = {
+  status: "ready" | "skipped" | "failed";
+  provider: string;
+  model: string;
+  reviewedAt: string;
+  canShowPublicly: boolean;
+  riskLevel: "low" | "medium" | "high";
+  riskScope: "offer" | "source" | "mixed";
+  riskCategory: Extract<OfferFeedbackReason, "aftersales_shipping" | "fraud" | "bad_source">;
+  confidence: number;
+  abuseRisk: "low" | "medium" | "high";
+  evidenceQuality: "none" | "low" | "medium" | "high";
+  publicSummary: string;
+  privateReason: string;
+  expiresAt: string | null;
+  error?: string;
 };
 
 export type SiteFeedback = {

@@ -240,6 +240,7 @@ const OFFER_EMERGENCY_PAGE_SIZE = 50;
 type FeedbackWorkFilter = "all" | "precheck" | "transient" | "category" | "aftersales" | "high_risk" | "site";
 type OfferFeedbackBucket = "transient" | "category" | "high_risk" | "aftersales" | "other";
 type OfferFeedbackVerdictTone = "success" | "info" | "warn" | "danger";
+type OfferFeedbackRiskPrecheckResult = NonNullable<OfferFeedback["riskPrecheck"]>;
 type OfferFeedbackVerdict = {
   label: string;
   description: string;
@@ -1498,6 +1499,29 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       showRowFeedback(feedback.id, "success", result.jobId ? `已创建重采任务：${result.jobId}` : "已创建重采任务。");
     } else {
       showRowFeedback(feedback.id, "error", result.message || "创建重采任务失败。");
+    }
+  }
+
+  async function runFeedbackRiskPrecheck(feedback: OfferFeedback) {
+    setLoadingAction(`feedback-risk-precheck-${feedback.id}`);
+    const result = await requestWithMethod("/api/admin/feedback", "PATCH", password, {
+      action: "risk_precheck",
+      id: feedback.id,
+    });
+    setLoadingAction(null);
+
+    if (result.ok && result.feedback) {
+      const nextFeedback = result.feedback as OfferFeedback;
+      setOfferFeedback((prev) => prev.map((item) => (item.id === feedback.id ? nextFeedback : item)));
+      showRowFeedback(
+        feedback.id,
+        "success",
+        nextFeedback.riskPrecheck?.canShowPublicly
+          ? "模型预审完成，已生成前台临时风险摘要。"
+          : "模型预审完成，暂不公开到前台。",
+      );
+    } else {
+      showRowFeedback(feedback.id, "error", result.message || "模型预审失败。");
     }
   }
 
@@ -2797,6 +2821,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                       onHideOffer={hideOfferFromFeedback}
                       onHideSource={hideSourceFromFeedback}
                       onRecollect={createFeedbackRecollection}
+                      onRiskPrecheck={runFeedbackRiskPrecheck}
                       onUpdateVerification={updateFeedbackVerification}
                       onResolve={(item) => updateFeedbackStatus(item, "resolved", "已人工确认处理")}
                       onIgnore={(item) => updateFeedbackStatus(item, "ignored", "已忽略")}
@@ -3849,6 +3874,7 @@ function OfferFeedbackList({
   onHideOffer,
   onHideSource,
   onRecollect,
+  onRiskPrecheck,
   onUpdateVerification,
   onResolve,
   onIgnore,
@@ -3864,6 +3890,7 @@ function OfferFeedbackList({
   onHideOffer: (feedback: OfferFeedback) => void;
   onHideSource: (feedback: OfferFeedback) => void;
   onRecollect: (feedback: OfferFeedback) => void;
+  onRiskPrecheck: (feedback: OfferFeedback) => void;
   onUpdateVerification: (
     feedback: OfferFeedback,
     verificationStatus: OfferFeedback["verificationStatus"],
@@ -3891,6 +3918,7 @@ function OfferFeedbackList({
         const hideOfferLoading = loadingAction === `feedback-hide-offer-${item.id}`;
         const hideSourceLoading = loadingAction === `feedback-hide-source-${item.id}`;
         const recollectLoading = loadingAction === `feedback-recollect-${item.id}`;
+        const riskPrecheckLoading = loadingAction === `feedback-risk-precheck-${item.id}`;
         const verificationLoading = loadingAction === `feedback-verification-${item.id}`;
         const resolveLoading = loadingAction === `feedback-resolved-${item.id}`;
         const ignoreLoading = loadingAction === `feedback-ignored-${item.id}`;
@@ -3934,6 +3962,7 @@ function OfferFeedbackList({
         const productName = displayProduct?.displayName || item.productName || "未记录标准商品";
         const isCategoryFeedback = item.reason === "wrong_category";
         const hasEvidence = Boolean(item.evidenceText || item.evidenceUrls.length);
+        const riskPrecheck = item.riskPrecheck;
 
         return (
           <article key={item.id} className="rounded-lg border border-[#adb3b4]/20 bg-white p-4 shadow-[0_12px_34px_rgba(45,52,53,0.035)]">
@@ -3976,6 +4005,11 @@ function OfferFeedbackList({
                       自动核验：{feedbackVerificationStatusLabel(item.verificationStatus)}
                     </span>
                   ) : null}
+                  {riskPrecheck ? (
+                    <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${riskPrecheckStatusClass(riskPrecheck)}`}>
+                      模型预审：{riskPrecheckStatusLabel(riskPrecheck)}
+                    </span>
+                  ) : null}
                   <span className="text-xs text-[#adb3b4]">{formatRelativeTime(item.createdAt)}</span>
                 </div>
                 <p className="mt-2 rounded-lg bg-[#f2f4f4] px-3 py-2 text-xs leading-5 text-[#5a6061]">
@@ -4016,6 +4050,37 @@ function OfferFeedbackList({
                   <p className="mt-2 rounded-lg bg-[#f7f9f9] px-3 py-2 text-xs leading-5 text-[#5a6061]">
                     {item.verificationMessage}
                   </p>
+                ) : null}
+                {riskPrecheck ? (
+                  <div className={`mt-2 rounded-lg border px-3 py-2.5 text-xs leading-5 ${riskPrecheckPanelClass(riskPrecheck)}`}>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-semibold text-[#2d3435]">模型预审：{riskPrecheckStatusLabel(riskPrecheck)}</span>
+                      <span>范围：{riskPrecheckScopeLabel(riskPrecheck.riskScope)}</span>
+                      <span>类型：{feedbackReasonLabel(riskPrecheck.riskCategory)}</span>
+                      <span>风险：{riskPrecheckRiskLevelLabel(riskPrecheck.riskLevel)}</span>
+                      <span>置信度：{formatPercent(riskPrecheck.confidence)}</span>
+                    </div>
+                    {riskPrecheck.publicSummary ? (
+                      <p className="mt-2 rounded-md bg-white/70 px-2 py-1.5 text-[#5a6061]">
+                        <span className="font-semibold text-[#2d3435]">前台摘要：</span>
+                        {riskPrecheck.publicSummary}
+                      </p>
+                    ) : null}
+                    <p className="mt-2 text-[#5a6061]">
+                      <span className="font-semibold text-[#2d3435]">后台原因：</span>
+                      {riskPrecheck.privateReason || "模型未提供判断原因。"}
+                    </p>
+                    {riskPrecheck.error ? (
+                      <p className="mt-1 text-[#9b3328]">错误：{riskPrecheck.error}</p>
+                    ) : null}
+                    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[0.7rem] text-[#8a9293]">
+                      <span>证据质量：{riskPrecheckEvidenceQualityLabel(riskPrecheck.evidenceQuality)}</span>
+                      <span>滥用风险：{riskPrecheckAbuseRiskLabel(riskPrecheck.abuseRisk)}</span>
+                      <span>模型：{riskPrecheck.model}</span>
+                      <span>预审：{formatRelativeTime(riskPrecheck.reviewedAt)}</span>
+                      {riskPrecheck.expiresAt ? <span>过期：{formatRelativeTime(riskPrecheck.expiresAt)}</span> : null}
+                    </div>
+                  </div>
                 ) : null}
 
                 <div className="mt-3 rounded-lg border border-[#adb3b4]/15 px-3 py-2.5">
@@ -4117,6 +4182,16 @@ function OfferFeedbackList({
                       创建重采
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    disabled={!hasEvidence || riskPrecheckLoading}
+                    onClick={() => onRiskPrecheck(item)}
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#47657a]/20 bg-white px-3 text-xs font-medium text-[#47657a] transition-colors hover:bg-[#eef3f8] disabled:opacity-60"
+                    title={hasEvidence ? "运行模型风险预审" : "缺少证据，无法运行模型预审"}
+                  >
+                    {riskPrecheckLoading ? <Loader2 size={14} className="animate-spin" /> : <Activity size={14} />}
+                    模型预审
+                  </button>
                   {item.verificationStatus !== "not_needed" ? (
                     <button
                       type="button"
@@ -7285,6 +7360,55 @@ function feedbackVerificationClass(value: OfferFeedback["verificationStatus"]): 
   if (value === "recollection_created" || value === "auto_fixed") return "bg-[#e8f3ec] text-[#2f7a4b]";
   if (value === "manual_review" || value === "pending" || value === "running") return "bg-[#fff7e8] text-[#7a541b]";
   return "bg-[#f2f4f4] text-[#5a6061]";
+}
+
+function riskPrecheckStatusLabel(value: OfferFeedbackRiskPrecheckResult): string {
+  if (value.status === "failed") return "失败";
+  if (value.status === "skipped") return "跳过";
+  return value.canShowPublicly ? "可临时公开" : "待人工";
+}
+
+function riskPrecheckStatusClass(value: OfferFeedbackRiskPrecheckResult): string {
+  if (value.status === "failed") return "bg-[#fbe9e7] text-[#9b3328]";
+  if (value.status === "skipped") return "bg-[#f2f4f4] text-[#5a6061]";
+  if (value.canShowPublicly) return "bg-[#fff7e8] text-[#7a541b]";
+  return "bg-[#eef3f8] text-[#47657a]";
+}
+
+function riskPrecheckPanelClass(value: OfferFeedbackRiskPrecheckResult): string {
+  if (value.status === "failed") return "border-[#9b3328]/15 bg-[#fbe9e7]/55";
+  if (value.canShowPublicly) return "border-[#d58a20]/20 bg-[#fff7e8]";
+  return "border-[#47657a]/15 bg-[#eef3f8]/70";
+}
+
+function riskPrecheckScopeLabel(value: OfferFeedbackRiskPrecheckResult["riskScope"]): string {
+  if (value === "source") return "商家";
+  if (value === "mixed") return "商品 + 商家";
+  return "商品";
+}
+
+function riskPrecheckRiskLevelLabel(value: OfferFeedbackRiskPrecheckResult["riskLevel"]): string {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  return "低";
+}
+
+function riskPrecheckEvidenceQualityLabel(value: OfferFeedbackRiskPrecheckResult["evidenceQuality"]): string {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  if (value === "low") return "低";
+  return "无";
+}
+
+function riskPrecheckAbuseRiskLabel(value: OfferFeedbackRiskPrecheckResult["abuseRisk"]): string {
+  if (value === "high") return "高";
+  if (value === "medium") return "中";
+  return "低";
+}
+
+function formatPercent(value: number): string {
+  if (!Number.isFinite(value)) return "0%";
+  return `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
 }
 
 function feedbackUserExpectedActionLabel(value: OfferFeedback["userExpectedAction"]): string {

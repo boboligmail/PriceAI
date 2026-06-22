@@ -17,6 +17,11 @@ import {
   feedbackRequiresEvidence,
   inferSuggestedActionForFeedback,
 } from "./trust-risk";
+import {
+  mergeRiskPrecheckResult,
+  reviewRiskFeedback,
+  type RiskFeedbackReviewInput,
+} from "./trust-risk-reviewer";
 import type {
   ChannelSubmission,
   CollectionMethod,
@@ -24,6 +29,7 @@ import type {
   OfferInput,
   OfferFeedback,
   OfferFeedbackReason,
+  OfferFeedbackRiskPrecheck,
   OfferFeedbackSuggestedAction,
   OfferFeedbackStatus,
   OfferFeedbackUserExpectedAction,
@@ -1090,6 +1096,7 @@ function mapOfferFeedbackRow(row: Record<string, unknown>): OfferFeedback {
     evidenceText: row.evidence_text ? String(row.evidence_text) : null,
     evidenceUrls: parseFeedbackEvidenceUrls(row.evidence_urls),
     aiReviewResult: row.ai_review_result && typeof row.ai_review_result === "object" ? row.ai_review_result as Record<string, unknown> : null,
+    riskPrecheck: parseOfferFeedbackRiskPrecheck(row.ai_review_result),
     verificationStatus: normalizeOfferFeedbackVerificationStatus(row.verification_status),
     verificationResult: normalizeOfferFeedbackVerificationResult(row.verification_result),
     verifiedAt: row.verification_checked_at ? String(row.verification_checked_at) : null,
@@ -1102,6 +1109,37 @@ function mapOfferFeedbackRow(row: Record<string, unknown>): OfferFeedback {
     submitterIp: row.submitter_ip ? String(row.submitter_ip) : null,
     createdAt: String(row.created_at || new Date().toISOString()),
     reviewedAt: row.reviewed_at ? String(row.reviewed_at) : null,
+  };
+}
+
+function parseOfferFeedbackRiskPrecheck(value: unknown): OfferFeedbackRiskPrecheck | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const raw = record.riskPrecheck;
+  if (!raw || typeof raw !== "object") return null;
+  const item = raw as Record<string, unknown>;
+  const status = item.status === "ready" || item.status === "skipped" || item.status === "failed" ? item.status : null;
+  const riskCategory = item.riskCategory === "fraud" || item.riskCategory === "bad_source" || item.riskCategory === "aftersales_shipping"
+    ? item.riskCategory
+    : null;
+  if (!status || !riskCategory) return null;
+
+  return {
+    status,
+    provider: typeof item.provider === "string" ? item.provider : "unknown",
+    model: typeof item.model === "string" ? item.model : "unknown",
+    reviewedAt: typeof item.reviewedAt === "string" ? item.reviewedAt : "",
+    canShowPublicly: item.canShowPublicly === true,
+    riskLevel: item.riskLevel === "low" || item.riskLevel === "medium" || item.riskLevel === "high" ? item.riskLevel : "medium",
+    riskScope: item.riskScope === "source" || item.riskScope === "mixed" || item.riskScope === "offer" ? item.riskScope : "offer",
+    riskCategory,
+    confidence: numberValue(item.confidence) ?? 0,
+    abuseRisk: item.abuseRisk === "low" || item.abuseRisk === "medium" || item.abuseRisk === "high" ? item.abuseRisk : "medium",
+    evidenceQuality: item.evidenceQuality === "none" || item.evidenceQuality === "low" || item.evidenceQuality === "medium" || item.evidenceQuality === "high" ? item.evidenceQuality : "low",
+    publicSummary: typeof item.publicSummary === "string" ? item.publicSummary : "",
+    privateReason: typeof item.privateReason === "string" ? item.privateReason : "",
+    expiresAt: typeof item.expiresAt === "string" ? item.expiresAt : null,
+    error: typeof item.error === "string" ? item.error : undefined,
   };
 }
 
@@ -2239,6 +2277,66 @@ export async function createOfferFeedback(input: {
   if (error) throw error;
 
   return { id, status: "pending" };
+}
+
+export async function runOfferFeedbackRiskPrecheck(feedbackId: string): Promise<OfferFeedback> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase 尚未配置，无法运行风险预审。");
+
+  const { data: row, error } = await supabase
+    .from("offer_feedback")
+    .select("*")
+    .eq("id", feedbackId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) throw new Error("反馈记录不存在。");
+
+  const feedback = mapOfferFeedbackRow(row);
+  const result = await reviewRiskFeedback(toRiskFeedbackReviewInput(feedback));
+  const nextAiReviewResult = mergeRiskPrecheckResult(feedback.aiReviewResult, result);
+  const nextVerificationMessage = result.status === "ready"
+    ? result.canShowPublicly
+      ? "模型预审已生成前台临时风险摘要，等待人工核验。"
+      : "模型预审未达到前台临时公开条件，等待人工核验。"
+    : result.status === "skipped"
+      ? result.privateReason
+      : "模型预审失败，暂不公开到前台。";
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from("offer_feedback")
+    .update({
+      ai_review_result: nextAiReviewResult,
+      verification_status: result.status === "failed" ? "failed" : "manual_review",
+      verification_message: nextVerificationMessage,
+      verification_checked_at: result.reviewedAt,
+    })
+    .eq("id", feedback.id)
+    .select("*")
+    .maybeSingle();
+  if (updateError) throw updateError;
+  if (!updatedRow) throw new Error("反馈记录不存在。");
+
+  return mapOfferFeedbackRow(updatedRow);
+}
+
+function toRiskFeedbackReviewInput(feedback: OfferFeedback): RiskFeedbackReviewInput {
+  return {
+    id: feedback.id,
+    productName: feedback.productName,
+    offerId: feedback.offerId,
+    sourceId: feedback.sourceId,
+    sourceName: feedback.sourceName,
+    sourceTitle: feedback.sourceTitle,
+    offerUrl: feedback.offerUrl,
+    offerPrice: feedback.offerPrice,
+    offerStatus: feedback.offerStatus,
+    reason: feedback.reason,
+    userExpectedAction: feedback.userExpectedAction,
+    evidenceText: feedback.evidenceText,
+    evidenceUrls: feedback.evidenceUrls,
+    notes: feedback.notes,
+    submitterIp: feedback.submitterIp,
+  };
 }
 
 export async function listOfferFeedback(status: OfferFeedbackStatus = "pending"): Promise<OfferFeedback[]> {

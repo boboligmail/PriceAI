@@ -5,7 +5,7 @@ import type {
   RawOffer,
 } from "@/lib/types";
 
-export const AFTERSALES_FEEDBACK_REASON: OfferFeedbackReason = "aftersales_shipping";
+export const AFTERSALES_FEEDBACK_REASON = "aftersales_shipping" satisfies OfferFeedbackReason;
 export const HIGH_RISK_FEEDBACK_REASONS: ReadonlySet<OfferFeedbackReason> = new Set([
   AFTERSALES_FEEDBACK_REASON,
   "fraud",
@@ -27,6 +27,34 @@ export const API_CDK_PUBLIC_VISIBILITY_ENV = "NEXT_PUBLIC_PRICEAI_SHOW_API_CDK";
 export const API_CDK_SERVER_VISIBILITY_ENV = "PRICEAI_SHOW_API_CDK";
 export const OFFER_EXIT_NOTICE_MUTED_DATE_KEY = "priceai:offer-exit-notice-muted-date";
 export const OFFER_HIGH_RISK_PRICE_THRESHOLD = 30;
+
+export type RiskPrecheckScope = "offer" | "source" | "mixed";
+export type RiskPrecheckCategory = "fraud" | "bad_source" | "aftersales_shipping";
+export type RiskPrecheckEvidenceQuality = "none" | "low" | "medium" | "high";
+export type RiskPrecheckAbuseRisk = "low" | "medium" | "high";
+export type PublicRiskPrecheck = {
+  canShowPublicly: boolean;
+  riskLevel: "low" | "medium" | "high";
+  riskScope: RiskPrecheckScope;
+  riskCategory: RiskPrecheckCategory;
+  confidence: number;
+  abuseRisk: RiskPrecheckAbuseRisk;
+  evidenceQuality: RiskPrecheckEvidenceQuality;
+  publicSummary: string;
+  reviewedAt: string | null;
+  expiresAt: string | null;
+};
+
+export const RISK_PRECHECK_ENV = {
+  apiKey: "PRICEAI_RISK_REVIEW_API_KEY",
+  baseUrl: "PRICEAI_RISK_REVIEW_BASE_URL",
+  model: "PRICEAI_RISK_REVIEW_MODEL",
+  timeoutMs: "PRICEAI_RISK_REVIEW_TIMEOUT_MS",
+} as const;
+
+export const DEFAULT_RISK_REVIEW_BASE_URL = "https://opencode.ai/zen/v1";
+export const DEFAULT_RISK_REVIEW_MODEL = "mimo-v2.5-free";
+export const RISK_PRECHECK_PUBLIC_TTL_HOURS = 72;
 
 export function feedbackRequiresEvidence(
   reason: OfferFeedbackReason | string,
@@ -135,12 +163,91 @@ export function getOfferRiskHints(offer: RawOffer): OfferRiskHint[] {
   }];
 }
 
+export function getPublicRiskPrecheck(
+  value: unknown,
+  now: Date = new Date(),
+): PublicRiskPrecheck | null {
+  if (!value || typeof value !== "object") return null;
+  const record = value as Record<string, unknown>;
+  const raw = record.riskPrecheck && typeof record.riskPrecheck === "object"
+    ? record.riskPrecheck as Record<string, unknown>
+    : null;
+  if (!raw) return null;
+  if (raw.status !== "ready" || raw.canShowPublicly !== true) return null;
+
+  const expiresAt = stringOrNull(raw.expiresAt);
+  if (expiresAt) {
+    const expiresAtMs = new Date(expiresAt).getTime();
+    if (Number.isFinite(expiresAtMs) && expiresAtMs <= now.getTime()) return null;
+  }
+
+  const riskCategory = normalizeRiskPrecheckCategory(raw.riskCategory);
+  const publicSummary = normalizePublicRiskSummary(raw.publicSummary);
+  const confidence = clampNumber(raw.confidence, 0, 1, 0);
+
+  if (!riskCategory || !publicSummary || confidence < 0.45) return null;
+
+  return {
+    canShowPublicly: true,
+    riskLevel: normalizeRiskLevel(raw.riskLevel),
+    riskScope: normalizeRiskScope(raw.riskScope),
+    riskCategory,
+    confidence,
+    abuseRisk: normalizeAbuseRisk(raw.abuseRisk),
+    evidenceQuality: normalizeEvidenceQuality(raw.evidenceQuality),
+    publicSummary,
+    reviewedAt: stringOrNull(raw.reviewedAt),
+    expiresAt,
+  };
+}
+
 export function isHighRiskOutboundOffer(offer: RawOffer): boolean {
   return !isShopApiOffer(offer) || isHighPriceOffer(offer);
 }
 
 function isHighPriceOffer(offer: Pick<RawOffer, "price">): boolean {
   return typeof offer.price === "number" && Number.isFinite(offer.price) && offer.price >= OFFER_HIGH_RISK_PRICE_THRESHOLD;
+}
+
+function normalizeRiskLevel(value: unknown): PublicRiskPrecheck["riskLevel"] {
+  return value === "low" || value === "medium" || value === "high" ? value : "medium";
+}
+
+function normalizeRiskScope(value: unknown): RiskPrecheckScope {
+  return value === "source" || value === "mixed" || value === "offer" ? value : "offer";
+}
+
+function normalizeRiskPrecheckCategory(value: unknown): RiskPrecheckCategory | null {
+  if (value === "fraud" || value === "bad_source" || value === AFTERSALES_FEEDBACK_REASON) return value;
+  return null;
+}
+
+function normalizeAbuseRisk(value: unknown): RiskPrecheckAbuseRisk {
+  return value === "medium" || value === "high" || value === "low" ? value : "medium";
+}
+
+function normalizeEvidenceQuality(value: unknown): RiskPrecheckEvidenceQuality {
+  return value === "none" || value === "low" || value === "medium" || value === "high" ? value : "low";
+}
+
+function normalizePublicRiskSummary(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value
+    .replace(/\s+/g, " ")
+    .replace(/(微信|VX|QQ|手机号|电话|邮箱)[:：]?\s*[A-Za-z0-9_@.+-]{4,}/gi, "$1已脱敏")
+    .trim();
+  if (text.length < 8) return null;
+  return text.slice(0, 160);
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return fallback;
+  return Math.min(max, Math.max(min, numberValue));
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
 function truthyFlag(value: string | undefined): boolean {
