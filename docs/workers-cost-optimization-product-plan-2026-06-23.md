@@ -374,3 +374,26 @@ node_modules/.bin/wrangler tail priceai-cloudflare-poc --format json --sampling-
 - 第一阶段动作：log / managed challenge，观察 24 小时。
 - 第二阶段动作：对同 IP 高频公开 API 请求做 429 或 challenge。
 - 不建议一开始按国家或浏览器大面积封禁，避免误伤正常用户。
+
+### 2026-06-23：C3-1 / C3-2 前端请求策略与价格缓存窗口
+
+已开始落地第二层降本动作：
+
+- 将价格类公开 API 的边缘缓存从 `120s` 调整到 `300s`，stale window 从 `600s` 调整到 `1800s`。
+- 新增共享缓存策略，服务端内存缓存、CDN 响应头、首页探索器、全站报价列表、商品详情报价列表统一使用同一个价格 TTL。
+- 保留 `generatedAt` / 更新时间作为新鲜度表达，不用高频自动刷新伪装实时。
+- 性能 guard 增加防回归检查，阻止价格数据缓存策略再次局部漂移。
+
+预期收益：
+
+- 减少同一用户和同一区域内 2-5 分钟重复请求触发的 Worker CPU。
+- 让 `/api/explorer`、`/api/offers`、`/api/products/*/offers` 更容易命中边缘缓存。
+- 在不改变页面核心体验的前提下，降低公共读路径对 OpenNext Worker 的压力。
+
+### 2026-06-23：D4-1 商品报价 Facets 辅助 RPC 降级隔离
+
+商品详情报价列表会并行读取当前页报价和筛选 Facets。已将 Facets 读取改为独立降级：
+
+- 主报价分页 RPC 成功时，即使 Facets RPC 抛出异常，也继续返回当前页报价。
+- Facets 异常只记录 warning，不触发全表 fallback 或整页失败。
+- 该行为已加入性能 guard，避免辅助筛选统计再次影响核心报价列表。

@@ -19,6 +19,7 @@ import {
 } from "./offer-filter-tags";
 import { getFallbackRiskReviewSettingsSummary, getRiskReviewSettingsSummary } from "./risk-review-settings";
 import { normalizePublicOfferLimit, normalizePublicOfferOffset } from "./public-offer-query";
+import { PRICE_DATA_CACHE_TTL_MS } from "./public-cache-policy";
 import { seedRawOffers, seedSources } from "./sample-data";
 import { getSupabaseServerClient } from "./supabase";
 import { apiCdkPublicVisible, getPublicRiskPrecheck, isPublicCatalogProduct } from "./trust-risk";
@@ -48,9 +49,9 @@ import { publicOfferDedupeKey } from "./utils";
 
 const SUPABASE_PAGE_SIZE = 1000;
 const PUBLIC_FALLBACK_MAX_ROWS = 5000;
-const PUBLIC_DATA_CACHE_TTL_MS = 120_000;
-const EXPLORER_DATA_CACHE_TTL_MS = 120_000;
-const PRODUCT_OFFERS_CACHE_TTL_MS = 120_000;
+const PUBLIC_DATA_CACHE_TTL_MS = PRICE_DATA_CACHE_TTL_MS;
+const EXPLORER_DATA_CACHE_TTL_MS = PRICE_DATA_CACHE_TTL_MS;
+const PRODUCT_OFFERS_CACHE_TTL_MS = PRICE_DATA_CACHE_TTL_MS;
 const PUBLIC_SUPABASE_READ_TIMEOUT_MS = 2_500;
 const PUBLIC_SUPABASE_BUILD_READ_TIMEOUT_MS = 15_000;
 const NEXT_PRODUCTION_BUILD_PHASE = "phase-production-build";
@@ -1615,7 +1616,10 @@ async function getPublicProductOffersFromDatabase(
     return null;
   }
 
-  const filterFacets = await filterFacetsPromise ?? [];
+  const filterFacets = (await filterFacetsPromise.catch((error: unknown) => {
+    console.warn("Product offer filter facet RPC failed independently:", errorMessage(error));
+    return null;
+  })) ?? [];
   const rows = ((data || []) as unknown as Record<string, unknown>[]);
   const offers = await attachSourceCollectorKinds(rows.map(mapRawOffer));
   const total = rows.length ? Number(rows[0].total_count || rows.length) : 0;

@@ -23,6 +23,7 @@ import {
   isHighRiskOutboundOffer,
   isShopApiOffer,
 } from "@/lib/trust-risk";
+import { PRICE_DATA_CACHE_TTL_MS } from "@/lib/public-cache-policy";
 import type { RawOffer } from "@/lib/types";
 import { formatCurrency, formatDateMinute, formatRelativeTime } from "@/lib/utils";
 
@@ -38,7 +39,7 @@ type ProductOffersResponse = {
 };
 
 const OFFER_PAGE_SIZE = 80;
-const PRODUCT_OFFERS_CACHE_TTL_MS = 2 * 60 * 1000;
+const PRODUCT_OFFERS_CACHE_TTL_MS = PRICE_DATA_CACHE_TTL_MS;
 const PRODUCT_OFFERS_MEMORY_CACHE_LIMIT = 40;
 const FEEDBACK_EVIDENCE_MAX_IMAGES = 5;
 const productOffersMemoryCache = new Map<string, ProductOffersResponse>();
