@@ -1,5 +1,18 @@
 [
   {
+    "id": "sub-callai-one",
+    "name": "Sub Callai One",
+    "websiteUrl": "https://sub.callai.one/",
+    "apiBaseUrl": "https://sub.callai.one/v1",
+    "pricingUrl": "https://sub.callai.one/partner-api/v1/status",
+    "pricingEndpointUrl": "https://sub.callai.one/partner-api/v1/status",
+    "collectorKind": "callai_partner_status",
+    "partnerTokenEnv": "CALLAI_PARTNER_PRICEAI_TOKEN",
+    "channelTypes": ["undisclosed"],
+    "accountPools": ["kiro", "max", "pro"],
+    "summary": "站长提供 partner API，公开返回 Claude / GPT 分组倍率和最近一次可用性监测；PriceAI 会保留原始快照并继续用长期样本验证稳定性。"
+  },
+  {
     "id": "sudocode-chat",
     "name": "SudoCode",
     "websiteUrl": "https://sudocode.chat/",

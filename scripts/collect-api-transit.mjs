@@ -10,12 +10,15 @@ import { safeFetch } from "./safe-fetch.mjs";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 const configPath = path.join(repoRoot, "config", "api-transit-sources.json");
+const envPath = path.join(repoRoot, ".env.local");
 const defaultOutPath = path.join(repoRoot, "data", "api-transit", "latest-public-pricing.json");
 
 const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitCollector";
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_RECHARGE_RATIO = "1:1";
 const NEW_API_USD_UNIT_PRICE_FACTOR = 2;
+const CALLAI_PARTNER_STATUS_COLLECTOR = "callai_partner_status";
+const SOURCE_SKIPPED = Symbol("source_skipped");
 const officialTransitPrices = {
   "Claude Sonnet 4.6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
   "Claude Opus 4.6": { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
@@ -80,6 +83,28 @@ export async function collectApiTransitPrices(options = {}) {
         },
       });
     } catch (error) {
+      if (error?.code === SOURCE_SKIPPED) {
+        runs.push({
+          id: stableId("api-transit-run", source.id, runStartedAt),
+          station_id: null,
+          run_type: "public_pricing",
+          status: "partial",
+          model_count: 0,
+          offer_count: 0,
+          error_message: error.message,
+          source_url: source.pricingEndpointUrl,
+          started_at: runStartedAt,
+          finished_at: new Date().toISOString(),
+          raw_snapshot: {},
+          logs: {
+            collectorKind: source.collectorKind,
+            skipped: true,
+            reason: error.reason || "source_skipped",
+          },
+        });
+        continue;
+      }
+
       stations.push(buildStationRow(source, runStartedAt, { status: "failed", error: errorMessage(error) }));
       runs.push({
         id: stableId("api-transit-run", source.id, runStartedAt),
@@ -124,6 +149,10 @@ export async function collectApiTransitPrices(options = {}) {
 }
 
 async function fetchPricingJson(source, options) {
+  if (source.collectorKind === CALLAI_PARTNER_STATUS_COLLECTOR) {
+    return fetchCallaiPartnerStatus(source, options);
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), Number(options.timeoutMs || DEFAULT_TIMEOUT_MS));
   try {
@@ -146,7 +175,43 @@ async function fetchPricingJson(source, options) {
   }
 }
 
+async function fetchCallaiPartnerStatus(source, options) {
+  const token = source.partnerToken || envValue(source.partnerTokenEnv, options);
+  if (!token) {
+    throw skippedSource(
+      `缺少 ${source.partnerTokenEnv || "partnerToken"}，已跳过 ${source.name} partner API 采集。`,
+      "missing_partner_token",
+    );
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(options.timeoutMs || DEFAULT_TIMEOUT_MS));
+  try {
+    const response = await safeFetch(source.pricingEndpointUrl, {
+      signal: controller.signal,
+      headers: {
+        "accept": "application/json",
+        "authorization": `Bearer ${token}`,
+        "user-agent": userAgent,
+      },
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const text = await response.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error("partner API 没有返回 JSON。");
+    }
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 function parsePricingPayload(source, payload, collectedAt) {
+  if (source.collectorKind === CALLAI_PARTNER_STATUS_COLLECTOR) {
+    return parseCallaiPartnerStatusPayload(source, payload, collectedAt);
+  }
+
   const items = normalizePricingItems(payload);
   const groupRatios = normalizeGroupRatios(payload);
   const selected = [];
@@ -168,6 +233,62 @@ function parsePricingPayload(source, payload, collectedAt) {
     station: buildStationRow(source, collectedAt, {
       status: deduped.length ? "success" : "partial",
       offerCount: deduped.length,
+    }),
+    offers: deduped,
+  };
+}
+
+function parseCallaiPartnerStatusPayload(source, payload, collectedAt) {
+  const sections = Array.isArray(payload?.pricing_sections) ? payload.pricing_sections : [];
+  const entries = sections.flatMap((section) => {
+    const sectionEntries = Array.isArray(section?.entries) ? section.entries : [];
+    return sectionEntries.map((entry) => ({ section, entry }));
+  });
+  const monitoringByKey = new Map(
+    (Array.isArray(payload?.monitoring?.latest) ? payload.monitoring.latest : [])
+      .filter((item) => item && typeof item === "object")
+      .map((item) => [String(item.key || ""), item]),
+  );
+  const offers = [];
+
+  for (const { section, entry } of entries) {
+    const groups = Array.isArray(entry?.groups) ? entry.groups : [];
+    const models = Array.isArray(entry?.models) ? entry.models : [];
+
+    for (const model of models) {
+      const standard = standardizeModelName(model?.base_model || model?.model || model?.label || "");
+      if (!standard) continue;
+
+      for (const group of groups) {
+        const offer = buildCallaiPartnerOfferRow({
+          source,
+          payload,
+          section,
+          entry,
+          group,
+          model,
+          standard,
+          monitoring: monitoringByKey.get(`${section?.key || ""}.${entry?.key || ""}`) || null,
+          collectedAt,
+        });
+        if (offer) offers.push(offer);
+      }
+    }
+  }
+
+  const deduped = dedupeBestOffers(offers);
+  const collectionError =
+    payload?.meta?.stale === true ? "partner API 快照标记为 stale，已保留价格但需关注刷新状态。" : null;
+
+  return {
+    modelCount: entries.reduce((total, { entry }) => total + (Array.isArray(entry?.models) ? entry.models.length : 0), 0),
+    station: buildStationRow(source, collectedAt, {
+      status: deduped.length ? (collectionError ? "partial" : "success") : "partial",
+      offerCount: deduped.length,
+      site: payload?.site,
+      meta: payload?.meta,
+      collectionError,
+      availability: summarizeCallaiPartnerAvailability(payload?.monitoring?.latest, collectedAt),
     }),
     offers: deduped,
   };
@@ -237,8 +358,193 @@ function normalizeItemGroups(item, groupRatios) {
   });
 }
 
+function buildCallaiPartnerOfferRow({
+  source,
+  payload,
+  section,
+  entry,
+  group,
+  model,
+  standard,
+  monitoring,
+  collectedAt,
+}) {
+  const family = standard.startsWith("Claude") ? "claude" : "gpt";
+  const groupMultiplier = numberValue(group?.rate_multiplier);
+  if (groupMultiplier === null || groupMultiplier <= 0) return null;
+
+  const basePrice = normalizePartnerBasePrice(model?.base_price);
+  const official = officialTransitPrices[standard];
+  const splitMultipliers = getPartnerSplitMultipliers(basePrice, official, groupMultiplier);
+  if (!splitMultipliers || splitMultipliers.model === null || splitMultipliers.model <= 0) return null;
+
+  const groupKey = stringOrNull(group?.name) || stringOrNull(entry?.key) || "default";
+  const checkedAt = stringOrNull(monitoring?.checked_at) || collectedAt;
+  const availability = callaiAvailabilityFromMonitoring(monitoring, payload?.meta, collectedAt);
+
+  return {
+    id: stableId("api-transit-offer", source.id, standard, groupKey),
+    station_id: source.id,
+    family,
+    standard_model: standard,
+    raw_model_name: String(model?.model || model?.base_model || model?.label || standard),
+    group_name: stringOrNull(group?.name) || stringOrNull(entry?.name) || groupKey,
+    recharge_ratio: source.rechargeRatio || rechargeRatioFromBilling(payload?.billing) || DEFAULT_RECHARGE_RATIO,
+    model_multiplier: round(splitMultipliers.model, 6),
+    input_price: splitMultipliers.input === null ? null : round(splitMultipliers.input, 6),
+    output_price: splitMultipliers.output === null ? null : round(splitMultipliers.output, 6),
+    cache_read_price: splitMultipliers.cacheRead === null ? null : round(splitMultipliers.cacheRead, 6),
+    cache_write_price: splitMultipliers.cacheWrite === null ? null : round(splitMultipliers.cacheWrite, 6),
+    currency: "CNY",
+    account_pool: inferAccountPool(`${entry?.key || ""} ${entry?.name || ""} ${group?.name || ""}`),
+    channel_type: inferChannelType(`${entry?.platform || ""} ${group?.platform || ""} ${entry?.name || ""}`),
+    price_source: "站长 partner API",
+    source_url: source.pricingEndpointUrl,
+    availability_seven_day_rate: availability.rate,
+    availability_seven_day_samples: availability.samples,
+    availability_last_checked_at: checkedAt,
+    availability_note: availability.note,
+    last_verified_at: checkedAt,
+    status: "needs_review",
+    raw_payload: {
+      collector_kind: source.collectorKind,
+      schema_version: stringOrNull(payload?.meta?.schema_version),
+      cache_ttl_seconds: numberValue(payload?.meta?.cache_ttl_seconds),
+      snapshot_generated_at: stringOrNull(payload?.meta?.generated_at || payload?.site?.generated_at),
+      stale: payload?.meta?.stale === true,
+      section: {
+        key: stringOrNull(section?.key),
+        name: stringOrNull(section?.name),
+      },
+      entry,
+      group,
+      model,
+      monitoring,
+      billing: payload?.billing || null,
+      base_price: basePrice,
+      unit_prices_usd: splitMultipliers.unitPricesUsd || null,
+      multiplier_basis: splitMultipliers.basis,
+    },
+    created_at: collectedAt,
+  };
+}
+
+function getPartnerSplitMultipliers(basePrice, official, groupMultiplier) {
+  if (!basePrice || !official) {
+    return {
+      model: groupMultiplier,
+      input: groupMultiplier,
+      output: groupMultiplier,
+      cacheRead: null,
+      cacheWrite: null,
+      unitPricesUsd: null,
+      basis: "partner_rate_multiplier",
+    };
+  }
+
+  const input = partnerRateValue(basePrice.input, official.input, groupMultiplier);
+  const output = partnerRateValue(basePrice.output, official.output, groupMultiplier);
+  const cacheRead = partnerRateValue(basePrice.cacheRead, official.cacheRead, groupMultiplier);
+  const cacheWrite = partnerRateValue(basePrice.cacheWrite, official.cacheWrite, groupMultiplier);
+  return {
+    model: input ?? output ?? cacheRead ?? cacheWrite ?? groupMultiplier,
+    input,
+    output,
+    cacheRead,
+    cacheWrite,
+    unitPricesUsd: {
+      input: priceWithMultiplier(basePrice.input, groupMultiplier),
+      output: priceWithMultiplier(basePrice.output, groupMultiplier),
+      cacheRead: priceWithMultiplier(basePrice.cacheRead, groupMultiplier),
+      cacheWrite: priceWithMultiplier(basePrice.cacheWrite, groupMultiplier),
+      currency: basePrice.currency,
+      unit: basePrice.unit,
+    },
+    basis: "partner_base_price_multiplier",
+  };
+}
+
+function partnerRateValue(value, officialValue, groupMultiplier) {
+  if (value === null || officialValue === null || officialValue <= 0) return null;
+  return (value * groupMultiplier) / officialValue;
+}
+
+function priceWithMultiplier(value, multiplier) {
+  return value === null ? null : round(value * multiplier, 6);
+}
+
+function normalizePartnerBasePrice(value) {
+  if (!value || typeof value !== "object") return null;
+  return {
+    input: numberValue(value.input),
+    output: numberValue(value.output),
+    cacheRead: numberValue(value.cache_read ?? value.cacheRead),
+    cacheWrite: numberValue(value.cache_write ?? value.cacheWrite),
+    imageOutput: numberValue(value.image_output ?? value.imageOutput),
+    perRequest: numberValue(value.per_request ?? value.perRequest),
+    unit: stringOrNull(value.unit),
+    currency: stringOrNull(value.currency),
+    source: stringOrNull(value.source),
+  };
+}
+
+function callaiAvailabilityFromMonitoring(monitoring, meta, collectedAt) {
+  if (!monitoring || typeof monitoring !== "object") {
+    return {
+      rate: null,
+      samples: 0,
+      note: "partner API 未返回该分组最近监测结果。",
+    };
+  }
+
+  const status = String(monitoring.status || "unknown");
+  const checkedAt = stringOrNull(monitoring.checked_at) || collectedAt;
+  const staleNote = meta?.stale === true ? "；快照已标记 stale" : "";
+  if (status === "operational") {
+    return {
+      rate: null,
+      samples: 0,
+      note: `partner API 最近一次监测正常，非 7 日可用率${staleNote}。`,
+    };
+  }
+  if (status === "degraded") {
+    return {
+      rate: null,
+      samples: 0,
+      note: `partner API 最近一次监测异常或性能下降，非 7 日可用率${staleNote}。`,
+    };
+  }
+
+  return {
+    rate: null,
+    samples: 0,
+    note: `partner API 最近监测状态为 ${status}，检查时间 ${checkedAt}${staleNote}。`,
+  };
+}
+
+function summarizeCallaiPartnerAvailability(latest, collectedAt) {
+  const samples = Array.isArray(latest) ? latest.filter((item) => item && typeof item === "object") : [];
+  if (!samples.length) {
+    return {
+      rate: null,
+      samples: 0,
+      lastCheckedAt: null,
+      note: "partner API 暂无最近监测结果。",
+    };
+  }
+
+  const checkedTimes = samples.map((item) => stringOrNull(item.checked_at)).filter(Boolean).sort();
+  return {
+    rate: null,
+    samples: 0,
+    lastCheckedAt: checkedTimes.at(-1) || collectedAt,
+    note: "partner API 最近一次监测汇总，非 7 日可用率。",
+  };
+}
+
 function buildStationRow(source, collectedAt, collection = {}) {
   const status = collection.status === "failed" ? "failed" : collection.status === "success" ? "success" : "partial";
+  const availability = collection.availability || {};
   return {
     id: source.id,
     slug: source.slug || source.id,
@@ -260,10 +566,10 @@ function buildStationRow(source, collectedAt, collection = {}) {
     risk_labels: status === "success" ? ["insufficient_samples"] : ["insufficient_samples", "pending_feedback"],
     usage_advice: status === "success" ? "try_small" : "pending",
     data_status: "pending_review",
-    availability_seven_day_rate: null,
-    availability_seven_day_samples: 0,
-    availability_last_checked_at: null,
-    availability_note: "已抓取公开价格，尚未接入 API Key 可用性检测。",
+    availability_seven_day_rate: availability.rate ?? null,
+    availability_seven_day_samples: availability.samples ?? 0,
+    availability_last_checked_at: availability.lastCheckedAt ?? null,
+    availability_note: availability.note || "已抓取公开价格，尚未接入 API Key 可用性检测。",
     feedback_pending_count: 0,
     feedback_verified_risk_count: 0,
     feedback_merchant_responded_count: 0,
@@ -272,11 +578,12 @@ function buildStationRow(source, collectedAt, collection = {}) {
     collector_kind: source.collectorKind || "new_api_pricing",
     pricing_endpoint_url: source.pricingEndpointUrl,
     collection_status: status,
-    collection_error: collection.error || null,
+    collection_error: collection.error || collection.collectionError || null,
     last_collected_at: collectedAt,
-    last_updated_at: collectedAt,
+    last_updated_at: stringOrNull(collection?.meta?.generated_at || collection?.site?.generated_at) || collectedAt,
     published: false,
     admin_note: collection.offerCount ? `自动抓取到 ${collection.offerCount} 条 MVP 模型价格，待人工审核。` : "自动抓取未识别到 MVP 模型，待人工确认。",
+    created_at: collectedAt,
   };
 }
 
@@ -316,6 +623,7 @@ function buildOfferRow(source, item, group, standard, collectedAt) {
       unit_prices_usd: splitMultipliers.unitPricesUsd || null,
       multiplier_basis: splitMultipliers.basis || "unknown",
     },
+    created_at: collectedAt,
   };
 }
 
@@ -458,6 +766,7 @@ function matchesVersion(value, version) {
 function inferAccountPool(text) {
   const value = String(text || "").toLowerCase();
   if (value.includes("official") || value.includes("官方") || value.includes("官转") || value.includes("官key")) return "official_api";
+  if (value.includes("kiro")) return "kiro";
   if (value.includes("max")) return "max";
   if (value.includes("team")) return "team";
   if (value.includes("plus")) return "plus";
@@ -497,11 +806,11 @@ async function postRows(rows, options) {
 
   const existingStations = await readExistingStations(supabase, rows.stations.map((station) => station.id));
   const stations = rows.stations.map((station) => mergeStationForRefresh(station, existingStations.get(station.id), options));
-  const existingOffers = await readExistingOffers(supabase, rows.offers.map((offer) => offer.id));
-  const offers = rows.offers.map((offer) => mergeOfferForRefresh(offer, existingOffers.get(offer.id), options));
+  const existingOffers = await readExistingOffers(supabase, rows.offers);
+  const offers = rows.offers.map((offer) => mergeOfferForRefresh(offer, existingOffers.get(offerKey(offer)), options));
 
   await upsertRows(supabase, "api_transit_stations", stations, { onConflict: "id" });
-  await upsertRows(supabase, "api_transit_offers", offers, { onConflict: "id" });
+  await upsertRows(supabase, "api_transit_offers", offers, { onConflict: "station_id,standard_model,group_name" });
   await upsertRows(supabase, "api_transit_detection_runs", rows.runs, { onConflict: "id" });
 
   return {
@@ -511,17 +820,17 @@ async function postRows(rows, options) {
   };
 }
 
-async function readExistingOffers(supabase, offerIds) {
-  const ids = uniqueText(offerIds).filter(Boolean);
+async function readExistingOffers(supabase, offers) {
+  const stationIds = uniqueText(offers.map((offer) => offer.station_id)).filter(Boolean);
   const byId = new Map();
-  for (const chunk of chunks(ids, 300)) {
+  for (const chunk of chunks(stationIds, 100)) {
     if (!chunk.length) continue;
     const { data, error } = await supabase
       .from("api_transit_offers")
-      .select("id,status,created_at")
-      .in("id", chunk);
+      .select("id,station_id,standard_model,group_name,status,created_at")
+      .in("station_id", chunk);
     if (error) throw error;
-    for (const row of data || []) byId.set(row.id, row);
+    for (const row of data || []) byId.set(offerKey(row), row);
   }
   return byId;
 }
@@ -529,9 +838,14 @@ async function readExistingOffers(supabase, offerIds) {
 function mergeOfferForRefresh(offer, existing, options) {
   return {
     ...offer,
+    id: existing?.id || offer.id,
     status: options.publish ? "active" : existing?.status || offer.status,
     created_at: existing?.created_at || offer.created_at,
   };
+}
+
+function offerKey(offer) {
+  return [offer.station_id, offer.standard_model, offer.group_name].map((part) => String(part || "")).join("|");
 }
 
 async function readExistingStations(supabase, stationIds) {
@@ -694,6 +1008,12 @@ function normalizeOptions(options) {
   };
 }
 
+function envValue(name, options = {}) {
+  if (!name) return "";
+  const env = readEnvFile(envPath);
+  return options.env?.[name] || process.env[name] || env[name] || "";
+}
+
 function truthyOption(value) {
   return value === true || value === "true" || value === "1" || value === "";
 }
@@ -721,6 +1041,25 @@ function numberValue(value) {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function stringOrNull(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function rechargeRatioFromBilling(billing) {
+  const multiplier = numberValue(billing?.balance_recharge_multiplier);
+  if (multiplier === null || multiplier <= 0) return null;
+  return `1:${round(multiplier, 6)}`;
+}
+
+function skippedSource(message, reason) {
+  const error = new Error(message);
+  error.code = SOURCE_SKIPPED;
+  error.reason = reason;
+  return error;
 }
 
 function round(value, digits) {
