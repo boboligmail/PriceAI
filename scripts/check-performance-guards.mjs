@@ -56,6 +56,11 @@ for (const routeFile of routeFilesWithPriceCache) {
 const dataText = read("src/lib/data.ts");
 assert(/PUBLIC_FALLBACK_MAX_ROWS\s*=\s*5000/.test(dataText), "src/lib/data.ts: public raw_offers fallback must keep a hard row cap.");
 assert(/for\s*\(\s*let\s+from\s*=\s*0;\s*from\s*<\s*PUBLIC_FALLBACK_MAX_ROWS/.test(dataText), "src/lib/data.ts: public raw_offers fallback must be bounded by PUBLIC_FALLBACK_MAX_ROWS.");
+assert(!/PUBLIC_OFFER_LIMIT\s*=\s*1200/.test(dataText), "src/lib/data.ts: public offer APIs must not allow 1200-row public pages.");
+
+const publicOfferQueryText = read("src/lib/public-offer-query.ts");
+assert(/PUBLIC_OFFER_MAX_LIMIT\s*=\s*200/.test(publicOfferQueryText), "src/lib/public-offer-query.ts: public offer pages must stay capped at 200 rows or less.");
+assert(/PUBLIC_OFFER_MAX_OFFSET\s*=\s*5000/.test(publicOfferQueryText), "src/lib/public-offer-query.ts: public offer offset must keep a bounded public scan window.");
 
 const transitPublicText = read("src/lib/api-transit-db.ts");
 assert(!/api_transit_detection_runs/.test(transitPublicText), "src/lib/api-transit-db.ts: public API transit reads must not query detection runs.");

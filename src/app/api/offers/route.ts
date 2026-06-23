@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { priceDataCacheHeaders } from "@/lib/cache-headers";
 import { listPublicOffers } from "@/lib/data";
+import { parsePublicOfferPaginationForRoute } from "@/lib/public-offer-route";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -9,8 +10,8 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const minPrice = parseNumberParam(params.get("min"));
   const maxPrice = parseNumberParam(params.get("max"));
-  const limit = parseIntegerParam(params.get("limit"));
-  const offset = parseIntegerParam(params.get("offset"));
+  const pagination = parsePublicOfferPaginationForRoute(params);
+  if (pagination instanceof NextResponse) return pagination;
 
   const result = await listPublicOffers({
     query: params.get("q"),
@@ -20,8 +21,7 @@ export async function GET(request: NextRequest) {
     sort: params.get("sort"),
     minPrice,
     maxPrice,
-    limit,
-    offset,
+    ...pagination,
   });
 
   return NextResponse.json(result, {
@@ -34,11 +34,4 @@ function parseNumberParam(value: string | null): number | null {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
-}
-
-function parseIntegerParam(value: string | null): number | undefined {
-  if (!value) return undefined;
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }

@@ -18,6 +18,7 @@ import {
   type OfferFilterTagId,
 } from "./offer-filter-tags";
 import { getFallbackRiskReviewSettingsSummary, getRiskReviewSettingsSummary } from "./risk-review-settings";
+import { normalizePublicOfferLimit, normalizePublicOfferOffset } from "./public-offer-query";
 import { seedRawOffers, seedSources } from "./sample-data";
 import { getSupabaseServerClient } from "./supabase";
 import { apiCdkPublicVisible, getPublicRiskPrecheck, isPublicCatalogProduct } from "./trust-risk";
@@ -45,7 +46,6 @@ import type {
 } from "./types";
 import { publicOfferDedupeKey } from "./utils";
 
-const PUBLIC_OFFER_LIMIT = 1200;
 const SUPABASE_PAGE_SIZE = 1000;
 const PUBLIC_FALLBACK_MAX_ROWS = 5000;
 const PUBLIC_DATA_CACHE_TTL_MS = 120_000;
@@ -1488,8 +1488,8 @@ async function getPublicProductSummaryFromDatabase(id: string): Promise<Explorer
 }
 
 export async function listPublicProductOffers(id: string, filters: ProductOfferListFilters = {}) {
-  const limit = Math.min(Math.max(filters.limit || 80, 1), PUBLIC_OFFER_LIMIT);
-  const offset = Math.max(filters.offset || 0, 0);
+  const limit = normalizePublicOfferLimit(filters.limit);
+  const offset = normalizePublicOfferOffset(filters.offset);
   const filterTags = parseOfferFilterTags(filters.filterTags || []);
   const query = normalizeProductOfferQuery(filters.query);
   const excludeQuery = normalizeProductOfferQuery(filters.excludeQuery, 160);
@@ -1728,8 +1728,8 @@ export async function listPublicOffers(filters: OfferListFilters = {}) {
   const publicData = await readPublicOfferData();
   const productGroups = buildProductGroups(publicData.offers, publicData.products).map(toExplorerProductSummary);
   const normalizedQuery = (filters.query || "").trim().toLowerCase();
-  const limit = Math.min(Math.max(filters.limit || 80, 1), PUBLIC_OFFER_LIMIT);
-  const offset = Math.max(filters.offset || 0, 0);
+  const limit = normalizePublicOfferLimit(filters.limit);
+  const offset = normalizePublicOfferOffset(filters.offset);
 
   let rows = dedupePublicOffers(publicData.offers)
     .filter((offer) => !offer.hidden)
@@ -1806,8 +1806,8 @@ async function listPublicOffersFromDatabase(filters: OfferListFilters = {}) {
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
 
-  const limit = Math.min(Math.max(filters.limit || 80, 1), PUBLIC_OFFER_LIMIT);
-  const offset = Math.max(filters.offset || 0, 0);
+  const limit = normalizePublicOfferLimit(filters.limit);
+  const offset = normalizePublicOfferOffset(filters.offset);
   const { data, error } = await supabase
     .rpc("list_public_offers_page", {
       p_query: filters.query || null,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { priceDataCacheHeaders } from "@/lib/cache-headers";
 import { listPublicProductOffers } from "@/lib/data";
 import { parseOfferFilterTags } from "@/lib/offer-filter-tags";
+import { parsePublicOfferPaginationForRoute } from "@/lib/public-offer-route";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,9 +12,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  const pagination = parsePublicOfferPaginationForRoute(request.nextUrl.searchParams);
+  if (pagination instanceof NextResponse) return pagination;
+
   const result = await listPublicProductOffers(id, {
-    limit: parseIntegerParam(request.nextUrl.searchParams.get("limit")),
-    offset: parseIntegerParam(request.nextUrl.searchParams.get("offset")),
+    ...pagination,
     filterTags: parseOfferFilterTags(request.nextUrl.searchParams.get("tags")),
     query: request.nextUrl.searchParams.get("q"),
     excludeQuery: request.nextUrl.searchParams.get("exclude"),
@@ -22,11 +25,4 @@ export async function GET(
   return NextResponse.json(result, {
     headers: priceDataCacheHeaders(),
   });
-}
-
-function parseIntegerParam(value: string | null): number | undefined {
-  if (!value) return undefined;
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : undefined;
 }
