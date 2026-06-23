@@ -17,7 +17,10 @@ const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitCollector";
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_RECHARGE_RATIO = "1:1";
 const NEW_API_USD_UNIT_PRICE_FACTOR = 2;
-const CALLAI_PARTNER_STATUS_COLLECTOR = "callai_partner_status";
+const CALLAI_PARTNER_STATUS_COLLECTORS = new Set([
+  "callai_partner_status",
+  "subway_api_partner_status",
+]);
 const SOURCE_SKIPPED = Symbol("source_skipped");
 const officialTransitPrices = {
   "Claude Sonnet 4.6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
@@ -149,7 +152,7 @@ export async function collectApiTransitPrices(options = {}) {
 }
 
 async function fetchPricingJson(source, options) {
-  if (source.collectorKind === CALLAI_PARTNER_STATUS_COLLECTOR) {
+  if (isCallaiPartnerStatusSource(source)) {
     return fetchCallaiPartnerStatus(source, options);
   }
 
@@ -208,7 +211,7 @@ async function fetchCallaiPartnerStatus(source, options) {
 }
 
 function parsePricingPayload(source, payload, collectedAt) {
-  if (source.collectorKind === CALLAI_PARTNER_STATUS_COLLECTOR) {
+  if (isCallaiPartnerStatusSource(source)) {
     return parseCallaiPartnerStatusPayload(source, payload, collectedAt);
   }
 
@@ -292,6 +295,10 @@ function parseCallaiPartnerStatusPayload(source, payload, collectedAt) {
     }),
     offers: deduped,
   };
+}
+
+function isCallaiPartnerStatusSource(source) {
+  return CALLAI_PARTNER_STATUS_COLLECTORS.has(source.collectorKind);
 }
 
 function normalizePricingItems(payload) {

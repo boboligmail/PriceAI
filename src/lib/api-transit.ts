@@ -368,7 +368,13 @@ export function getTransitStationSystem(station: TransitStation): TransitStation
     station.websiteUrl,
   ].filter(Boolean).join(" ").toLowerCase();
 
-  if (text.includes("sub2api") || text.includes("sub-to-api") || text.includes("sub_to_api")) {
+  if (
+    text.includes("sub2api") ||
+    text.includes("sub-to-api") ||
+    text.includes("sub_to_api") ||
+    text.includes("subway") ||
+    text.includes("callai_partner_status")
+  ) {
     return "sub_to_api";
   }
 
@@ -383,7 +389,7 @@ export function getTransitStationSystem(station: TransitStation): TransitStation
 export function getTransitStationSystemLabel(station: TransitStation): string {
   const system = getTransitStationSystem(station);
   if (system === "new_api") return "New API";
-  if (system === "sub_to_api") return "Sub2API";
+  if (system === "sub_to_api") return "Subway API";
   if (system === "custom") return "自定义系统";
   return "未知系统";
 }
