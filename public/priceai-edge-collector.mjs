@@ -14,18 +14,26 @@ const DEFAULT_WIND_CONTROL_COOLDOWN_SECONDS = 300;
 const DEFAULT_WIND_CONTROL_THRESHOLD = 3;
 const DEFAULT_POST_BATCH_SIZE = 100;
 const DEFAULT_FULL_SNAPSHOT_OFFER_LIMIT = 200;
+const DEFAULT_UPLOAD_TIMEOUT_MS = 90_000;
+const DEFAULT_DIRECT_TIMEOUT_MS = 15_000;
 const MAX_DISCOVERED_TOKENS = 3;
 const MAX_CATEGORY_PAGES = 10;
 
 const args = parseArgs(process.argv.slice(2));
 const explicitMaxCycles = args.maxCycles || args["max-cycles"] || process.env.PRICEAI_AGENT_MAX_CYCLES;
+const primaryEndpoint = stripTrailingSlash(
+  args.endpoint ||
+    process.env.PRICEAI_ENDPOINT ||
+    process.env.CRON_PUBLIC_BASE_URL ||
+    DEFAULT_ENDPOINT,
+);
+const explicitControlEndpoints = args.endpoints || args["endpoints"] || process.env.PRICEAI_ENDPOINTS;
 const config = {
-  endpoint: stripTrailingSlash(
-    args.endpoint ||
-      process.env.PRICEAI_ENDPOINT ||
-      process.env.CRON_PUBLIC_BASE_URL ||
-      DEFAULT_ENDPOINT,
-  ),
+  endpoint: primaryEndpoint,
+  controlEndpoints: configuredEndpoints(primaryEndpoint, explicitControlEndpoints, [
+    process.env.PRICEAI_FALLBACK_ENDPOINTS,
+    process.env.PRICEAI_RELAY_ENDPOINT,
+  ]),
   token:
     args.token ||
     process.env.PRICEAI_AGENT_TOKEN ||
@@ -44,11 +52,15 @@ const config = {
   windControlCooldownSeconds: integerInRange(args.windControlCooldownSeconds || args["wind-control-cooldown-seconds"] || process.env.PRICEAI_AGENT_WIND_CONTROL_COOLDOWN_SECONDS, 30, 3600, DEFAULT_WIND_CONTROL_COOLDOWN_SECONDS),
   windControlThreshold: integerInRange(args.windControlThreshold || args["wind-control-threshold"] || process.env.PRICEAI_AGENT_WIND_CONTROL_THRESHOLD, 1, 20, DEFAULT_WIND_CONTROL_THRESHOLD),
   postBatchSize: integerInRange(args.postBatchSize || args["post-batch-size"] || process.env.PRICEAI_AGENT_POST_BATCH_SIZE, 10, 500, DEFAULT_POST_BATCH_SIZE),
+  uploadTimeoutMs: integerInRange(args.uploadTimeoutMs || args["upload-timeout-ms"] || process.env.PRICEAI_AGENT_UPLOAD_TIMEOUT_MS, 15_000, 180_000, DEFAULT_UPLOAD_TIMEOUT_MS),
+  directTimeoutMs: integerInRange(args.directTimeoutMs || args["direct-timeout-ms"] || process.env.PRICEAI_AGENT_DIRECT_TIMEOUT_MS, 5_000, 60_000, DEFAULT_DIRECT_TIMEOUT_MS),
   fullSnapshotOfferLimit: integerInRange(args.fullSnapshotOfferLimit || args["full-snapshot-offer-limit"] || process.env.PRICEAI_AGENT_FULL_SNAPSHOT_OFFER_LIMIT, 0, 2000, DEFAULT_FULL_SNAPSHOT_OFFER_LIMIT),
   loop: truthy(args.loop) || truthy(process.env.PRICEAI_AGENT_LOOP),
   maxCycles: explicitMaxCycles ? integerInRange(explicitMaxCycles, 1, 1000000, 1) : null,
   dryRun: truthy(args.dryRun) || truthy(args["dry-run"]) || truthy(process.env.PRICEAI_AGENT_DRY_RUN),
 };
+
+let lastControlEndpoint = config.endpoint;
 
 if (!config.token) {
   console.error("Missing PRICEAI_AGENT_TOKEN. Pass it as env or --token.");
@@ -98,6 +110,7 @@ async function main() {
             processed: summary.processed,
             uploadFailed: summary.uploadFailed,
             maxRoundTasks: config.maxRoundTasks,
+            controlPlane: controlPlaneDetails(),
           },
         }).catch((error) => {
           console.error(`[priceai-edge] heartbeat finish failed: ${errorMessage(error)}`);
@@ -110,7 +123,7 @@ async function main() {
           finishedAt: new Date().toISOString(),
           failureCount: 1,
           message: errorMessage(error),
-          details: { cycle, phase: "cycle" },
+          details: { cycle, phase: "cycle", controlPlane: controlPlaneDetails() },
         }).catch((heartbeatError) => {
           console.error(`[priceai-edge] heartbeat failure failed: ${errorMessage(heartbeatError)}`);
         });
@@ -228,23 +241,22 @@ async function runCycle(startedAt = new Date().toISOString()) {
 }
 
 async function fetchTasks(options = {}) {
-  const url = new URL(`${config.endpoint}/api/admin/collector-agent/tasks`);
-  url.searchParams.set("kind", config.kind);
-  url.searchParams.set("family", config.family);
-  url.searchParams.set("limit", String(config.limit));
+  const searchParams = new URLSearchParams();
+  searchParams.set("kind", config.kind);
+  searchParams.set("family", config.family);
+  searchParams.set("limit", String(config.limit));
   if (config.shardCount > 1) {
-    url.searchParams.set("shardCount", String(config.shardCount));
-    url.searchParams.set("shardIndex", String(config.shardIndex));
+    searchParams.set("shardCount", String(config.shardCount));
+    searchParams.set("shardIndex", String(config.shardIndex));
   }
-  if (options.staleBefore) url.searchParams.set("staleBefore", options.staleBefore);
+  if (options.staleBefore) searchParams.set("staleBefore", options.staleBefore);
   if (options.excludeSourceIds?.length) {
-    url.searchParams.set("excludeSourceIds", options.excludeSourceIds.join(","));
+    searchParams.set("excludeSourceIds", options.excludeSourceIds.join(","));
   }
 
-  const body = await fetchJson(url, {
+  const { body } = await fetchControlJson(`/api/admin/collector-agent/tasks?${searchParams.toString()}`, {
     headers: authHeaders(),
-    signal: AbortSignal.timeout(20_000),
-  });
+  }, "task request", 20_000);
 
   if (!body.ok) throw new Error(body.message || "Task request failed.");
   return Array.isArray(body.tasks) ? body.tasks : [];
@@ -474,7 +486,10 @@ function crawlRunPayload(target, status, message, offers, extraDetails = {}) {
         shardCount: config.shardCount,
         shardIndex: config.shardIndex,
         postBatchSize: config.postBatchSize,
+        uploadTimeoutMs: config.uploadTimeoutMs,
+        directTimeoutMs: config.directTimeoutMs,
       },
+      controlPlane: controlPlaneDetails(),
       fullSnapshot: false,
       ...extraDetails,
     }),
@@ -482,15 +497,14 @@ function crawlRunPayload(target, status, message, offers, extraDetails = {}) {
 }
 
 async function uploadCrawlRunPayload(payload) {
-  const body = await fetchJson(`${config.endpoint}/api/admin/crawl-log`, {
+  const { body } = await fetchControlJson("/api/admin/crawl-log", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...authHeaders(),
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(30_000),
-  });
+  }, "crawl-log upload", config.uploadTimeoutMs);
   if (!body.ok) throw new Error(body.message || "Upload failed.");
   return body;
 }
@@ -514,23 +528,26 @@ async function postCollectorHeartbeat(status, input = {}) {
       family: config.family,
       kind: config.kind,
       limit: config.limit,
+      postBatchSize: config.postBatchSize,
+      uploadTimeoutMs: config.uploadTimeoutMs,
+      directTimeoutMs: config.directTimeoutMs,
       shardCount: config.shardCount,
       shardIndex: config.shardIndex,
       round: config.round,
       loop: config.loop,
+      controlPlane: controlPlaneDetails(),
       ...(input.details || {}),
     }),
   };
 
-  const body = await fetchJson(`${config.endpoint}/api/admin/collector-heartbeat`, {
+  const { body } = await fetchControlJson("/api/admin/collector-heartbeat", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...authHeaders(),
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(15_000),
-  });
+  }, "heartbeat upload", 15_000);
   if (!body.ok) throw new Error(body.message || "Heartbeat upload failed.");
 }
 
@@ -550,7 +567,11 @@ async function fetchJson(url, init = {}) {
   } catch {
     throw new Error(`${url} returned non-JSON response: ${text.slice(0, 180)}`);
   }
-  if (!response.ok) throw new Error(body?.message || `${url} returned HTTP ${response.status}`);
+  if (!response.ok) {
+    const error = new Error(body?.message || `${url} returned HTTP ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
   return body;
 }
 
@@ -812,6 +833,116 @@ function parseArgs(values) {
 
 function authHeaders() {
   return { "x-admin-password": config.token };
+}
+
+async function fetchControlJson(path, init = {}, label = "control-plane request", timeoutMs = null) {
+  const errors = [];
+
+  for (const endpoint of config.controlEndpoints) {
+    const url = controlPlaneUrl(endpoint, path);
+    try {
+      const requestTimeoutMs = controlRequestTimeoutMs(endpoint, timeoutMs);
+      const requestInit = requestTimeoutMs ? { ...init, signal: AbortSignal.timeout(requestTimeoutMs) } : init;
+      const body = await fetchJson(url, requestInit);
+      lastControlEndpoint = endpoint;
+      return { body, endpoint };
+    } catch (error) {
+      errors.push(`${endpointHost(endpoint)}: ${errorMessage(error)}`);
+      if (!shouldTryNextControlEndpoint(error) || endpoint === config.controlEndpoints.at(-1)) {
+        throw new Error(`${label} failed via ${endpointHost(endpoint)}: ${errorMessage(error)}`);
+      }
+      console.error(
+        `[priceai-edge] ${label} failed via ${endpointHost(endpoint)}; trying ${endpointHost(nextControlEndpoint(endpoint))}: ${errorMessage(error)}`,
+      );
+    }
+  }
+
+  throw new Error(`${label} failed via all control endpoints: ${errors.join("; ")}`);
+}
+
+function controlPlaneUrl(endpoint, path) {
+  const base = new URL(`${stripTrailingSlash(endpoint)}/`);
+  const [rawPath, rawSearch = ""] = String(path).split("?");
+  const basePath = base.pathname.replace(/\/$/, "");
+  const requestPath = rawPath.startsWith("/") ? rawPath : `/${rawPath}`;
+  base.pathname = `${basePath}${requestPath}`.replace(/\/{2,}/g, "/");
+  base.search = rawSearch ? `?${rawSearch}` : "";
+  return base;
+}
+
+function configuredEndpoints(primary, explicitEndpoints, fallbackValues) {
+  const endpoints = [];
+  const explicit = splitEndpoints(explicitEndpoints);
+  if (explicit.length) {
+    for (const endpoint of explicit) {
+      addConfiguredEndpoint(endpoints, endpoint);
+    }
+  } else {
+    addConfiguredEndpoint(endpoints, primary);
+  }
+  for (const rawValue of fallbackValues) {
+    for (const endpoint of splitEndpoints(rawValue)) {
+      addConfiguredEndpoint(endpoints, endpoint);
+    }
+  }
+  addConfiguredEndpoint(endpoints, primary);
+  return endpoints.length ? endpoints : [DEFAULT_ENDPOINT];
+}
+
+function splitEndpoints(value) {
+  if (!value) return [];
+  return String(value)
+    .split(",")
+    .map((endpoint) => endpoint.trim())
+    .filter(Boolean);
+}
+
+function addConfiguredEndpoint(endpoints, endpoint) {
+  const normalized = stripTrailingSlash(endpoint);
+  if (!normalized || endpoints.includes(normalized)) return;
+  endpoints.push(normalized);
+}
+
+function shouldTryNextControlEndpoint(error) {
+  const status = Number(error?.status || 0);
+  if ([408, 429, 500, 502, 503, 504, 520, 522, 524].includes(status)) return true;
+  if (status >= 400) return false;
+  return /fetch failed|timeout|timed out|connect|ECONNRESET|ECONNREFUSED|ENETUNREACH|EHOSTUNREACH|UND_ERR|SSL_connect|reset by peer/i.test(
+    errorMessage(error),
+  );
+}
+
+function nextControlEndpoint(endpoint) {
+  const index = config.controlEndpoints.indexOf(endpoint);
+  return config.controlEndpoints[index + 1] || endpoint;
+}
+
+function controlRequestTimeoutMs(endpoint, timeoutMs) {
+  if (!timeoutMs) return null;
+  if (config.controlEndpoints.length > 1 && endpoint === config.controlEndpoints[0]) {
+    return Math.min(timeoutMs, config.directTimeoutMs);
+  }
+  return timeoutMs;
+}
+
+function controlPlaneDetails() {
+  return {
+    mode: controlEndpointMode(lastControlEndpoint),
+    activeHost: endpointHost(lastControlEndpoint),
+    endpoints: config.controlEndpoints.map(endpointHost),
+  };
+}
+
+function controlEndpointMode(endpoint) {
+  return endpoint === config.controlEndpoints[0] ? "direct" : "relay";
+}
+
+function endpointHost(endpoint) {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return endpoint;
+  }
 }
 
 function cleanText(value) {
