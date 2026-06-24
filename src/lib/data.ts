@@ -17,6 +17,11 @@ import {
   type OfferFilterTagFacet,
   type OfferFilterTagId,
 } from "./offer-filter-tags";
+import {
+  readPublicApiSnapshot,
+  writePublicApiSnapshot,
+  type PublicApiSnapshotPayload,
+} from "./public-api-snapshots";
 import { getFallbackRiskReviewSettingsSummary, getRiskReviewSettingsSummary } from "./risk-review-settings";
 import { normalizePublicOfferLimit, normalizePublicOfferOffset } from "./public-offer-query";
 import { PRICE_DATA_CACHE_TTL_MS } from "./public-cache-policy";
@@ -60,6 +65,13 @@ const ADMIN_DATA_CACHE_TTL_MS = 120_000;
 const ADMIN_OFFER_SAMPLE_LIMIT = 80;
 const EXPLORER_OFFER_SEARCH_TEXT_MAX_LENGTH = 480;
 const STALE_PUBLIC_DATA_MESSAGE = "报价服务响应变慢，已先显示最近缓存结果。";
+const PUBLIC_EXPLORER_SNAPSHOT_KEY = "default";
+const PUBLIC_OFFERS_SNAPSHOT_KEY = "default:limit:80";
+const PUBLIC_OFFERS_SNAPSHOT_LIMIT = 80;
+const PUBLIC_OFFERS_SNAPSHOT_OFFSET = 0;
+const PUBLIC_PRODUCT_OFFERS_SNAPSHOT_LIMIT = 80;
+const PUBLIC_PRODUCT_OFFERS_SNAPSHOT_OFFSET = 0;
+const PUBLIC_PRODUCT_OFFERS_SNAPSHOT_PRODUCT_LIMIT = 12;
 const RAW_OFFER_PUBLIC_SELECT_FIELDS = [
   "id",
   "source_id",
@@ -120,6 +132,29 @@ type PublicRiskFeedbackAggregate = {
 
 const DATA_UNAVAILABLE_MESSAGE = "真实报价数据暂时不可用，请稍后刷新。";
 
+type PublicProductOffersResult = {
+  offers: RawOffer[];
+  total: number;
+  filterFacets: OfferFilterTagFacet[];
+  activeFilterTags: OfferFilterTagId[];
+  limited?: boolean;
+  generatedAt: string;
+  degraded?: boolean;
+  message?: string | null;
+};
+
+type PublicOffersResult = {
+  rows: Array<{
+    offer: RawOffer;
+    product: CanonicalProduct;
+  }>;
+  total: number;
+  limited?: boolean;
+  generatedAt: string;
+  degraded?: boolean;
+  message?: string | null;
+};
+
 type PublicOfferPageRow = Record<string, unknown> & {
   total_count?: number | string | null;
   product_id?: string | null;
@@ -153,6 +188,7 @@ type OfferListFilters = {
   sort?: string | null;
   limit?: number;
   offset?: number;
+  skipSnapshot?: boolean;
 };
 
 export type AdminOfferMaintenanceScope = "visible" | "hidden";
@@ -183,6 +219,72 @@ export function clearPublicDataCache(): void {
   clearAdminDataCache();
   productOffersCache.clear();
   productOfferFacetsCache.clear();
+}
+
+export async function refreshPublicApiSnapshots(): Promise<{
+  explorer: boolean;
+  offers: boolean;
+  productOffers: Array<{ key: string; ok: boolean }>;
+}> {
+  const explorerData = await buildExplorerData({ skipSnapshot: true });
+  const explorer = !explorerData.degraded && await writePublicApiSnapshot({
+    kind: "explorer",
+    key: PUBLIC_EXPLORER_SNAPSHOT_KEY,
+    payload: explorerData,
+    generatedAt: explorerData.generatedAt,
+  });
+
+  const offersData = await loadPublicOffers({
+    limit: PUBLIC_OFFERS_SNAPSHOT_LIMIT,
+    offset: PUBLIC_OFFERS_SNAPSHOT_OFFSET,
+    skipSnapshot: true,
+  });
+  const offers = !offersData.degraded && await writePublicApiSnapshot({
+    kind: "offers",
+    key: PUBLIC_OFFERS_SNAPSHOT_KEY,
+    payload: offersData,
+    generatedAt: offersData.generatedAt,
+  });
+
+  const products = explorerData.products
+    .filter((product) => product.offerCount > 0)
+    .sort((a, b) => {
+      const offerDelta = b.offerCount - a.offerCount;
+      if (offerDelta !== 0) return offerDelta;
+      return a.id.localeCompare(b.id);
+    })
+    .slice(0, PUBLIC_PRODUCT_OFFERS_SNAPSHOT_PRODUCT_LIMIT);
+
+  const productOffers: Array<{ key: string; ok: boolean }> = [];
+  for (const product of products) {
+    const value = await loadPublicProductOffers(product.id, {
+      limit: PUBLIC_PRODUCT_OFFERS_SNAPSHOT_LIMIT,
+      offset: PUBLIC_PRODUCT_OFFERS_SNAPSHOT_OFFSET,
+      filterTags: [],
+      query: "",
+      excludeQuery: "",
+      skipSnapshot: true,
+    });
+    const key = publicProductOffersSnapshotKey(product.id);
+    let ok = !value.degraded && await writePublicApiSnapshot({
+      kind: "product_offers",
+      key,
+      payload: value,
+      generatedAt: value.generatedAt,
+    });
+    if (product.slug && product.slug !== product.id) {
+      ok = ok && await writePublicApiSnapshot({
+        kind: "product_offers",
+        key: publicProductOffersSnapshotKey(product.slug),
+        payload: value,
+        generatedAt: value.generatedAt,
+      });
+    }
+    productOffers.push({ key, ok });
+  }
+
+  clearPublicDataCache();
+  return { explorer, offers, productOffers };
 }
 
 export function clearAdminDataCache(): void {
@@ -380,7 +482,28 @@ export async function getExplorerData(): Promise<ExplorerData> {
   return explorerDataPromise;
 }
 
-async function buildExplorerData(): Promise<ExplorerData> {
+async function buildExplorerData(options: { skipSnapshot?: boolean } = {}): Promise<ExplorerData> {
+  if (!options.skipSnapshot) {
+    const snapshot = await readPublicApiSnapshot<ExplorerData>("explorer", PUBLIC_EXPLORER_SNAPSHOT_KEY);
+    if (snapshot && isExplorerDataSnapshot(snapshot.value)) {
+      return hydrateGeneratedAt(snapshot);
+    }
+  }
+
+  const value = await buildExplorerDataFromSource();
+  if (!options.skipSnapshot && !value.degraded) {
+    await writePublicApiSnapshot({
+      kind: "explorer",
+      key: PUBLIC_EXPLORER_SNAPSHOT_KEY,
+      payload: value,
+      generatedAt: value.generatedAt,
+    });
+  }
+
+  return value;
+}
+
+async function buildExplorerDataFromSource(): Promise<ExplorerData> {
   const rpcData = await getExplorerDataFromDatabase();
   if (rpcData) return rpcData;
 
@@ -869,6 +992,71 @@ function preferStaleProductOffers<T extends {
     degraded: true,
     message: STALE_PUBLIC_DATA_MESSAGE,
   };
+}
+
+function hydrateGeneratedAt<T extends { generatedAt: string }>(snapshot: PublicApiSnapshotPayload<T>): T {
+  return {
+    ...snapshot.value,
+    generatedAt: snapshot.generatedAt || snapshot.value.generatedAt,
+  };
+}
+
+function isExplorerDataSnapshot(value: unknown): value is ExplorerData {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<ExplorerData>;
+  return typeof record.generatedAt === "string" &&
+    typeof record.configured === "boolean" &&
+    Array.isArray(record.products) &&
+    Array.isArray(record.sources) &&
+    typeof record.offerTotal === "number";
+}
+
+function isProductOffersSnapshot(value: unknown): value is PublicProductOffersResult {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<PublicProductOffersResult>;
+  return typeof record.generatedAt === "string" &&
+    Array.isArray(record.offers) &&
+    typeof record.total === "number" &&
+    Array.isArray(record.filterFacets) &&
+    Array.isArray(record.activeFilterTags);
+}
+
+function isPublicOffersSnapshot(value: unknown): value is PublicOffersResult {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Partial<PublicOffersResult>;
+  return typeof record.generatedAt === "string" &&
+    Array.isArray(record.rows) &&
+    typeof record.total === "number";
+}
+
+function isDefaultOfferListSnapshotRequest(filters: OfferListFilters): boolean {
+  return filters.limit === PUBLIC_OFFERS_SNAPSHOT_LIMIT &&
+    filters.offset === PUBLIC_OFFERS_SNAPSHOT_OFFSET &&
+    !filters.platform &&
+    !filters.productType &&
+    !filters.stock &&
+    !filters.query &&
+    filters.minPrice == null &&
+    filters.maxPrice == null &&
+    !filters.sort;
+}
+
+function isDefaultProductOffersSnapshotRequest(filters: {
+  limit: number;
+  offset: number;
+  filterTags: OfferFilterTagId[];
+  query: string;
+  excludeQuery: string;
+}): boolean {
+  return filters.limit === PUBLIC_PRODUCT_OFFERS_SNAPSHOT_LIMIT &&
+    filters.offset === PUBLIC_PRODUCT_OFFERS_SNAPSHOT_OFFSET &&
+    filters.filterTags.length === 0 &&
+    !filters.query &&
+    !filters.excludeQuery;
+}
+
+function publicProductOffersSnapshotKey(id: string): string {
+  return `default:${id}:limit:${PUBLIC_PRODUCT_OFFERS_SNAPSHOT_LIMIT}`;
 }
 
 function filterAdminOfferMaintenanceRows(offers: RawOffer[], query: string): RawOffer[] {
@@ -1528,10 +1716,32 @@ async function loadPublicProductOffers(
     filterTags: OfferFilterTagId[];
     query: string;
     excludeQuery: string;
+    skipSnapshot?: boolean;
   },
-) {
+) : Promise<PublicProductOffersResult> {
+  const snapshotEligible = isDefaultProductOffersSnapshotRequest(filters);
+  if (snapshotEligible && !filters.skipSnapshot) {
+    const snapshot = await readPublicApiSnapshot<PublicProductOffersResult>(
+      "product_offers",
+      publicProductOffersSnapshotKey(id),
+    );
+    if (snapshot && isProductOffersSnapshot(snapshot.value)) {
+      return hydrateGeneratedAt(snapshot);
+    }
+  }
+
   const rpcData = await getPublicProductOffersFromDatabase(id, filters);
-  if (rpcData) return rpcData;
+  if (rpcData) {
+    if (snapshotEligible && !filters.skipSnapshot && !rpcData.degraded) {
+      await writePublicApiSnapshot({
+        kind: "product_offers",
+        key: publicProductOffersSnapshotKey(id),
+        payload: rpcData,
+        generatedAt: rpcData.generatedAt,
+      });
+    }
+    return rpcData;
+  }
 
   const { limit, offset, filterTags, query, excludeQuery } = filters;
   const excludeTerms = parseProductOfferKeywords(excludeQuery);
@@ -1563,7 +1773,7 @@ async function loadPublicProductOffers(
   const total = offers.length;
   const page = offers.slice(offset, offset + limit);
 
-  return {
+  const fallbackValue = {
     offers: page,
     total,
     filterFacets: buildOfferFilterFacets(productOffers),
@@ -1573,6 +1783,17 @@ async function loadPublicProductOffers(
     degraded: publicData.degraded,
     message: publicData.message,
   };
+
+  if (snapshotEligible && !filters.skipSnapshot && !fallbackValue.degraded) {
+    await writePublicApiSnapshot({
+      kind: "product_offers",
+      key: publicProductOffersSnapshotKey(id),
+      payload: fallbackValue,
+      generatedAt: fallbackValue.generatedAt,
+    });
+  }
+
+  return fallbackValue;
 }
 
 async function getPublicProductOffersFromDatabase(
@@ -1726,6 +1947,33 @@ function buildProductOfferSearchHaystack(offer: RawOffer): string {
 }
 
 export async function listPublicOffers(filters: OfferListFilters = {}) {
+  const normalizedFilters = {
+    ...filters,
+    limit: normalizePublicOfferLimit(filters.limit),
+    offset: normalizePublicOfferOffset(filters.offset),
+  };
+  const snapshotEligible = isDefaultOfferListSnapshotRequest(normalizedFilters);
+  if (snapshotEligible && !normalizedFilters.skipSnapshot) {
+    const snapshot = await readPublicApiSnapshot<PublicOffersResult>("offers", PUBLIC_OFFERS_SNAPSHOT_KEY);
+    if (snapshot && isPublicOffersSnapshot(snapshot.value)) {
+      return hydrateGeneratedAt(snapshot);
+    }
+  }
+
+  const value = await loadPublicOffers(normalizedFilters);
+  if (snapshotEligible && !normalizedFilters.skipSnapshot && !value.degraded) {
+    await writePublicApiSnapshot({
+      kind: "offers",
+      key: PUBLIC_OFFERS_SNAPSHOT_KEY,
+      payload: value,
+      generatedAt: value.generatedAt,
+    });
+  }
+
+  return value;
+}
+
+async function loadPublicOffers(filters: OfferListFilters & { skipSnapshot?: boolean } = {}): Promise<PublicOffersResult> {
   const rpcData = await listPublicOffersFromDatabase(filters);
   if (rpcData) return rpcData;
 

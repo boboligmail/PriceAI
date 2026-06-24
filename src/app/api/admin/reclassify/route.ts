@@ -1,7 +1,7 @@
 import { canonicalCatalog, classifyOffer } from "@/lib/catalog";
 import { getAdminPasswordFromRequest } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
-import { clearPublicDataCache } from "@/lib/data";
+import { clearPublicDataCache, refreshPublicApiSnapshots } from "@/lib/data";
 import { requireAdminPassword } from "@/lib/env";
 import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
 import { getSupabaseServerClient } from "@/lib/supabase";
@@ -90,12 +90,14 @@ export async function POST(request: Request) {
 
     clearPublicDataCache();
     revalidatePublicOfferPaths();
+    const snapshotRefresh = await refreshSnapshotsAfterMutation();
 
     return Response.json({
       ok: true,
       productCount: canonicalCatalog.length,
       updatedCount,
       inactiveProductCount: inactiveIds.length,
+      snapshotRefresh,
       distribution: Object.fromEntries(distribution.entries()),
     });
   } catch (error) {
@@ -104,6 +106,15 @@ export async function POST(request: Request) {
       { ok: false, message: safeApiErrorMessage(error, "重建分类失败。") },
       { status: 500 },
     );
+  }
+}
+
+async function refreshSnapshotsAfterMutation(): Promise<Awaited<ReturnType<typeof refreshPublicApiSnapshots>> | null> {
+  try {
+    return await refreshPublicApiSnapshots();
+  } catch (error) {
+    console.warn("admin reclassify: public API snapshot refresh failed", error);
+    return null;
   }
 }
 

@@ -397,3 +397,16 @@ node_modules/.bin/wrangler tail priceai-cloudflare-poc --format json --sampling-
 - 主报价分页 RPC 成功时，即使 Facets RPC 抛出异常，也继续返回当前页报价。
 - Facets 异常只记录 warning，不触发全表 fallback 或整页失败。
 - 该行为已加入性能 guard，避免辅助筛选统计再次影响核心报价列表。
+
+### 2026-06-24：C2-1 / C2-2 公开 API 快照化
+
+执行方向：
+
+- 新增 `public_api_snapshots` 表，保存公开 API 的预生成 JSON。
+- `/api/explorer` 优先读取 `explorer/default` 快照。
+- `/api/offers?limit=80&offset=0` 且无筛选时，优先读取全站默认报价列表快照。
+- `/api/products/[id]/offers?limit=80&offset=0` 且无筛选时，优先读取商品默认第一页报价快照。
+- 筛选、搜索、排除词和翻页仍走现有 RPC，避免牺牲功能完整性。
+- 采集写入、手工报价、隐藏报价、重分类后主动刷新快照；同时提供受保护的手动刷新接口。
+
+本阶段不调整正常用户的 Next.js 预取策略。预取属于浏览体验的一部分，异常数据中心流量后续用 WAF / rate limit / challenge 处理。

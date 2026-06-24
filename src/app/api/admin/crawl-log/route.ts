@@ -7,7 +7,7 @@ import {
 } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import { normalizeCollectorKind } from "@/lib/collector-registry";
-import { clearPublicDataCache } from "@/lib/data";
+import { clearPublicDataCache, refreshPublicApiSnapshots } from "@/lib/data";
 import { requireAdminOrCronPassword } from "@/lib/env";
 import { pruneOperationalLogs } from "@/lib/operational-logs";
 import { revalidatePublicOfferPaths } from "@/lib/public-revalidation";
@@ -60,6 +60,7 @@ export async function POST(request: Request) {
     const runs = isBatch ? batchSchema.parse(rawBody).runs : [crawlLogPayloadSchema.parse(rawBody)];
     const results = [];
     let shouldClearCache = false;
+    let snapshotRefresh: Awaited<ReturnType<typeof refreshPublicApiSnapshots>> | null = null;
 
     for (const run of runs) {
       const result = await saveCrawlLogRun(supabase, run);
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
     if (shouldClearCache) {
       clearPublicDataCache();
       revalidatePublicOfferPaths();
+      snapshotRefresh = await refreshSnapshotsAfterMutation("admin crawl log");
     }
 
     const totals = aggregateResults(results);
@@ -81,6 +83,7 @@ export async function POST(request: Request) {
       writtenCount: totals.writtenCount,
       unchangedCount: totals.unchangedCount,
       refreshedCount: totals.refreshedCount,
+      snapshotRefresh,
       runCount: results.length,
       results: isBatch ? results.map(compactResult) : undefined,
     });
@@ -90,6 +93,15 @@ export async function POST(request: Request) {
       { ok: false, message: safeApiErrorMessage(error, "记录采集结果失败。") },
       { status: error instanceof z.ZodError ? 400 : 500 },
     );
+  }
+}
+
+async function refreshSnapshotsAfterMutation(scope: string): Promise<Awaited<ReturnType<typeof refreshPublicApiSnapshots>> | null> {
+  try {
+    return await refreshPublicApiSnapshots();
+  } catch (error) {
+    console.warn(`${scope}: public API snapshot refresh failed`, error);
+    return null;
   }
 }
 
