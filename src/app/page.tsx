@@ -416,7 +416,6 @@ export default function Home() {
 
       <footer className="bg-[var(--color-page)]">
         <div className="mx-auto flex max-w-[1500px] flex-col items-center gap-5 border-x border-[var(--color-border-soft)] px-5 py-6 text-center text-sm text-[var(--color-text-muted)] sm:px-8">
-          <SponsoredPlacementPreview kind="listFooter" className="w-full max-w-4xl" />
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/guides" className="font-semibold text-[var(--color-text-primary)] hover:text-[var(--color-primary-hover)]">
               指南
@@ -433,6 +432,7 @@ export default function Home() {
             </a>
           </div>
           <p className="max-w-[72ch]">PriceAI 不参与交易。购买前请回到原平台核验价格、库存、交付方式和售后规则。</p>
+          <SponsoredPlacementPreview kind="listFooter" className="w-full max-w-5xl" />
         </div>
       </footer>
     </div>

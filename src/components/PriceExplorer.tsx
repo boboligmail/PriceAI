@@ -889,8 +889,8 @@ export function PriceExplorer({
       </main>
 
       <footer className="px-5 py-8 text-center text-xs leading-6 text-[#5a6061] sm:px-8">
-        <SponsoredPlacementPreview kind="listFooter" className="mx-auto mb-5 max-w-4xl" />
         <p>价格仅供参考，实际价格、库存和售后规则以原平台为准。本工具不构成购买建议。</p>
+        <SponsoredPlacementPreview kind="listFooter" className="mx-auto mt-6 max-w-5xl" />
       </footer>
     </div>
   );
