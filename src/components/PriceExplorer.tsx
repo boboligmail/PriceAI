@@ -2492,6 +2492,14 @@ function parseMerchantQuery(query: string): MerchantSearchQuery {
   const normalized = query.trim().toLowerCase();
   if (!normalized) return { normalized, isUrl: false, terms: [] };
 
+  if (!looksLikeMerchantUrlQuery(normalized)) {
+    const terms = new Set([normalized]);
+    for (const part of normalized.split(/[\s/]+/)) {
+      if (part) terms.add(part);
+    }
+    return { normalized, isUrl: false, terms: Array.from(terms).filter(Boolean) };
+  }
+
   try {
     const url = new URL(normalized.includes("://") ? normalized : `https://${normalized}`);
     const origin = url.origin.toLowerCase();
@@ -2506,12 +2514,14 @@ function parseMerchantQuery(query: string): MerchantSearchQuery {
     if (itemMatch?.[1]) terms.add(itemMatch[1].toLowerCase());
     return { normalized, isUrl: true, terms: Array.from(terms).filter(Boolean) };
   } catch {
-    const terms = new Set([normalized]);
-    for (const part of normalized.split(/[\s/]+/)) {
-      if (part) terms.add(part);
-    }
-    return { normalized, isUrl: false, terms: Array.from(terms).filter(Boolean) };
+    return { normalized, isUrl: false, terms: Array.from(new Set([normalized])).filter(Boolean) };
   }
+}
+
+function looksLikeMerchantUrlQuery(value: string): boolean {
+  if (value.includes("://")) return true;
+  if (/\/(?:shop|item)\//i.test(value)) return true;
+  return /^[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#]|$)/i.test(value);
 }
 
 function merchantMatchesQuery(merchant: PublicMerchantSummary, query: MerchantSearchQuery, haystack: string): boolean {
