@@ -3,6 +3,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { PriceExplorer } from "@/components/PriceExplorer";
 import { SubmissionFloater } from "@/components/SubmissionFloater";
 import { getExplorerData } from "@/lib/data";
+import { getSponsorSettingsSummary } from "@/lib/sponsor-settings";
 
 export const revalidate = 1800;
 
@@ -22,12 +23,15 @@ export const metadata: Metadata = {
 };
 
 export default async function ChannelsPage() {
-  const data = await getExplorerData();
+  const [data, sponsorSettings] = await Promise.all([
+    getExplorerData(),
+    getSponsorSettingsSummary().catch(() => null),
+  ]);
 
   return (
     <>
       <JsonLd data={buildChannelsJsonLd()} />
-      <PriceExplorer data={data} restoreStateFromUrl />
+      <PriceExplorer data={data} sponsorSettings={sponsorSettings} restoreStateFromUrl />
       <SubmissionFloater />
     </>
   );

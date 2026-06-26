@@ -23,6 +23,7 @@ import {
   type PublicApiSnapshotPayload,
 } from "./public-api-snapshots";
 import { getFallbackRiskReviewSettingsSummary, getRiskReviewSettingsSummary } from "./risk-review-settings";
+import { getFallbackSponsorSettingsSummary, getSponsorSettingsSummary } from "./sponsor-settings";
 import { normalizePublicOfferLimit, normalizePublicOfferOffset } from "./public-offer-query";
 import { PRICE_DATA_CACHE_TTL_MS } from "./public-cache-policy";
 import { seedRawOffers, seedSources } from "./sample-data";
@@ -1153,6 +1154,7 @@ export function getEmptyAdminSummary(isAuthenticated = false): AdminSummary {
     hiddenRawOffers: [],
     feedbackRawOffers: [],
     riskReviewSettings: getFallbackRiskReviewSettingsSummary("尚未加载风险预审配置。"),
+    sponsorSettings: getFallbackSponsorSettingsSummary("尚未加载赞助位配置。"),
   };
 }
 
@@ -1288,6 +1290,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       hiddenRawOffers: [],
       feedbackRawOffers: [],
       riskReviewSettings: getFallbackRiskReviewSettingsSummary(),
+      sponsorSettings: getFallbackSponsorSettingsSummary(),
     };
   }
 
@@ -1308,6 +1311,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
     apiModels,
     apiTransit,
     riskReviewSettings,
+    sponsorSettings,
   ] = await Promise.all([
     supabase.from("sources").select("*").order("name"),
     supabase.from("canonical_products").select("*").eq("is_active", true),
@@ -1353,6 +1357,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
     }, loadErrors),
     adminLoad("api-transit", "中转 API", getApiTransitAdminData({ isAuthenticated: true }), getEmptyApiTransitAdminData(true, "读取中转 API 后台数据失败。"), loadErrors),
     adminLoad("risk-review-settings", "风险预审配置", getRiskReviewSettingsSummary(), getFallbackRiskReviewSettingsSummary(), loadErrors),
+    adminLoad("sponsor-settings", "赞助位配置", getSponsorSettingsSummary(), getFallbackSponsorSettingsSummary(), loadErrors),
   ]);
 
   if (sourcesResult.error) recordAdminLoadError(loadErrors, "sources", "渠道源", sourcesResult.error);
@@ -1409,6 +1414,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
       hiddenRawOffers: hiddenOfferData.rows,
       feedbackRawOffers,
       riskReviewSettings,
+      sponsorSettings,
     };
   }
 
@@ -1431,6 +1437,7 @@ async function readAdminSummary(): Promise<AdminSummary> {
     hiddenRawOffers: hiddenOfferData.rows,
     feedbackRawOffers,
     riskReviewSettings,
+    sponsorSettings,
   };
 }
 

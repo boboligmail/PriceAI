@@ -16,6 +16,7 @@ import { HomeUrlCleaner } from "@/components/HomeUrlCleaner";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SponsoredPlacementPreview } from "@/components/SponsoredPlacementPreview";
+import { getSponsorSettingsSummary } from "@/lib/sponsor-settings";
 
 export const revalidate = 3600;
 
@@ -166,12 +167,14 @@ const homeFaqs = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const sponsorSettings = await getSponsorSettingsSummary().catch(() => null);
+
   return (
     <div className="min-h-screen bg-[var(--color-page)] text-[var(--color-text-body)]">
       <HomeUrlCleaner />
       <JsonLd data={buildHomeJsonLd()} />
-      <SponsoredPlacementPreview kind="topBanner" />
+      <SponsoredPlacementPreview kind="topBanner" settings={sponsorSettings} />
       <div className="sticky top-0 z-40 bg-[var(--color-page-translucent)] shadow-[var(--shadow-control)] backdrop-blur-xl">
         <SiteHeader activeSection="home" />
       </div>
@@ -293,7 +296,7 @@ export default function Home() {
               })}
             </div>
 
-            <SponsoredPlacementPreview kind="home" className="mx-auto mt-8 max-w-6xl" />
+            <SponsoredPlacementPreview kind="home" settings={sponsorSettings} className="mx-auto mt-8 max-w-6xl" />
 
             <div className="mx-auto mt-10 max-w-6xl">
               <p className="text-center text-xs font-semibold text-[var(--color-text-soft)]">覆盖常见 AI 订阅、模型与开发者入口</p>
@@ -432,7 +435,7 @@ export default function Home() {
             </a>
           </div>
           <p className="max-w-[72ch]">PriceAI 不参与交易。购买前请回到原平台核验价格、库存、交付方式和售后规则。</p>
-          <SponsoredPlacementPreview kind="listFooter" className="w-full max-w-5xl" />
+          <SponsoredPlacementPreview kind="listFooter" settings={sponsorSettings} className="w-full max-w-5xl" />
         </div>
       </footer>
     </div>

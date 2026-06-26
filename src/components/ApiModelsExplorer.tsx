@@ -40,6 +40,7 @@ import {
   type ApiProviderSummary,
   type ApiProviderType,
 } from "@/lib/api-models";
+import type { SponsorSettingsSummary } from "@/lib/sponsor-settings-shared";
 import { formatDateDay } from "@/lib/utils";
 
 const typeFilters = ["all", "free", "official", "subscription"] as const;
@@ -58,7 +59,13 @@ const typeFilterLabels: Record<TypeFilter, string> = {
   free: apiProviderTypeLabels.free,
 };
 
-export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
+export function ApiModelsExplorer({
+  dataset,
+  sponsorSettings = null,
+}: {
+  dataset: ApiModelDataset;
+  sponsorSettings?: SponsorSettingsSummary | null;
+}) {
   const [family, setFamily] = useState<FamilyFilter>("all");
   const [scopeMode, setScopeMode] = useState<ScopeMode>("models");
   const [query, setQuery] = useState("");
@@ -337,7 +344,7 @@ export function ApiModelsExplorer({ dataset }: { dataset: ApiModelDataset }) {
           </div>
         </div>
 
-        <SponsoredPlacementPreview kind="apiModels" />
+        <SponsoredPlacementPreview kind="apiModels" settings={sponsorSettings} />
 
         <div className="hidden space-y-3 rounded-lg bg-[#f2f4f4] p-3 shadow-[0_18px_50px_rgba(45,52,53,0.04)] ring-1 ring-[#adb3b4]/10 md:block">
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">

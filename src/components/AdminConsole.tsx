@@ -19,6 +19,7 @@ import {
   Inbox,
   KeyRound,
   Loader2,
+  Megaphone,
   MessageCircle,
   Pencil,
   Plus,
@@ -43,6 +44,7 @@ import {
   isCollectorKind,
   knownAutoCollectorHosts as createKnownAutoCollectorHosts,
 } from "@/lib/collector-registry";
+import { sponsorPlacementLabels } from "@/lib/sponsor-settings-shared";
 import type {
   AdminSummary,
   ChannelSubmission,
@@ -92,6 +94,7 @@ type ApiModelAdminModel = ApiModelAdminData["models"][number];
 type ApiProviderCandidate = ApiModelAdminData["providerCandidates"][number];
 type ApiProviderSubmission = ApiModelAdminData["providerSubmissions"][number];
 type RiskReviewSettings = AdminSummary["riskReviewSettings"];
+type SponsorSettings = AdminSummary["sponsorSettings"];
 type CollectorHealthData = AdminSummary["collectorHealth"];
 type CollectorHealthSourceRow = CollectorHealthData["sources"][number];
 type CollectorHealthNodeRow = CollectorHealthData["nodeSummaries"][number];
@@ -195,7 +198,7 @@ type ApiModelProbeResult = {
   };
 };
 
-type AdminTab = "review" | "todo" | "feedback" | "history" | "collect" | "health" | "official" | "apiModels" | "apiTransit" | "sources" | "manual" | "logs";
+type AdminTab = "review" | "todo" | "feedback" | "sponsors" | "history" | "collect" | "health" | "official" | "apiModels" | "apiTransit" | "sources" | "manual" | "logs";
 
 type RowFeedback = {
   id: string;
@@ -290,6 +293,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
   const [apiOfferPatches, setApiOfferPatches] = useState<Record<string, Partial<ApiModelAdminOffer>>>({});
   const [apiProviderSubmissions, setApiProviderSubmissions] = useState<ApiProviderSubmission[]>(data.apiModels.providerSubmissions || []);
   const [riskReviewSettings, setRiskReviewSettings] = useState<RiskReviewSettings>(data.riskReviewSettings);
+  const [sponsorSettings, setSponsorSettings] = useState<SponsorSettings>(data.sponsorSettings);
   const [activeTab, setActiveTab] = useState<AdminTab>("review");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -670,6 +674,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       { id: "review", label: "审核", count: reviewSubmissions.length, icon: <Inbox size={15} /> },
       { id: "todo", label: "待办", count: collectorTodoSubmissions.length, icon: <ClipboardList size={15} /> },
       { id: "feedback", label: "反馈", count: pendingFeedbackCount, icon: <Flag size={15} /> },
+      { id: "sponsors", label: "赞助", count: sponsorSettings.enabled ? activeSponsorPlacementCount(sponsorSettings) || null : null, icon: <Megaphone size={15} /> },
       { id: "history", label: "历史", count: null, icon: <History size={15} /> },
       { id: "collect", label: "采集", count: failedRunCount || null, icon: <RefreshCcw size={15} /> },
       { id: "health", label: "健康", count: collectorHealthIssueCount || null, icon: <Activity size={15} /> },
@@ -680,7 +685,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       { id: "manual", label: "维护", count: null, icon: <Plus size={15} /> },
       { id: "logs", label: "日志", count: data.crawlRuns.length, icon: <Clock size={15} /> },
     ],
-    [apiModels.offers.length, collectorHealthIssueCount, collectorTodoSubmissions.length, data.apiTransit.metrics.candidateOffers, data.apiTransit.metrics.pendingStations, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length],
+    [apiModels.offers.length, collectorHealthIssueCount, collectorTodoSubmissions.length, data.apiTransit.metrics.candidateOffers, data.apiTransit.metrics.pendingStations, data.crawlRuns.length, failedRunCount, officialPrices.currentPrices.length, pendingFeedbackCount, reviewSubmissions.length, sources.length, sponsorSettings],
   );
 
   /* ─── Keyboard shortcuts ─── */
@@ -1571,6 +1576,20 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
       setGlobalMessage({ type: "success", text: "风险预审模型配置已保存。" });
     } else {
       setGlobalMessage({ type: "error", text: result.message || "保存风险预审模型配置失败。" });
+    }
+  }
+
+  async function saveSponsorSettings(formData: FormData) {
+    setLoadingAction("sponsor-settings");
+    const payload = buildSponsorSettingsPayload(formData, sponsorSettings);
+    const result = await requestWithMethod("/api/admin/sponsor-settings", "PATCH", password, payload);
+    setLoadingAction(null);
+
+    if (result.ok && result.settings) {
+      setSponsorSettings(result.settings as SponsorSettings);
+      setGlobalMessage({ type: "success", text: "赞助位配置已保存，相关页面会在缓存刷新后生效。" });
+    } else {
+      setGlobalMessage({ type: "error", text: result.message || "保存赞助位配置失败。" });
     }
   }
 
@@ -2884,6 +2903,17 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                   </section>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Sponsors tab */}
+            {activeTab === "sponsors" && (
+              <div role="tabpanel" id="tabpanel-sponsors">
+                <SponsorSettingsPanel
+                  settings={sponsorSettings}
+                  loading={loadingAction === "sponsor-settings"}
+                  onSave={saveSponsorSettings}
+                />
               </div>
             )}
 
@@ -4601,6 +4631,159 @@ function RiskReviewSettingsPanel({
   );
 }
 
+function SponsorSettingsPanel({
+  settings,
+  loading,
+  onSave,
+}: {
+  settings: SponsorSettings;
+  loading: boolean;
+  onSave: (formData: FormData) => Promise<void>;
+}) {
+  const statusClass = settings.enabled
+    ? "bg-[#e8f3ec] text-[#2f7a4b]"
+    : "bg-[#f2f4f4] text-[#5a6061]";
+
+  return (
+    <section className="rounded-lg border border-[#adb3b4]/20 bg-white p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <Megaphone size={15} className="text-[#5a6061]" />
+            <h3 className="text-sm font-semibold text-[#202829]">赞助位配置</h3>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${statusClass}`}>
+              {settings.enabled ? "总开关已开启" : "总开关已关闭"}
+            </span>
+            <span className="rounded-full bg-[#eef3f8] px-2 py-0.5 text-xs font-semibold text-[#47657a]">
+              {activeSponsorPlacementCount(settings)} 个站位启用
+            </span>
+          </div>
+          <p className="mt-1 max-w-[78ch] text-xs leading-5 text-[#5a6061]">
+            控制前台赞助展示。关闭总开关时所有赞助位隐藏；每个站位仍会保留素材草稿。广告标识和“不影响排序”的边界由前台组件固定展示。
+          </p>
+          {settings.message ? <p className="mt-1 text-xs text-[#9b3328]">{settings.message}</p> : null}
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#8a9293]">
+          {settings.updatedAt ? <span>更新：{formatRelativeTime(settings.updatedAt)}</span> : <span>尚未保存</span>}
+        </div>
+      </div>
+
+      <form
+        className="mt-4 space-y-4"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await onSave(new FormData(event.currentTarget));
+        }}
+      >
+        <label className="flex items-center gap-2 rounded-lg bg-[#f2f4f4] px-3 py-2 text-sm font-medium text-[#2d3435]">
+          <input name="enabled" type="checkbox" defaultChecked={settings.enabled} className="h-4 w-4 accent-[#2d3435]" />
+          开启全站赞助展示
+        </label>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          {Object.entries(settings.placements).map(([kind, placement]) => {
+            return (
+              <fieldset key={kind} className="rounded-lg border border-[#adb3b4]/20 bg-[#f9f9f9] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-[#202829]">{sponsorPlacementLabel(kind)}</h4>
+                    <p className="mt-1 text-xs leading-5 text-[#5a6061]">
+                      {kind === "listFooter" ? "底部区域支持多张图片卡，适合放 AI 周边服务赞助。" : "展示为轻量横幅或图文卡片。"}
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20">
+                    <input name={`${kind}.enabled`} type="checkbox" defaultChecked={placement.enabled} className="h-4 w-4 accent-[#2d3435]" />
+                    启用站位
+                  </label>
+                </div>
+
+                {placement.creatives.length ? (
+                  <div className="mt-4 space-y-3">
+                    {placement.creatives.map((creative, index) => (
+                      <div key={creative.id} className="rounded-lg bg-white p-3 ring-1 ring-[#adb3b4]/20">
+                        <input type="hidden" name={`${kind}.${index}.id`} defaultValue={creative.id} />
+                        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-[#2d3435]">素材 {index + 1}</span>
+                          <label className="inline-flex items-center gap-2 text-xs font-medium text-[#2d3435]">
+                            <input name={`${kind}.${index}.enabled`} type="checkbox" defaultChecked={creative.enabled} className="h-4 w-4 accent-[#2d3435]" />
+                            启用素材
+                          </label>
+                        </div>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">素材状态</span>
+                            <select name={`${kind}.${index}.status`} defaultValue={creative.status} className={adminInputClassName}>
+                              <option value="live">上线</option>
+                              <option value="draft">草稿</option>
+                              <option value="paused">暂停</option>
+                              <option value="expired">过期</option>
+                            </select>
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">色调</span>
+                            <select name={`${kind}.${index}.tone`} defaultValue={creative.tone} className={adminInputClassName}>
+                              <option value="green">绿色</option>
+                              <option value="blue">蓝色</option>
+                              <option value="amber">琥珀色</option>
+                            </select>
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">标题</span>
+                            <input name={`${kind}.${index}.title`} defaultValue={creative.title} className={adminInputClassName} />
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">说明</span>
+                            <textarea name={`${kind}.${index}.description`} defaultValue={creative.description} rows={2} className={`${adminInputClassName} h-auto min-h-20 resize-y py-2 leading-6`} />
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">跳转链接</span>
+                            <input name={`${kind}.${index}.targetUrl`} defaultValue={creative.targetUrl} className={adminInputClassName} />
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">图片 URL</span>
+                            <input name={`${kind}.${index}.imageUrl`} defaultValue={creative.imageUrl || ""} placeholder="可留空，前台显示占位图形" className={adminInputClassName} />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">图片主标题</span>
+                            <input name={`${kind}.${index}.visualTitle`} defaultValue={creative.visualTitle || ""} className={adminInputClassName} />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">图片副信息</span>
+                            <input name={`${kind}.${index}.visualMeta`} defaultValue={creative.visualMeta || ""} className={adminInputClassName} />
+                          </label>
+                          <label className="block md:col-span-2">
+                            <span className="mb-1 block text-xs font-medium text-[#5a6061]">到期时间</span>
+                            <input name={`${kind}.${index}.endsAt`} defaultValue={formatDateTimeLocalValue(creative.endsAt)} type="datetime-local" className={adminInputClassName} />
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-lg bg-white px-3 py-2 text-xs text-[#5a6061] ring-1 ring-[#adb3b4]/20">
+                    当前站位没有默认素材。
+                  </p>
+                )}
+              </fieldset>
+            );
+          })}
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={loading}
+            className="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#2d3435] px-4 text-xs font-medium text-white transition-colors hover:bg-[#202829] disabled:opacity-60"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+            保存赞助配置
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function FeedbackFact({
   label,
   value,
@@ -4634,6 +4817,58 @@ function riskReviewSettingSourceLabel(value: RiskReviewSettings["source"]): stri
   if (value === "environment") return "环境变量";
   if (value === "default") return "默认值";
   return "未配置";
+}
+
+function buildSponsorSettingsPayload(formData: FormData, settings: SponsorSettings) {
+  const placements = Object.fromEntries(
+    Object.entries(settings.placements).map(([kind, placement]) => {
+      const creatives = placement.creatives.map((creative, index) => ({
+        id: sponsorFormText(formData, `${kind}.${index}.id`) || creative.id,
+        enabled: formData.get(`${kind}.${index}.enabled`) === "on",
+        status: sponsorFormText(formData, `${kind}.${index}.status`) || creative.status,
+        title: sponsorFormText(formData, `${kind}.${index}.title`) || creative.title,
+        description: sponsorFormText(formData, `${kind}.${index}.description`) || "",
+        targetUrl: sponsorFormText(formData, `${kind}.${index}.targetUrl`) || "/commercial#slots",
+        imageUrl: sponsorFormText(formData, `${kind}.${index}.imageUrl`) || null,
+        visualTitle: sponsorFormText(formData, `${kind}.${index}.visualTitle`) || null,
+        visualMeta: sponsorFormText(formData, `${kind}.${index}.visualMeta`) || null,
+        tone: sponsorFormText(formData, `${kind}.${index}.tone`) || creative.tone,
+        startsAt: creative.startsAt || null,
+        endsAt: sponsorFormText(formData, `${kind}.${index}.endsAt`) || null,
+      }));
+
+      return [kind, {
+        enabled: formData.get(`${kind}.enabled`) === "on",
+        creatives,
+      }];
+    }),
+  );
+
+  return {
+    enabled: formData.get("enabled") === "on",
+    placements,
+  };
+}
+
+function sponsorFormText(formData: FormData, key: string): string {
+  const value = formData.get(key);
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function activeSponsorPlacementCount(settings: SponsorSettings): number {
+  return Object.values(settings.placements).filter((placement) => placement.enabled).length;
+}
+
+function sponsorPlacementLabel(kind: string): string {
+  return sponsorPlacementLabels[kind as keyof typeof sponsorPlacementLabels] || "底部赞助展示区";
+}
+
+function formatDateTimeLocalValue(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
 function FeedbackEvidenceLink({ url }: { url: string }) {

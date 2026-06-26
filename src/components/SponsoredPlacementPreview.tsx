@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { ArrowRight, ExternalLink, Megaphone, X } from "lucide-react";
 import { useCallback, useSyncExternalStore } from "react";
-
-type SponsoredPlacementKind =
-  | "topBanner"
-  | "home"
-  | "apiTransit"
-  | "apiTransitModels"
-  | "apiModels"
-  | "listFooter";
+import {
+  defaultFooterSponsorCreatives,
+  getVisibleSponsorCreatives,
+  type SponsorCreative,
+  type SponsorPlacementKind,
+  type SponsorSettingsSummary,
+} from "@/lib/sponsor-settings-shared";
 
 type SponsoredPlacementPreviewProps = {
-  kind: SponsoredPlacementKind;
+  kind: SponsorPlacementKind;
+  settings?: SponsorSettingsSummary | null;
   className?: string;
 };
 
@@ -32,20 +32,12 @@ type PlacementCopy = {
   tone: "green" | "blue" | "amber";
 };
 
-type FooterSponsorCard = {
-  title: string;
-  body: string;
-  visualTitle: string;
-  visualMeta: string;
-  tone: "green" | "blue" | "amber";
-};
-
 const showSponsorPreview = process.env.NEXT_PUBLIC_PRICEAI_SHOW_SPONSOR_PREVIEW === "1";
 const dismissStoragePrefix = "priceai.sponsor.preview.dismissed";
 const dismissEventName = "priceai:sponsor-dismissed";
 const inMemoryDismissedKeys = new Set<string>();
 
-const placementCopy: Record<SponsoredPlacementKind, PlacementCopy> = {
+const placementCopy: Record<SponsorPlacementKind, PlacementCopy> = {
   topBanner: {
     id: "top-banner",
     label: "广告",
@@ -132,35 +124,14 @@ const placementCopy: Record<SponsoredPlacementKind, PlacementCopy> = {
   },
 };
 
-const footerSponsorCards: FooterSponsorCard[] = [
-  {
-    title: "云服务器 / 网络线路",
-    body: "适合 VPS、轻量云、CDN、网络线路和基础设施服务。",
-    visualTitle: "Cloud Stack",
-    visualMeta: "VPS · CDN · Network",
-    tone: "green",
-  },
-  {
-    title: "购买前检测工具",
-    body: "适合 IP 纯净度、支付环境、账号安全和风控检测工具。",
-    visualTitle: "Risk Check",
-    visualMeta: "IP · Pay · Safety",
-    tone: "blue",
-  },
-  {
-    title: "开发者工具赞助",
-    body: "适合监控、域名、日志、部署、API 周边和效率工具。",
-    visualTitle: "Dev Toolkit",
-    visualMeta: "Monitor · Domain · API",
-    tone: "amber",
-  },
-];
-
-export function SponsoredPlacementPreview({ kind, className = "" }: SponsoredPlacementPreviewProps) {
+export function SponsoredPlacementPreview({ kind, settings = null, className = "" }: SponsoredPlacementPreviewProps) {
   const copy = placementCopy[kind];
   const dismissStorageKey = `${dismissStoragePrefix}.${copy.id}.v2`;
   const previewEnabled = useSponsorPreviewEnabled();
   const dismissed = useDismissedState(dismissStorageKey);
+  const visibleCreatives = getVisibleSponsorCreatives(settings, kind);
+  const previewCreatives = previewEnabled ? getPreviewCreatives(kind) : [];
+  const creatives = visibleCreatives.length ? visibleCreatives : previewCreatives;
 
   const dismiss = useCallback(() => {
     inMemoryDismissedKeys.add(dismissStorageKey);
@@ -172,17 +143,17 @@ export function SponsoredPlacementPreview({ kind, className = "" }: SponsoredPla
     window.dispatchEvent(new Event(dismissEventName));
   }, [dismissStorageKey]);
 
-  if (!previewEnabled || dismissed) return null;
+  if (!creatives.length || dismissed) return null;
 
   if (kind === "topBanner") {
-    return <TopNoticeAd copy={copy} className={className} onDismiss={dismiss} />;
+    return <TopNoticeAd copy={copy} creative={creatives[0]} className={className} onDismiss={dismiss} />;
   }
 
   if (kind === "listFooter") {
-    return <FooterSponsorSection copy={copy} className={className} onDismiss={dismiss} />;
+    return <FooterSponsorSection copy={copy} creatives={creatives} className={className} onDismiss={dismiss} />;
   }
 
-  return <DisplayAdCard copy={copy} className={className} onDismiss={dismiss} />;
+  return <DisplayAdCard copy={copy} creative={creatives[0]} className={className} onDismiss={dismiss} />;
 }
 
 function useSponsorPreviewEnabled() {
@@ -209,10 +180,12 @@ function isLocalPreviewHostname(hostname: string) {
 
 function TopNoticeAd({
   copy,
+  creative,
   className,
   onDismiss,
 }: {
   copy: PlacementCopy;
+  creative: SponsorCreative;
   className: string;
   onDismiss: () => void;
 }) {
@@ -223,7 +196,7 @@ function TopNoticeAd({
     >
       <div className="mx-auto flex min-h-11 max-w-[1500px] items-center gap-3 px-4 sm:px-8">
         <Link
-          href="/commercial#slots"
+          href={creative.targetUrl || "/commercial#slots"}
           className="flex min-w-0 flex-1 items-center justify-center gap-2 text-sm leading-6 text-[#2f6247] transition hover:text-[#1d4d34]"
         >
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-extrabold text-[#2f7a4b] ring-1 ring-[#b9d8c9]">
@@ -231,9 +204,9 @@ function TopNoticeAd({
             {copy.label}
           </span>
           <span className="truncate">
-            <span className="font-extrabold">{copy.title}</span>
+            <span className="font-extrabold">{creative.title || copy.title}</span>
             <span className="mx-2 text-[#7d9690]">/</span>
-            {copy.body}
+            {creative.description || copy.body}
           </span>
           <ArrowRight className="h-4 w-4 shrink-0" />
         </Link>
@@ -252,10 +225,12 @@ function TopNoticeAd({
 
 function DisplayAdCard({
   copy,
+  creative,
   className,
   onDismiss,
 }: {
   copy: PlacementCopy;
+  creative: SponsorCreative;
   className: string;
   onDismiss: () => void;
 }) {
@@ -289,11 +264,11 @@ function DisplayAdCard({
               {copy.slot}
             </span>
           </div>
-          <h2 className="mt-3 text-lg font-extrabold leading-tight text-[#202829] md:text-xl">{copy.title}</h2>
-          <p className="mt-2 max-w-[76ch] text-sm leading-7 text-[#5a6061]">{copy.body}</p>
+          <h2 className="mt-3 text-lg font-extrabold leading-tight text-[#202829] md:text-xl">{creative.title || copy.title}</h2>
+          <p className="mt-2 max-w-[76ch] text-sm leading-7 text-[#5a6061]">{creative.description || copy.body}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href="/commercial#slots"
+              href={creative.targetUrl || "/commercial#slots"}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-bold text-[#f8f8f8] transition hover:bg-[#1f2526]"
             >
               {copy.cta}
@@ -310,11 +285,15 @@ function DisplayAdCard({
         </div>
 
         <Link
-          href="/commercial#slots"
-          className={`block min-h-[128px] overflow-hidden rounded-md ring-1 ring-[#dfe4e5] transition hover:ring-[#adb3b4] ${visualToneClass(copy.tone)}`}
+          href={creative.targetUrl || "/commercial#slots"}
+          className={`block min-h-[128px] overflow-hidden rounded-md ring-1 ring-[#dfe4e5] transition hover:ring-[#adb3b4] ${visualToneClass(creative.tone || copy.tone)}`}
           aria-label={`查看${copy.eyebrow}投放要求`}
         >
-          <div className="flex h-full min-h-[128px] flex-col justify-between p-4">
+          <div className="relative flex h-full min-h-[128px] flex-col justify-between p-4">
+            {creative.imageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={creative.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : null}
             <div className="flex items-start justify-between gap-3">
               <span className="rounded-full bg-white/85 px-2.5 py-1 text-[11px] font-extrabold text-[#202829] ring-1 ring-white/70">
                 图片位示例
@@ -323,10 +302,10 @@ function DisplayAdCard({
                 {copy.fit}
               </span>
             </div>
-            <div className="mt-6">
+            <div className={`mt-6 ${creative.imageUrl ? "rounded-md bg-white/85 p-2 ring-1 ring-white/70" : ""}`}>
               <p className="text-[11px] font-extrabold uppercase tracking-normal text-[#5a6061]">Sponsor Preview</p>
-              <h3 className="mt-1 text-2xl font-black leading-none tracking-normal text-[#202829]">{copy.visualTitle}</h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-[#3e484a]">{copy.visualBody}</p>
+              <h3 className="mt-1 text-2xl font-black leading-none tracking-normal text-[#202829]">{creative.visualTitle || copy.visualTitle}</h3>
+              <p className="mt-2 text-sm font-semibold leading-6 text-[#3e484a]">{creative.visualMeta || copy.visualBody}</p>
             </div>
             <div className="mt-4 flex flex-wrap gap-1.5">
               {copy.visualMeta.map((item) => (
@@ -344,10 +323,12 @@ function DisplayAdCard({
 
 function FooterSponsorSection({
   copy,
+  creatives,
   className,
   onDismiss,
 }: {
   copy: PlacementCopy;
+  creatives: SponsorCreative[];
   className: string;
   onDismiss: () => void;
 }) {
@@ -397,14 +378,18 @@ function FooterSponsorSection({
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">
-          {footerSponsorCards.map((card) => (
+          {creatives.map((card) => (
             <Link
-              key={card.title}
-              href="/commercial#slots"
+              key={card.id}
+              href={card.targetUrl || "/commercial#slots"}
               className="group overflow-hidden rounded-lg bg-white text-[#202829] ring-1 ring-[#dfe4e5] transition hover:-translate-y-0.5 hover:ring-[#adb3b4]"
               aria-label={`${card.title}广告位，查看投放要求`}
             >
-              <div className={`relative aspect-[16/7] overflow-hidden ${footerSponsorVisualClass(card.tone)}`}>
+              <div className={`relative aspect-[16/7] overflow-hidden ${card.imageUrl ? "bg-[#f2f4f4]" : footerSponsorVisualClass(card.tone)}`}>
+                {card.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={card.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                ) : null}
                 <div className="absolute left-3 top-3 flex items-center gap-2">
                   <span className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-extrabold text-[#202829] ring-1 ring-white/70">
                     图片位
@@ -414,9 +399,11 @@ function FooterSponsorSection({
                   </span>
                 </div>
                 <div className="absolute inset-x-4 bottom-4">
-                  <p className="text-[11px] font-extrabold text-[#5a6061]">赞助图片位</p>
-                  <p className="mt-1 truncate text-2xl font-black leading-none text-[#202829]">{card.visualTitle}</p>
-                  <p className="mt-2 truncate text-xs font-bold text-[#3e484a]">{card.visualMeta}</p>
+                  <div className={card.imageUrl ? "rounded-md bg-white/85 p-2 ring-1 ring-white/70" : ""}>
+                    <p className="text-[11px] font-extrabold text-[#5a6061]">赞助图片位</p>
+                    <p className="mt-1 truncate text-2xl font-black leading-none text-[#202829]">{card.visualTitle || card.title}</p>
+                    <p className="mt-2 truncate text-xs font-bold text-[#3e484a]">{card.visualMeta || copy.visualBody}</p>
+                  </div>
                 </div>
               </div>
               <div className="flex min-h-[112px] flex-col justify-between gap-3 p-4">
@@ -429,7 +416,7 @@ function FooterSponsorSection({
                     <span className="text-[11px] font-bold text-[#7d8586]">页面最底部</span>
                   </div>
                   <h3 className="mt-3 text-sm font-extrabold text-[#202829]">{card.title}</h3>
-                  <p className="mt-1 text-xs leading-5 text-[#5a6061]">{card.body}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#5a6061]">{card.description}</p>
                 </div>
                 <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2d3435]">
                   查看投放要求
@@ -444,10 +431,28 @@ function FooterSponsorSection({
   );
 }
 
-function footerSponsorVisualClass(tone: FooterSponsorCard["tone"]) {
+function footerSponsorVisualClass(tone: SponsorCreative["tone"]) {
   if (tone === "blue") return "bg-[#e8f1fa]";
   if (tone === "amber") return "bg-[#fff2dc]";
   return "bg-[#e8f3ec]";
+}
+
+function getPreviewCreatives(kind: SponsorPlacementKind): SponsorCreative[] {
+  if (!showSponsorPreview && typeof window !== "undefined" && !isLocalPreviewHostname(window.location.hostname)) return [];
+  if (kind === "listFooter") return defaultFooterSponsorCreatives;
+
+  const copy = placementCopy[kind];
+  return [{
+    id: `${copy.id}-preview`,
+    enabled: true,
+    status: "live",
+    title: copy.title,
+    description: copy.body,
+    targetUrl: "/commercial#slots",
+    visualTitle: copy.visualTitle,
+    visualMeta: copy.visualBody,
+    tone: copy.tone,
+  }];
 }
 
 function visualToneClass(tone: PlacementCopy["tone"]) {

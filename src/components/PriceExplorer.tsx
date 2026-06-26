@@ -36,6 +36,7 @@ import { trackAnalyticsEvent } from "@/lib/analytics";
 import { readSessionCache, writeSessionCache } from "@/lib/client-cache";
 import { createTimeoutSignal, isGeneratedDatasetStale, newestGeneratedDataset } from "@/lib/client-refresh";
 import { PRICE_DATA_CACHE_TTL_MS } from "@/lib/public-cache-policy";
+import type { SponsorSettingsSummary } from "@/lib/sponsor-settings-shared";
 import type {
   CanonicalProduct,
   ExplorerData,
@@ -153,10 +154,12 @@ function useMediaQuery(query: string) {
 
 export function PriceExplorer({
   data,
+  sponsorSettings = null,
   initialState = {},
   restoreStateFromUrl = false,
 }: {
   data?: ExplorerData;
+  sponsorSettings?: SponsorSettingsSummary | null;
   initialState?: ExplorerInitialState;
   restoreStateFromUrl?: boolean;
 }) {
@@ -1053,7 +1056,7 @@ export function PriceExplorer({
 
       <footer className="px-5 py-8 text-center text-xs leading-6 text-[#5a6061] sm:px-8">
         <p>价格仅供参考，实际价格、库存和售后规则以原平台为准。本工具不构成购买建议。</p>
-        <SponsoredPlacementPreview kind="listFooter" className="mx-auto mt-6 max-w-5xl" />
+        <SponsoredPlacementPreview kind="listFooter" settings={sponsorSettings} className="mx-auto mt-6 max-w-5xl" />
       </footer>
     </div>
   );

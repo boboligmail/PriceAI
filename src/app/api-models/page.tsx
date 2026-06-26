@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ApiModelsExplorer } from "@/components/ApiModelsExplorer";
 import { JsonLd } from "@/components/JsonLd";
 import { getApiModelDataset } from "@/lib/api-models-db";
+import { getSponsorSettingsSummary } from "@/lib/sponsor-settings";
 
 export const metadata: Metadata = {
   title: "API 模型雷达",
@@ -19,12 +20,15 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function ApiModelsPage() {
-  const dataset = await getApiModelDataset();
+  const [dataset, sponsorSettings] = await Promise.all([
+    getApiModelDataset(),
+    getSponsorSettingsSummary().catch(() => null),
+  ]);
 
   return (
     <div className="min-h-screen bg-[#f9f9f9] text-[#2d3435]">
       <JsonLd data={buildApiModelsJsonLd(dataset.models.length, dataset.providers.length, dataset.offers.length)} />
-      <ApiModelsExplorer dataset={dataset} />
+      <ApiModelsExplorer dataset={dataset} sponsorSettings={sponsorSettings} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { TransitFamilyTabs } from "@/components/TransitFamilyTabs";
 import TransitModelExplorer from "@/components/TransitModelExplorer";
 import { JsonLd } from "@/components/JsonLd";
 import { SponsoredPlacementPreview } from "@/components/SponsoredPlacementPreview";
+import { getSponsorSettingsSummary } from "@/lib/sponsor-settings";
 
 export const metadata: Metadata = {
   title: "中转 API 模型对比",
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function ApiTransitModelsPage() {
-  const stations = await getTransitStations();
+  const [stations, sponsorSettings] = await Promise.all([
+    getTransitStations(),
+    getSponsorSettingsSummary().catch(() => null),
+  ]);
   const familyOptions = getTransitModelFamilyOptions(stations);
 
   return (
@@ -55,7 +59,7 @@ export default async function ApiTransitModelsPage() {
           </p>
         </div>
 
-        <SponsoredPlacementPreview kind="apiTransitModels" className="mb-6" />
+        <SponsoredPlacementPreview kind="apiTransitModels" settings={sponsorSettings} className="mb-6" />
 
         <Suspense fallback={<div className="py-12 text-center text-[#5a6061]">加载中…</div>}>
           <TransitModelExplorer stations={stations} />

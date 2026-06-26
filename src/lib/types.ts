@@ -1,5 +1,6 @@
 import type { ApiBillingMode, ApiPriceValue, ApiProviderType } from "@/lib/api-models";
 import type { ApiTransitAdminData } from "@/lib/api-transit-admin-types";
+import type { SponsorSettingsSummary } from "@/lib/sponsor-settings-shared";
 
 export type OfferStatus = "in_stock" | "low_stock" | "out_of_stock" | "unknown";
 export type EffectiveOfferStatus =
@@ -226,6 +227,7 @@ export type AdminSummary = DashboardData & {
   hiddenRawOffers: RawOffer[];
   feedbackRawOffers: RawOffer[];
   riskReviewSettings: RiskReviewSettingsSummary;
+  sponsorSettings: SponsorSettingsSummary;
 };
 
 export type RiskReviewSettingsSummary = {
