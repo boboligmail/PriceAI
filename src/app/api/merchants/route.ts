@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { publicPriceApiErrorResponse } from "@/lib/api-errors";
 import { priceDataCacheHeaders } from "@/lib/cache-headers";
 import { listPublicMerchants } from "@/lib/data";
 import { parsePublicOfferPaginationForRoute } from "@/lib/public-offer-route";
@@ -9,26 +10,30 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(request: NextRequest) {
-  const params = request.nextUrl.searchParams;
-  const pagination = parsePublicOfferPaginationForRoute(params);
-  if (pagination instanceof NextResponse) return pagination;
+  try {
+    const params = request.nextUrl.searchParams;
+    const pagination = parsePublicOfferPaginationForRoute(params);
+    if (pagination instanceof NextResponse) return pagination;
 
-  const result = await listPublicMerchants({
-    ...pagination,
-    query: normalizePublicOfferQuery(params.get("q")),
-    platform: params.get("platform") || null,
-    productType: params.get("type") || null,
-    stock: params.get("stock") || null,
-    sort: params.get("sort") || null,
-    minPrice: parseNumberParam(params.get("min")),
-    maxPrice: parseNumberParam(params.get("max")),
-    collector: params.get("collector") || null,
-    signal: params.get("signal") || null,
-  });
+    const result = await listPublicMerchants({
+      ...pagination,
+      query: normalizePublicOfferQuery(params.get("q")),
+      platform: params.get("platform") || null,
+      productType: params.get("type") || null,
+      stock: params.get("stock") || null,
+      sort: params.get("sort") || null,
+      minPrice: parseNumberParam(params.get("min")),
+      maxPrice: parseNumberParam(params.get("max")),
+      collector: params.get("collector") || null,
+      signal: params.get("signal") || null,
+    });
 
-  return NextResponse.json(result, {
-    headers: priceDataCacheHeaders(),
-  });
+    return NextResponse.json(result, {
+      headers: priceDataCacheHeaders(),
+    });
+  } catch (error) {
+    return publicPriceApiErrorResponse("public merchants API", error);
+  }
 }
 
 function parseNumberParam(value: string | null): number | null {

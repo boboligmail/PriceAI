@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { NextResponse } from "next/server";
+import { priceDataCacheHeaders } from "./cache-headers";
 
 export function logApiError(scope: string, error: unknown): void {
   if (error instanceof Error) {
@@ -30,6 +32,29 @@ export function safeApiErrorMessage(error: unknown, fallback: string): string {
   }
 
   return fallback;
+}
+
+export function publicPriceApiErrorResponse(scope: string, error: unknown): NextResponse {
+  logApiError(scope, error);
+
+  return NextResponse.json(
+    {
+      ok: false,
+      message: safeApiErrorMessage(error, "公开数据暂时不可用，请稍后再试。"),
+    },
+    {
+      status: publicPriceApiErrorStatus(error),
+      headers: priceDataCacheHeaders(),
+    },
+  );
+}
+
+function publicPriceApiErrorStatus(error: unknown): number {
+  if (error instanceof z.ZodError) return 400;
+  if (!(error instanceof Error)) return 500;
+  if (/尚未配置|暂不可用/i.test(error.message)) return 503;
+  if (/缺少|无效|不存在|无法解析|不支持|不能超过/i.test(error.message)) return 400;
+  return 500;
 }
 
 function isExpectedPublicError(error: unknown): error is Error {

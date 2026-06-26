@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { publicPriceApiErrorResponse } from "@/lib/api-errors";
 import { priceDataCacheHeaders } from "@/lib/cache-headers";
 import { listPublicProductOffers } from "@/lib/data";
 import { parseOfferFilterTags } from "@/lib/offer-filter-tags";
@@ -11,18 +12,22 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await params;
-  const pagination = parsePublicOfferPaginationForRoute(request.nextUrl.searchParams);
-  if (pagination instanceof NextResponse) return pagination;
+  try {
+    const { id } = await params;
+    const pagination = parsePublicOfferPaginationForRoute(request.nextUrl.searchParams);
+    if (pagination instanceof NextResponse) return pagination;
 
-  const result = await listPublicProductOffers(id, {
-    ...pagination,
-    filterTags: parseOfferFilterTags(request.nextUrl.searchParams.get("tags")),
-    query: request.nextUrl.searchParams.get("q"),
-    excludeQuery: request.nextUrl.searchParams.get("exclude"),
-  });
+    const result = await listPublicProductOffers(id, {
+      ...pagination,
+      filterTags: parseOfferFilterTags(request.nextUrl.searchParams.get("tags")),
+      query: request.nextUrl.searchParams.get("q"),
+      excludeQuery: request.nextUrl.searchParams.get("exclude"),
+    });
 
-  return NextResponse.json(result, {
-    headers: priceDataCacheHeaders(),
-  });
+    return NextResponse.json(result, {
+      headers: priceDataCacheHeaders(),
+    });
+  } catch (error) {
+    return publicPriceApiErrorResponse("public product offers API", error);
+  }
 }
