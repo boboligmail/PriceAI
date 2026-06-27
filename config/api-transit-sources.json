@@ -1,5 +1,64 @@
 [
   {
+    "id": "onehop-ai",
+    "name": "OneHop",
+    "websiteUrl": "https://onehop.ai/",
+    "apiBaseUrl": "https://api.onehop.ai/v1",
+    "pricingUrl": "https://onehop.ai/platform/models",
+    "pricingEndpointUrl": "https://api.onehop.ai/public/models?locale=zh-Hans&limit=100",
+    "collectorKind": "onehop_public_models",
+    "rechargeRatio": "6.8:1",
+    "autoPublish": false,
+    "channelTypes": ["official_api", "reverse_engineered", "undisclosed"],
+    "accountPools": ["official_api", "kiro"],
+    "supportChannels": ["在线客服"],
+    "riskLabels": ["insufficient_samples", "undisclosed_upstream"],
+    "summary": "公开模型目录可读取，提供模型价格、官方对照价格和近 14 日可用性样本；前端和计费/活动模块为 OneHop 自研控制台，后台存在 Sub2API 上游只读镜像，不按 New API 归类。充值口径按商家说明记录为 6.8 元兑换 1 美元。",
+    "strengths": [
+      "公开模型目录包含 OneHop 价格、官方价格对照、协议能力和近 14 日 uptime 样本。",
+      "MVP 模型覆盖 GPT 5.5、GPT 5.4、Claude Sonnet 4.6、Claude Opus 4.7 / 4.8，并区分 Official 与 Kiro 来源。"
+    ],
+    "cautions": [
+      "公开 uptime 来自 OneHop 页面，不等同 PriceAI 使用测试 Key 的实测结果。",
+      "控制台 bundle 存在 Sub2API 上游只读镜像信息，实际上游与路由策略仍需商家补充。"
+    ],
+    "commercialOffers": [
+      {
+        "id": "onehop-priceai-068",
+        "type": "coupon",
+        "title": "PRICEAI 充值 6.8 折",
+        "description": "使用优惠码 PRICEAI 可享受充值折扣；适用范围、是否限首充及是否可叠加需以 OneHop 实际结算页为准。",
+        "code": "PRICEAI",
+        "url": "https://onehop.ai/platform/models",
+        "validUntil": null,
+        "disclosure": "优惠码是充值折扣，不改变模型公开价格倍率，也不代表 PriceAI 担保。",
+        "enabled": true
+      },
+      {
+        "id": "onehop-signup-1usd",
+        "type": "coupon",
+        "title": "注册送 1 美元",
+        "description": "新注册用户可获得 1 美元赠送额度，具体到账条件以 OneHop 前台为准。",
+        "code": null,
+        "url": "https://onehop.ai/platform/models",
+        "validUntil": null,
+        "disclosure": "注册送额度属于商家活动，可能随时调整。",
+        "enabled": true
+      },
+      {
+        "id": "onehop-follow-support-10usd",
+        "type": "coupon",
+        "title": "关注并联系客服可赠送 10 美元",
+        "description": "关注后联系 OneHop 客服可申请赠送 10 美元，领取渠道和条件需商家确认。",
+        "code": null,
+        "url": "https://onehop.ai/platform/models",
+        "validUntil": null,
+        "disclosure": "该赠送规则来自商家信息，PriceAI 尚未核验发放条件。",
+        "enabled": true
+      }
+    ]
+  },
+  {
     "id": "sub-callai-one",
     "name": "Sub Callai One",
     "websiteUrl": "https://sub.callai.one/",

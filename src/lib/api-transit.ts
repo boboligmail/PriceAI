@@ -377,6 +377,10 @@ export function getTransitStationSystem(station: TransitStation): TransitStation
     return "sub_to_api";
   }
 
+  if (text.includes("onehop") || text.includes("onehop_public_models")) {
+    return "custom";
+  }
+
   if (text.includes("new_api") || text.includes("new-api") || text.includes("new api")) {
     return "new_api";
   }

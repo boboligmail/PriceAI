@@ -22,6 +22,7 @@ const CALLAI_PARTNER_STATUS_COLLECTORS = new Set([
   "sub2api_partner_status",
   "subway_api_partner_status",
 ]);
+const ONEHOP_PUBLIC_MODEL_COLLECTORS = new Set(["onehop_public_models"]);
 const SOURCE_SKIPPED = Symbol("source_skipped");
 const officialTransitPrices = {
   "Claude Sonnet 4.6": { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
@@ -215,6 +216,9 @@ function parsePricingPayload(source, payload, collectedAt) {
   if (isCallaiPartnerStatusSource(source)) {
     return parseCallaiPartnerStatusPayload(source, payload, collectedAt);
   }
+  if (isOneHopPublicModelsSource(source)) {
+    return parseOneHopPublicModelsPayload(source, payload, collectedAt);
+  }
 
   const items = normalizePricingItems(payload);
   const groupRatios = normalizeGroupRatios(payload);
@@ -238,6 +242,38 @@ function parsePricingPayload(source, payload, collectedAt) {
     station: buildStationRow(source, collectedAt, {
       status: deduped.length ? "success" : "partial",
       offerCount: deduped.length,
+    }),
+    offers: deduped,
+  };
+}
+
+function parseOneHopPublicModelsPayload(source, payload, collectedAt) {
+  const items = normalizeOneHopPublicModels(payload);
+  const selected = [];
+
+  for (const item of items) {
+    const standard = standardizeModelName(
+      [
+        item?.fullSlug,
+        item?.modelSlug,
+        item?.upstreamModelId,
+        item?.displayName,
+      ].filter(Boolean).join(" "),
+    );
+    if (!standard) continue;
+
+    const offer = buildOneHopPublicModelOfferRow(source, item, standard, collectedAt);
+    if (offer) selected.push(offer);
+  }
+
+  const deduped = dedupeBestOffers(selected);
+  return {
+    modelCount: items.length,
+    collectionError: null,
+    station: buildStationRow(source, collectedAt, {
+      status: deduped.length ? "success" : "partial",
+      offerCount: deduped.length,
+      availability: summarizeOneHopStationAvailability(deduped, collectedAt),
     }),
     offers: deduped,
   };
@@ -302,6 +338,17 @@ function parseCallaiPartnerStatusPayload(source, payload, collectedAt) {
 
 function isCallaiPartnerStatusSource(source) {
   return CALLAI_PARTNER_STATUS_COLLECTORS.has(source.collectorKind);
+}
+
+function isOneHopPublicModelsSource(source) {
+  return ONEHOP_PUBLIC_MODEL_COLLECTORS.has(source.collectorKind);
+}
+
+function normalizeOneHopPublicModels(payload) {
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.items)) return payload.items;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
 }
 
 function normalizeSourceGroupName(source, groupName) {
@@ -372,6 +419,158 @@ function normalizeItemGroups(item, groupRatios) {
       createCacheRatio: numberValue(item.create_cache_ratio),
     };
   });
+}
+
+function buildOneHopPublicModelOfferRow(source, item, standard, collectedAt) {
+  const family = standard.startsWith("Claude") ? "claude" : "gpt";
+  const official = officialTransitPrices[standard];
+  if (!official) return null;
+
+  const unitPricesUsd = {
+    input: numberValue(item?.inputPricePer1m),
+    output: numberValue(item?.outputPricePer1m),
+    cacheRead: null,
+    cacheWrite: null,
+    priorityInput: numberValue(item?.priorityInputPricePer1m),
+    priorityOutput: numberValue(item?.priorityOutputPricePer1m),
+    officialInput: numberValue(item?.officialInputPricePer1m),
+    officialOutput: numberValue(item?.officialOutputPricePer1m),
+    officialPriorityInput: numberValue(item?.officialPriorityInputPricePer1m),
+    officialPriorityOutput: numberValue(item?.officialPriorityOutputPricePer1m),
+  };
+  const input = unitRatioValue(unitPricesUsd.input, official.input);
+  const output = unitRatioValue(unitPricesUsd.output, official.output);
+  if (input === null && output === null) return null;
+
+  const groupName = oneHopGroupName(item);
+  const sourceText = [item?.source, item?.fullSlug, item?.provider].filter(Boolean).join(" ");
+  const availability = oneHopAvailabilityFromDisplayMetrics(item?.displayMetrics, collectedAt);
+  const autoPublish = shouldAutoPublishSource(source);
+
+  return {
+    id: stableId("api-transit-offer", source.id, standard, groupName),
+    station_id: source.id,
+    family,
+    standard_model: standard,
+    raw_model_name: String(item?.fullSlug || item?.upstreamModelId || item?.displayName || standard),
+    group_name: groupName,
+    recharge_ratio: source.rechargeRatio || DEFAULT_RECHARGE_RATIO,
+    model_multiplier: round(input ?? output, 6),
+    input_price: input === null ? null : round(input, 6),
+    output_price: output === null ? null : round(output, 6),
+    cache_read_price: null,
+    cache_write_price: null,
+    currency: "CNY",
+    account_pool: inferAccountPool(sourceText),
+    channel_type: inferOneHopChannelType(item),
+    price_source: "OneHop 公开模型目录",
+    source_url: source.pricingUrl || source.pricingEndpointUrl,
+    availability_seven_day_rate: availability.rate,
+    availability_seven_day_samples: availability.samples,
+    availability_last_checked_at: availability.lastCheckedAt,
+    availability_note: availability.note,
+    last_verified_at: availability.lastCheckedAt || collectedAt,
+    status: autoPublish ? "active" : "needs_review",
+    auto_publish: autoPublish,
+    raw_payload: {
+      collector_kind: source.collectorKind,
+      model: compactOneHopModelPayload(item),
+      unit_prices_usd: unitPricesUsd,
+      supported_protocols: Array.isArray(item?.supportedProtocolList) ? item.supportedProtocolList : [],
+      capabilities: Array.isArray(item?.capabilities) ? item.capabilities : [],
+      multiplier_basis: "onehop_public_usd_per_million",
+    },
+    created_at: collectedAt,
+  };
+}
+
+function compactOneHopModelPayload(item) {
+  if (!item || typeof item !== "object") return item || null;
+  return {
+    fullSlug: stringOrNull(item.fullSlug),
+    displayName: stringOrNull(item.displayName),
+    provider: stringOrNull(item.provider),
+    source: stringOrNull(item.source),
+    family: stringOrNull(item.family),
+    available: item.available === undefined ? null : Boolean(item.available),
+    contextWindow: numberValue(item.contextWindow),
+    upstreamModelId: stringOrNull(item.upstreamModelId),
+    aliases: Array.isArray(item.aliases) ? item.aliases.map(stringOrNull).filter(Boolean) : [],
+    inputModalities: Array.isArray(item.inputModalities) ? item.inputModalities.map(stringOrNull).filter(Boolean) : [],
+    outputModalities: Array.isArray(item.outputModalities) ? item.outputModalities.map(stringOrNull).filter(Boolean) : [],
+    maxOutputTokens: numberValue(item.maxOutputTokens),
+    summary: stringOrNull(item.summary),
+    displayMetrics: {
+      usageTokens: numberValue(item?.displayMetrics?.usageTokens),
+      successRate: numberValue(item?.displayMetrics?.successRate),
+      uptime14d: Array.isArray(item?.displayMetrics?.uptime14d) ? item.displayMetrics.uptime14d : [],
+    },
+  };
+}
+
+function oneHopGroupName(item) {
+  const source = stringOrNull(item?.source);
+  if (source && source.toLowerCase() === "official") return "Official";
+  if (source && source.toLowerCase() === "kiro") return "Kiro";
+  return source || "OneHop";
+}
+
+function inferOneHopChannelType(item) {
+  const source = String(item?.source || "").toLowerCase();
+  const slug = String(item?.fullSlug || "").toLowerCase();
+  if (source === "official") return "official_api";
+  if (source === "kiro" || slug.includes("kiro")) return "reverse_engineered";
+  return "undisclosed";
+}
+
+function oneHopAvailabilityFromDisplayMetrics(displayMetrics, collectedAt) {
+  const uptime14d = Array.isArray(displayMetrics?.uptime14d) ? displayMetrics.uptime14d : [];
+  const samples = uptime14d
+    .map((point) => ({
+      day: stringOrNull(point?.day),
+      rate: numberValue(point?.rate),
+    }))
+    .filter((point) => point.day && point.rate !== null);
+  const successRate = numberValue(displayMetrics?.successRate);
+  const usageTokens = numberValue(displayMetrics?.usageTokens);
+  const latestDay = samples.map((point) => point.day).sort().at(-1);
+
+  if (!samples.length) {
+    return {
+      rate: successRate,
+      samples: successRate === null ? 0 : 1,
+      lastCheckedAt: collectedAt,
+      note: "OneHop 公开模型目录未返回 14 日 uptime；保留页面 successRate 作为商家公开参考。",
+    };
+  }
+
+  const average = samples.reduce((total, point) => total + point.rate, 0) / samples.length;
+  const usageNote = usageTokens === null ? "" : `；页面展示使用量 ${Math.round(usageTokens).toLocaleString("en-US")} tokens`;
+  return {
+    rate: round(average, 6),
+    samples: samples.length,
+    lastCheckedAt: latestDay ? `${latestDay}T00:00:00.000Z` : collectedAt,
+    note: `OneHop 公开模型目录 uptime14d，按日可用率样本，非 PriceAI API Key 实测${usageNote}。`,
+  };
+}
+
+function summarizeOneHopStationAvailability(offers, collectedAt) {
+  const rates = offers
+    .map((offer) => numberValue(offer.availability_seven_day_rate))
+    .filter((value) => value !== null);
+  const samples = offers.reduce((total, offer) => total + (numberValue(offer.availability_seven_day_samples) || 0), 0);
+  const lastCheckedAt = offers
+    .map((offer) => stringOrNull(offer.availability_last_checked_at))
+    .filter(Boolean)
+    .sort()
+    .at(-1);
+
+  return {
+    rate: rates.length ? round(rates.reduce((total, rate) => total + rate, 0) / rates.length, 6) : null,
+    samples,
+    lastCheckedAt: lastCheckedAt || collectedAt,
+    note: "OneHop 公开模型目录汇总 uptime14d；这些是商家页面公开样本，仍需 PriceAI 测试 Key 复核。",
+  };
 }
 
 function buildCallaiPartnerOfferRow({
@@ -577,7 +776,7 @@ function buildStationRow(source, collectedAt, collection = {}) {
     monitor_url: source.monitorUrl || null,
     status: status === "failed" ? "unknown" : "active",
     source_type: "manual_collected",
-    commercial_relation: "none",
+    commercial_relation: source.commercialRelation || "none",
     summary: source.summary || "公开价格接口可读取，已进入 PriceAI API 中转站自动价格采集池；稳定性和扣费检测仍需测试 Key 或人工样本补充。",
     channel_types: source.channelTypes || ["undisclosed"],
     account_pools: source.accountPools || ["undisclosed"],
@@ -586,7 +785,7 @@ function buildStationRow(source, collectedAt, collection = {}) {
     balance_expiry: source.balanceExpiry || null,
     support_channels: source.supportChannels || [],
     refund_policy: source.refundPolicy || null,
-    risk_labels: status === "success" ? ["insufficient_samples"] : ["insufficient_samples", "pending_feedback"],
+    risk_labels: source.riskLabels || (status === "success" ? ["insufficient_samples"] : ["insufficient_samples", "pending_feedback"]),
     usage_advice: status === "success" ? "try_small" : "pending",
     data_status: autoPublish ? "verified" : "pending_review",
     availability_seven_day_rate: availability.rate ?? null,
@@ -598,6 +797,10 @@ function buildStationRow(source, collectedAt, collection = {}) {
     feedback_merchant_responded_count: 0,
     feedback_main_themes: [],
     feedback_public_notes: collection.error || null,
+    strengths: source.strengths || [],
+    cautions: source.cautions || [],
+    commercial_offers: source.commercialOffers || [],
+    verification_events: source.verificationEvents || [],
     collector_kind: source.collectorKind || "new_api_pricing",
     pricing_endpoint_url: source.pricingEndpointUrl,
     collection_status: status,
@@ -807,6 +1010,7 @@ function inferAccountPool(text) {
 function inferChannelType(text) {
   const value = String(text || "").toLowerCase();
   if (value.includes("official") || value.includes("官方") || value.includes("官转") || value.includes("官key")) return "official_api";
+  if (value.includes("kiro")) return "reverse_engineered";
   if (value.includes("aws") || value.includes("azure") || value.includes("vertex") || value.includes("云")) return "cloud";
   if (value.includes("混")) return "mixed";
   if (value.includes("分销") || value.includes("reseller")) return "reseller";
