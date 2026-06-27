@@ -34,6 +34,7 @@ create or replace function api_transit_recharge_coefficient(value text)
 returns numeric
 language plpgsql
 immutable
+set search_path = public
 as $$
 declare
   parts text[];
@@ -69,6 +70,7 @@ create or replace function api_transit_multiplier_history_id(
 returns text
 language sql
 immutable
+set search_path = public
 as $$
   select md5(
     coalesce(p_offer_id, '') || '|' ||
@@ -82,6 +84,7 @@ $$;
 create or replace function record_api_transit_multiplier_history()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 declare
   observed_at timestamptz := now();
