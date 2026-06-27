@@ -1470,9 +1470,7 @@ function MerchantTable({ merchants }: { merchants: PublicMerchantSummary[] }) {
               <tr key={merchant.id} className="transition hover:bg-[#f7f9f9]">
                 <td className="max-w-[260px] px-5 py-4">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f2f4f4] text-[#5a6061]">
-                      <Store size={18} />
-                    </span>
+                    <CollectorSourceLogo group={merchant.collectorGroup} size="table" />
                     <span className="min-w-0">
                       <span className="block truncate font-semibold text-[#202829]">{merchant.name}</span>
                       <span className="mt-1 block truncate text-xs text-[#5a6061]">{merchant.host || merchant.sourceName}</span>
@@ -1527,9 +1525,7 @@ function MerchantCard({ merchant }: { merchant: PublicMerchantSummary }) {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f2f4f4] text-[#5a6061] ring-1 ring-[#adb3b4]/15">
-            <Store size={19} />
-          </span>
+          <CollectorSourceLogo group={merchant.collectorGroup} />
           <div className="min-w-0">
             <p className="truncate text-base font-semibold text-[#202829]">{merchant.name}</p>
             <p className="mt-1 truncate text-xs text-[#5a6061]">{merchant.host || merchant.sourceName}</p>
@@ -1569,6 +1565,68 @@ function MerchantCard({ merchant }: { merchant: PublicMerchantSummary }) {
 function CollectorBadge({ merchant }: { merchant: PublicMerchantSummary }) {
   const tone = merchant.collectorGroup === "shopApi" ? "info" : merchant.collectorGroup === "other" ? "muted" : "warn";
   return <CountBadge tone={tone}>{merchant.collectorLabel}</CountBadge>;
+}
+
+function CollectorSourceLogo({
+  group,
+  size = "card",
+}: {
+  group: MerchantCollectorGroup;
+  size?: "card" | "table";
+}) {
+  const frameClassName = size === "table"
+    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ring-1"
+    : "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ring-1";
+  const markClassName = size === "table" ? "h-6 w-6 shrink-0" : "h-7 w-7 shrink-0";
+
+  if (group === "shopApi") {
+    return (
+      <span aria-hidden="true" className={`${frameClassName} bg-[#edf6fb] text-[#2f6f88] ring-[#bfdce8]`}>
+        <svg viewBox="0 0 32 32" className={markClassName} fill="none">
+          <rect x="5" y="5" width="22" height="22" rx="7" fill="currentColor" opacity="0.12" />
+          <path d="M10.5 18.2v-4.4a3.3 3.3 0 0 1 3.3-3.3h3.1" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M21.5 13.8v4.4a3.3 3.3 0 0 1-3.3 3.3h-3.1" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <path d="M13 16h6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+          <circle cx="10.5" cy="21.5" r="2" fill="currentColor" />
+          <circle cx="21.5" cy="10.5" r="2" fill="currentColor" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (group === "dujiao") {
+    return (
+      <span aria-hidden="true" className={`${frameClassName} bg-[#fff5e7] text-[#8a5a17] ring-[#efd7ae]`}>
+        <svg viewBox="0 0 32 32" className={markClassName} fill="none">
+          <path d="M16 4.5 25.5 16 16 27.5 6.5 16Z" fill="currentColor" opacity="0.16" />
+          <path d="M16 7.5 22 16 16 24.5 10 16Z" stroke="currentColor" strokeWidth="2.1" strokeLinejoin="round" />
+          <path d="M16 10.5v11" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+          <path d="M12.8 16h6.4" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (group === "kami") {
+    return (
+      <span aria-hidden="true" className={`${frameClassName} bg-[#fff4f4] text-[#ff6b70] ring-[#ffd0d2]`}>
+        <svg viewBox="0 0 32 32" className={markClassName} fill="none">
+          <rect x="5.5" y="5.5" width="21" height="21" rx="5" stroke="currentColor" strokeWidth="3" />
+          <rect x="10.5" y="11" width="11" height="9.5" rx="2.6" fill="white" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M16 8.5v2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <circle cx="14" cy="15.8" r="1.05" fill="#202829" />
+          <circle cx="18" cy="15.8" r="1.05" fill="#202829" />
+          <path d="M15 19h2" stroke="#202829" strokeWidth="1.4" strokeLinecap="round" />
+        </svg>
+      </span>
+    );
+  }
+
+  return (
+    <span aria-hidden="true" className={`${frameClassName} bg-[#f2f4f4] text-[#5a6061] ring-[#adb3b4]/15`}>
+      <Store size={size === "table" ? 18 : 19} />
+    </span>
+  );
 }
 
 function merchantDescription(merchant: PublicMerchantSummary): string {
