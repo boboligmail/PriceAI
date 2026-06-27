@@ -1,3 +1,5 @@
+drop function if exists list_public_merchant_summaries();
+
 create or replace function list_public_merchant_summaries()
 returns table (
   id text,
