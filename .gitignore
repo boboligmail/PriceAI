@@ -44,13 +44,8 @@ yarn-error.log*
 /.github/workflows/probe-api-transit.yml
 /scripts/refine-ldxp-probe-relevance.mjs
 
-# local audit notes and generated image assets
-/docs/engineering-audit-2026-06-07.md
-/docs/engineering-audit-2026-06-12.md
-/docs/performance-audit-2026-06-13.md
-/docs/assets/priceai-day5-*.png
-/docs/assets/priceai-free-quota-cover-bg.png
-/docs/assets/priceai-logo-*.png
+# local docs kept off GitHub and production deploys
+/docs/
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -58,9 +53,6 @@ yarn-error.log*
 
 # vercel
 .vercel
-
-# internal docs
-/docs/planning/
 
 # typescript
 *.tsbuildinfo
