@@ -4,6 +4,8 @@ import { getAdminPasswordFromRequest } from "@/lib/admin";
 import { logApiError, safeApiErrorMessage } from "@/lib/api-errors";
 import {
   publishApiTransitStationWithOffers,
+  removeApiTransitStation,
+  restoreApiTransitStation,
   updateApiTransitStation,
 } from "@/lib/api-transit-admin";
 import { clearAdminDataCache } from "@/lib/data";
@@ -14,6 +16,15 @@ const patchSchema = z.discriminatedUnion("action", [
     action: z.literal("publish"),
     id: z.string().min(1),
     offerIds: z.array(z.string().min(1)).max(800).optional(),
+  }),
+  z.object({
+    action: z.literal("remove"),
+    id: z.string().min(1),
+    reason: z.string().trim().max(500).nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("restore"),
+    id: z.string().min(1),
   }),
   z.object({
     action: z.literal("update"),
@@ -79,6 +90,21 @@ export async function PATCH(request: Request) {
       });
       clearApiTransitAdminCaches();
       return Response.json({ ok: true, ...result });
+    }
+
+    if (payload.action === "remove") {
+      const station = await removeApiTransitStation({
+        id: payload.id,
+        reason: payload.reason,
+      });
+      clearApiTransitAdminCaches();
+      return Response.json({ ok: true, station });
+    }
+
+    if (payload.action === "restore") {
+      const station = await restoreApiTransitStation({ id: payload.id });
+      clearApiTransitAdminCaches();
+      return Response.json({ ok: true, station });
     }
 
     const station = await updateApiTransitStation({

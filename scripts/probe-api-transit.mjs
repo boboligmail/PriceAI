@@ -87,7 +87,7 @@ if (isCli()) {
 export async function probeApiTransitStations(options = {}) {
   options = normalizeOptions(options);
   const startedAt = new Date().toISOString();
-  const profiles = selectProfiles(options.profiles || loadProbeProfiles(), options);
+  const profiles = selectProfiles(await loadProbeProfilesForRun(options), options);
   const supabase = getSupabaseClient();
   const stationIds = profiles.map((profile) => profile.stationId);
   const dbOfferModels = supabase ? await listOfferModels(supabase, stationIds) : new Map();
@@ -967,11 +967,62 @@ function loadProbeProfiles() {
   return JSON.parse(readFileSync(configPath, "utf8"));
 }
 
+async function loadProbeProfilesForRun(options) {
+  const profiles = options.profiles || loadProbeProfiles();
+  if (!shouldRestrictToPublishedStations(options)) return profiles;
+
+  const publishedStationIds = await readPublishedApiTransitStationIds();
+  return filterProfilesByPublishedStationIds(profiles, publishedStationIds);
+}
+
 function selectProfiles(profiles, options) {
   const ids = optionList(options.station || options.stationId || options.source || options.sources);
   const selected = ids.length ? profiles.filter((profile) => ids.includes(profile.stationId)) : profiles;
   if (!selected.length) throw new Error("No API transit probe profiles matched.");
   return selected;
+}
+
+function shouldRestrictToPublishedStations(options) {
+  const ids = optionList(options.station || options.stationId || options.source || options.sources);
+  return Boolean((options.post || options.db) && !options.dryRun && !ids.length);
+}
+
+function filterProfilesByPublishedStationIds(profiles, publishedStationIds) {
+  return profiles.filter((profile) => publishedStationIds.has(profile.stationId));
+}
+
+async function readPublishedApiTransitStationIds() {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for published API transit probe selection.");
+  }
+
+  const { data, error } = await supabase
+    .from("api_transit_stations")
+    .select("id")
+    .eq("published", true)
+    .is("removed_at", null);
+  if (error) {
+    if (isMissingRemovedAtColumnError(error)) return readPublishedApiTransitStationIdsWithoutRemovedFilter(supabase);
+    throw error;
+  }
+
+  return new Set((data || []).map((row) => String(row.id || "")).filter(Boolean));
+}
+
+async function readPublishedApiTransitStationIdsWithoutRemovedFilter(supabase) {
+  const { data, error } = await supabase
+    .from("api_transit_stations")
+    .select("id")
+    .eq("published", true);
+  if (error) throw error;
+  return new Set((data || []).map((row) => String(row.id || "")).filter(Boolean));
+}
+
+function isMissingRemovedAtColumnError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || error?.details || "");
+  return (code === "42703" || code === "PGRST204") && message.includes("removed_at");
 }
 
 function getSupabaseClient() {

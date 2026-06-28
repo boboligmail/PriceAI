@@ -3,12 +3,14 @@
 import {
   Activity,
   AlertTriangle,
+  Archive,
   CheckCircle2,
   ClipboardList,
   Database,
   ExternalLink,
   Eye,
   EyeOff,
+  RotateCcw,
   Inbox,
   KeyRound,
   Loader2,
@@ -44,6 +46,7 @@ import { apiTransitLogoDisplayUrl } from "@/lib/api-transit-logo-url";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
 type AdminTab = "stations" | "candidates" | "rawOffers" | "submissions" | "runs";
+type StationBucket = "published" | "pending" | "removed";
 type Message = {
   type: "success" | "error" | "info";
   text: string;
@@ -123,6 +126,7 @@ export function ApiTransitAdminPanel({
   const [password, setPassword] = useState("");
   const [optimisticAuthed, setOptimisticAuthed] = useState(false);
   const [activeTab, setActiveTab] = useState<AdminTab>("stations");
+  const [stationBucket, setStationBucket] = useState<StationBucket>("pending");
   const [query, setQuery] = useState("");
   const [selectedOfferIds, setSelectedOfferIds] = useState<Set<string>>(new Set());
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
@@ -155,18 +159,21 @@ export function ApiTransitAdminPanel({
 
   const filteredStations = useMemo(
     () =>
-      data.stations.filter((station) =>
-        matchesQuery(normalizedQuery, [
-          station.name,
-          station.websiteUrl,
-          station.pricingUrl,
-          station.monitorUrl,
-          station.collectorKind,
-          station.adminNote,
-          station.commercialOffers.map((offer) => `${offer.title} ${offer.code || ""}`).join(" "),
-        ]),
-      ),
-    [data.stations, normalizedQuery],
+      data.stations
+        .filter((station) => stationBucketForStation(station) === stationBucket)
+        .filter((station) =>
+          matchesQuery(normalizedQuery, [
+            station.name,
+            station.websiteUrl,
+            station.pricingUrl,
+            station.monitorUrl,
+            station.collectorKind,
+            station.adminNote,
+            station.removedReason,
+            station.commercialOffers.map((offer) => `${offer.title} ${offer.code || ""}`).join(" "),
+          ]),
+        ),
+    [data.stations, normalizedQuery, stationBucket],
   );
 
   const filteredOffers = useMemo(
@@ -186,10 +193,11 @@ export function ApiTransitAdminPanel({
 
   const filteredSubmissions = useMemo(
     () =>
-      data.submissions.filter((submission) =>
+      groupVisibleSubmissions(data.submissions).filter((submission) =>
         matchesQuery(normalizedQuery, [
           submission.submittedName,
           submission.submittedUrl,
+          submission.normalizedHost,
           submission.pricingUrl,
           submission.contact,
           submission.notes,
@@ -271,6 +279,25 @@ export function ApiTransitAdminPanel({
       published ? `已上架 ${station.name}。` : `已从前台隐藏 ${station.name}。`,
       "更新中转站失败。",
     );
+  }
+
+  async function removeStation(station: ApiTransitAdminStation) {
+    setLoadingAction(`station-remove-${station.id}`);
+    const result = await requestJson("/api/admin/api-transit/stations", "PATCH", {
+      action: "remove",
+      id: station.id,
+      reason: "后台移除",
+    });
+    handleActionResult(result, `已移除 ${station.name}。`, "移除中转站失败。");
+  }
+
+  async function restoreStation(station: ApiTransitAdminStation) {
+    setLoadingAction(`station-restore-${station.id}`);
+    const result = await requestJson("/api/admin/api-transit/stations", "PATCH", {
+      action: "restore",
+      id: station.id,
+    });
+    handleActionResult(result, `已恢复 ${station.name} 到待发布。`, "恢复中转站失败。");
   }
 
   async function saveStation(input: ApiTransitStationEditInput) {
@@ -468,10 +495,15 @@ export function ApiTransitAdminPanel({
             {activeTab === "stations" ? (
               <StationsPanel
                 stations={filteredStations}
+                allStations={data.stations}
+                activeBucket={stationBucket}
+                onBucketChange={setStationBucket}
                 pendingOffers={pendingOffers}
                 loadingAction={loadingAction}
                 onPublish={publishStation}
                 onTogglePublished={updateStationPublished}
+                onRemove={removeStation}
+                onRestore={restoreStation}
                 onEdit={(station) => setEditDialog({ type: "station", station })}
               />
             ) : null}
@@ -575,19 +607,40 @@ function MetricCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+function stationBucketForStation(station: ApiTransitAdminStation): StationBucket {
+  if (station.removedAt) return "removed";
+  return station.published ? "published" : "pending";
+}
+
+function stationBucketLabel(bucket: StationBucket): string {
+  if (bucket === "published") return "已发布";
+  if (bucket === "removed") return "已移除";
+  return "待发布";
+}
+
 function StationsPanel({
   stations,
+  allStations,
+  activeBucket,
+  onBucketChange,
   pendingOffers,
   loadingAction,
   onPublish,
   onTogglePublished,
+  onRemove,
+  onRestore,
   onEdit,
 }: {
   stations: ApiTransitAdminStation[];
+  allStations: ApiTransitAdminStation[];
+  activeBucket: StationBucket;
+  onBucketChange: (bucket: StationBucket) => void;
   pendingOffers: ApiTransitAdminOffer[];
   loadingAction: string | null;
   onPublish: (station: ApiTransitAdminStation) => void;
   onTogglePublished: (station: ApiTransitAdminStation, published: boolean) => void;
+  onRemove: (station: ApiTransitAdminStation) => void;
+  onRestore: (station: ApiTransitAdminStation) => void;
   onEdit: (station: ApiTransitAdminStation) => void;
 }) {
   const pendingCountByStation = useMemo(() => {
@@ -598,8 +651,36 @@ function StationsPanel({
     return counts;
   }, [pendingOffers]);
 
+  const bucketCounts = useMemo(
+    () => ({
+      published: allStations.filter((station) => stationBucketForStation(station) === "published").length,
+      pending: allStations.filter((station) => stationBucketForStation(station) === "pending").length,
+      removed: allStations.filter((station) => stationBucketForStation(station) === "removed").length,
+    }),
+    [allStations],
+  );
+
   return (
     <section className="overflow-hidden rounded-lg border border-[#adb3b4]/25 bg-white shadow-[0_20px_55px_rgba(45,52,53,0.045)]">
+      <div className="flex flex-wrap items-center gap-2 border-b border-[#edf0f1] px-4 py-3">
+        {(["published", "pending", "removed"] as const).map((bucket) => (
+          <button
+            key={bucket}
+            type="button"
+            onClick={() => onBucketChange(bucket)}
+            className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors ${
+              activeBucket === bucket
+                ? "bg-[#2d3435] text-[#f8f8f8]"
+                : "bg-[#f2f4f4] text-[#5a6061] hover:bg-[#dde4e5] hover:text-[#2d3435]"
+            }`}
+          >
+            {stationBucketLabel(bucket)}
+            <span className={activeBucket === bucket ? "text-[#f8f8f8]" : "text-[#2d3435]"}>
+              {bucketCounts[bucket]}
+            </span>
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-[minmax(220px,1.5fr)_120px_120px_140px_150px_250px] gap-3 bg-[#f2f4f4] px-4 py-3 text-xs font-semibold text-[#5a6061] max-lg:hidden">
         <span>站点</span>
         <span>发布</span>
@@ -612,14 +693,17 @@ function StationsPanel({
         {stations.map((station) => {
           const publishLoading = loadingAction === `station-publish-${station.id}`;
           const visibleLoading = loadingAction === `station-visible-${station.id}`;
+          const removeLoading = loadingAction === `station-remove-${station.id}`;
+          const restoreLoading = loadingAction === `station-restore-${station.id}`;
           const pendingCount = pendingCountByStation.get(station.id) || station.pendingOfferCount;
+          const removed = Boolean(station.removedAt);
           return (
-            <article key={station.id} className="grid gap-3 px-4 py-4 text-sm lg:grid-cols-[minmax(220px,1.5fr)_120px_120px_140px_150px_250px] lg:items-center">
+            <article key={station.id} className={`grid gap-3 px-4 py-4 text-sm lg:grid-cols-[minmax(220px,1.5fr)_120px_120px_140px_150px_250px] lg:items-center ${removed ? "bg-[#fafafa]" : ""}`}>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="truncate text-sm font-semibold text-[#202829]">{station.name}</h2>
-                  <StatusBadge tone={station.published ? "success" : "warn"}>
-                    {station.published ? "已上架" : "待发布"}
+                  <StatusBadge tone={removed ? "muted" : station.published ? "success" : "warn"}>
+                    {removed ? "已移除" : station.published ? "已上架" : "待发布"}
                   </StatusBadge>
                   <StatusBadge tone={station.collectionStatus === "failed" ? "danger" : station.collectionStatus === "success" ? "success" : "info"}>
                     {collectionStatusLabel(station.collectionStatus)}
@@ -632,13 +716,13 @@ function StationsPanel({
                   </a>
                   <span>{station.collectorKind}</span>
                 </div>
-                {station.adminNote || station.collectionError ? (
-                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#5a6061]">{station.collectionError || station.adminNote}</p>
+                {station.removedReason || station.adminNote || station.collectionError ? (
+                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#5a6061]">{station.removedReason || station.collectionError || station.adminNote}</p>
                 ) : null}
               </div>
               <div>
                 <MobileLabel>发布</MobileLabel>
-                <span className="text-sm font-medium text-[#2d3435]">{station.published ? "前台可见" : "审核池"}</span>
+                <span className="text-sm font-medium text-[#2d3435]">{removed ? "已移除" : station.published ? "前台可见" : "审核池"}</span>
               </div>
               <div>
                 <MobileLabel>报价</MobileLabel>
@@ -664,7 +748,17 @@ function StationsPanel({
                   <Pencil size={13} />
                   编辑
                 </button>
-                {!station.published ? (
+                {removed ? (
+                  <button
+                    type="button"
+                    disabled={restoreLoading}
+                    onClick={() => onRestore(station)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#2d3435] px-3 text-xs font-medium text-[#f8f8f8] transition-colors hover:bg-[#202829] disabled:opacity-60"
+                  >
+                    {restoreLoading ? <Loader2 size={13} className="animate-spin" /> : <RotateCcw size={13} />}
+                    恢复
+                  </button>
+                ) : !station.published ? (
                   <button
                     type="button"
                     disabled={publishLoading}
@@ -685,7 +779,18 @@ function StationsPanel({
                     隐藏
                   </button>
                 )}
-                {station.published ? (
+                {!removed ? (
+                  <button
+                    type="button"
+                    disabled={removeLoading}
+                    onClick={() => onRemove(station)}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#2d3435] transition-colors hover:bg-[#f2f4f4] disabled:opacity-60"
+                  >
+                    {removeLoading ? <Loader2 size={13} className="animate-spin" /> : <Archive size={13} />}
+                    移除
+                  </button>
+                ) : null}
+                {station.published && !removed ? (
                   <Link
                     href={`/api-transit/${station.slug}`}
                     className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[#adb3b4]/30 bg-white px-3 text-xs font-medium text-[#2d3435] transition-colors hover:bg-[#f2f4f4]"
@@ -1101,11 +1206,17 @@ function SubmissionRow({
           <StatusBadge tone={submission.reviewStatus === "pending" ? "warn" : submission.reviewStatus === "approved" ? "success" : submission.reviewStatus === "collector_todo" ? "info" : "muted"}>
             {submissionReviewStatusLabel(submission.reviewStatus)}
           </StatusBadge>
+          {submission.duplicateCount > 0 ? (
+            <StatusBadge tone="muted">合并 {submission.duplicateCount}</StatusBadge>
+          ) : null}
         </div>
         <a href={submission.submittedUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex max-w-full items-center gap-1 text-xs font-medium text-[#47657a] hover:text-[#202829]">
           <span className="truncate">{submission.submittedUrl}</span>
           <ExternalLink size={12} />
         </a>
+        {submission.normalizedHost ? (
+          <div className="mt-1 text-xs text-[#adb3b4]">同站口径：{submission.normalizedHost}</div>
+        ) : null}
         <SubmissionMetaSummary submission={submission} />
         {submission.notes ? <p className="mt-1 line-clamp-2 text-xs leading-5 text-[#5a6061]">{submission.notes}</p> : null}
       </div>
@@ -1258,6 +1369,12 @@ function StationEditDialog({
           title="基础资料"
           description="前台识别站点的核心信息，运营时最常改。"
         >
+          {station.removedAt ? (
+            <div className="rounded-lg border border-[#dfe4e5] bg-[#f2f4f4] px-3 py-2 text-xs leading-5 text-[#5a6061]">
+              已移除：{formatRelativeTime(station.removedAt)}
+              {station.removedReason ? `；原因：${station.removedReason}` : ""}
+            </div>
+          ) : null}
           <div className="grid gap-3 md:grid-cols-2">
             <AdminField label="站点名称">
               <input name="name" defaultValue={station.name} className={adminFieldClassName} required />
@@ -1973,6 +2090,28 @@ function matchesQuery(query: string, values: Array<string | null | undefined>): 
 
 function uniqueIds(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)));
+}
+
+function groupVisibleSubmissions(submissions: ApiTransitAdminSubmission[]): ApiTransitAdminSubmission[] {
+  const byId = new Map(submissions.map((submission) => [submission.id, submission]));
+  const groups = new Map<string, ApiTransitAdminSubmission[]>();
+
+  for (const submission of submissions) {
+    const rootId = submission.duplicateOf && byId.has(submission.duplicateOf)
+      ? submission.duplicateOf
+      : null;
+    const key = rootId || submission.normalizedHost || submission.normalizedUrl || submission.submittedUrl || submission.id;
+    groups.set(key, [...(groups.get(key) || []), submission]);
+  }
+
+  return Array.from(groups.values())
+    .map((group) => {
+      const root = group.find((submission) => !submission.duplicateOf) || group[0];
+      const storedDuplicateCount = Math.max(...group.map((item) => item.duplicateCount || 0));
+      const duplicateTotal = Math.max(group.length - 1, storedDuplicateCount);
+      return { ...root, duplicateCount: duplicateTotal };
+    })
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime());
 }
 
 function toggleCandidateSelection(

@@ -85,4 +85,19 @@ assert.equal(
   "needs_review",
 );
 
+const sources = [
+  { id: "published-new-api" },
+  { id: "pending-new-api" },
+  { id: "removed-new-api" },
+];
+assert.deepEqual(
+  __test.filterSourcesByPublishedStationIds(sources, new Set(["published-new-api"])),
+  [{ id: "published-new-api" }],
+);
+
+assert.equal(__test.shouldRestrictToPublishedStations({ post: true }), true);
+assert.equal(__test.shouldRestrictToPublishedStations({ post: true, source: "pending-new-api" }), false);
+assert.equal(__test.shouldRestrictToPublishedStations({ post: true, publish: true }), false);
+assert.equal(__test.shouldRestrictToPublishedStations({ post: true, dryRun: true }), false);
+
 console.log("api transit collector refresh test passed");

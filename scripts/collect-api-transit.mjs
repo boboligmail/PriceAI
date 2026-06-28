@@ -57,7 +57,7 @@ if (isCli()) {
 export async function collectApiTransitPrices(options = {}) {
   options = normalizeOptions(options);
 
-  const selectedSources = selectSources(loadSources(), options);
+  const selectedSources = selectSources(await loadCollectionSources(options), options);
   const startedAt = new Date().toISOString();
   const stations = [];
   const offers = [];
@@ -1236,11 +1236,62 @@ function loadSources() {
   return JSON.parse(readFileSync(configPath, "utf8"));
 }
 
+async function loadCollectionSources(options) {
+  const sources = loadSources();
+  if (!shouldRestrictToPublishedStations(options)) return sources;
+
+  const publishedStationIds = await readPublishedApiTransitStationIds();
+  return filterSourcesByPublishedStationIds(sources, publishedStationIds);
+}
+
 function selectSources(sources, options) {
   const ids = optionList(options.source || options.sources);
   const selected = ids.length ? sources.filter((source) => ids.includes(source.id)) : sources;
   if (!selected.length) throw new Error("No API transit sources matched.");
   return selected;
+}
+
+function shouldRestrictToPublishedStations(options) {
+  const ids = optionList(options.source || options.sources);
+  return Boolean((options.post || options.db) && !options.dryRun && !options.publish && !ids.length);
+}
+
+function filterSourcesByPublishedStationIds(sources, publishedStationIds) {
+  return sources.filter((source) => publishedStationIds.has(source.id));
+}
+
+async function readPublishedApiTransitStationIds() {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for published API transit source selection.");
+  }
+
+  const { data, error } = await supabase
+    .from("api_transit_stations")
+    .select("id")
+    .eq("published", true)
+    .is("removed_at", null);
+  if (error) {
+    if (isMissingRemovedAtColumnError(error)) return readPublishedApiTransitStationIdsWithoutRemovedFilter(supabase);
+    throw error;
+  }
+
+  return new Set((data || []).map((row) => String(row.id || "")).filter(Boolean));
+}
+
+async function readPublishedApiTransitStationIdsWithoutRemovedFilter(supabase) {
+  const { data, error } = await supabase
+    .from("api_transit_stations")
+    .select("id")
+    .eq("published", true);
+  if (error) throw error;
+  return new Set((data || []).map((row) => String(row.id || "")).filter(Boolean));
+}
+
+function isMissingRemovedAtColumnError(error) {
+  const code = String(error?.code || "");
+  const message = String(error?.message || error?.details || "");
+  return (code === "42703" || code === "PGRST204") && message.includes("removed_at");
 }
 
 function compactSnapshot(payload) {
@@ -1424,6 +1475,8 @@ function errorMessage(error) {
 export const __test = {
   collectSuccessfulRefreshStationIds,
   collectRefreshedOfferKeys,
+  filterSourcesByPublishedStationIds,
   findStaleRefreshedOfferIds,
   mergeOfferForRefresh,
+  shouldRestrictToPublishedStations,
 };

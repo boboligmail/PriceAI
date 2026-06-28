@@ -1671,6 +1671,8 @@ create table if not exists api_transit_stations (
   last_collected_at timestamptz,
   last_updated_at timestamptz not null default now(),
   published boolean not null default false,
+  removed_at timestamptz,
+  removed_reason text,
   admin_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1721,6 +1723,10 @@ create table if not exists api_transit_submissions (
   probe_status text not null default 'pending' check (probe_status in ('pending', 'public_pricing_found', 'needs_login', 'failed')),
   review_status text not null default 'pending' check (review_status in ('pending', 'collector_todo', 'approved', 'rejected')),
   station_id text references api_transit_stations(id) on delete set null,
+  normalized_url text,
+  normalized_host text,
+  duplicate_of text references api_transit_submissions(id) on delete set null,
+  duplicate_count integer not null default 0,
   admin_note text,
   submitter_ip text,
   created_at timestamptz not null default now(),
@@ -1788,6 +1794,7 @@ create table if not exists api_transit_feedback (
 );
 
 create index if not exists api_transit_stations_published_idx on api_transit_stations(published, updated_at desc);
+create index if not exists api_transit_stations_removed_at_idx on api_transit_stations(removed_at, published, updated_at desc);
 create index if not exists api_transit_stations_status_idx on api_transit_stations(status);
 create index if not exists api_transit_stations_collector_kind_idx on api_transit_stations(collector_kind);
 create index if not exists api_transit_offers_station_id_idx on api_transit_offers(station_id);
@@ -1795,6 +1802,9 @@ create index if not exists api_transit_offers_family_idx on api_transit_offers(f
 create index if not exists api_transit_offers_status_idx on api_transit_offers(status);
 create index if not exists api_transit_submissions_review_status_idx on api_transit_submissions(review_status, created_at desc);
 create index if not exists api_transit_submissions_submitted_url_idx on api_transit_submissions(submitted_url);
+create index if not exists api_transit_submissions_normalized_host_idx on api_transit_submissions(normalized_host, review_status, created_at desc);
+create index if not exists api_transit_submissions_normalized_url_idx on api_transit_submissions(normalized_url, review_status, created_at desc);
+create index if not exists api_transit_submissions_duplicate_of_idx on api_transit_submissions(duplicate_of);
 create index if not exists api_transit_stations_commercial_offers_idx on api_transit_stations using gin (commercial_offers);
 create index if not exists api_transit_stations_verification_events_idx on api_transit_stations using gin (verification_events);
 create index if not exists api_transit_credentials_submission_id_idx on api_transit_credentials(submission_id);

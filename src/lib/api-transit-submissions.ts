@@ -1,5 +1,6 @@
 import "server-only";
 
+import { normalizeTransitSubmissionUrl } from "@/lib/api-transit-normalization";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import { stableId } from "@/lib/utils";
 
@@ -29,13 +30,19 @@ export async function createTransitSubmission(input: CreateTransitSubmissionInpu
   if (!supabase) throw new Error("Supabase 尚未配置，暂时无法接收提交。");
 
   const submittedUrl = normalizeUrl(input.url);
+  const normalized = normalizeTransitSubmissionUrl(submittedUrl);
   const id = stableId("api-transit-submission", input.type, submittedUrl, input.submitterIp || "", new Date().toISOString());
-  const existing = await findRecentSubmission(submittedUrl, input.submitterIp);
-  if (existing) return { ignored: true as const, id: existing };
+  const existing = await findRecentSubmission({
+    submittedUrl,
+    normalizedUrl: normalized.normalizedUrl,
+    normalizedHost: normalized.normalizedHost,
+    submitterIp: input.submitterIp,
+  });
+  if (existing?.active) return { ignored: true as const, id: existing.id };
 
   await assertSubmitterRateLimit(input.submitterIp, input.rateLimitPerHour);
 
-  const { error } = await supabase.from("api_transit_submissions").insert({
+  await insertTransitSubmissionRow(supabase, {
     id,
     submission_type: input.type,
     submitted_url: submittedUrl,
@@ -50,30 +57,118 @@ export async function createTransitSubmission(input: CreateTransitSubmissionInpu
     probe_status: inferProbeStatus(input),
     review_status: "pending",
     station_id: cleanText(input.stationId),
+    normalized_url: normalized.normalizedUrl,
+    normalized_host: normalized.normalizedHost,
+    duplicate_of: existing?.id || null,
     submitter_ip: input.submitterIp || null,
   });
 
-  if (error) throw error;
+  if (existing?.id) {
+    await incrementDuplicateCount(existing.id);
+  }
   return { id };
 }
 
-async function findRecentSubmission(url: string, submitterIp?: string | null): Promise<string | null> {
+async function insertTransitSubmissionRow(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  row: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabase.from("api_transit_submissions").insert(row);
+  if (!error) return;
+  if (!isMissingColumnError(error)) throw error;
+
+  const fallbackRow = { ...row };
+  delete fallbackRow.normalized_url;
+  delete fallbackRow.normalized_host;
+  delete fallbackRow.duplicate_of;
+
+  const { error: fallbackError } = await supabase.from("api_transit_submissions").insert(fallbackRow);
+  if (fallbackError) throw fallbackError;
+}
+
+async function findRecentSubmission(input: {
+  submittedUrl: string;
+  normalizedUrl: string | null;
+  normalizedHost: string | null;
+  submitterIp?: string | null;
+}): Promise<{ id: string; active: boolean } | null> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
 
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  let query = supabase
+  let recentQuery = supabase
     .from("api_transit_submissions")
     .select("id")
-    .eq("submitted_url", url)
+    .eq("submitted_url", input.submittedUrl)
     .gte("created_at", since)
     .limit(1);
 
-  if (submitterIp) query = query.eq("submitter_ip", submitterIp);
+  if (input.submitterIp) recentQuery = recentQuery.eq("submitter_ip", input.submitterIp);
 
-  const { data, error } = await query.maybeSingle();
+  const { data, error } = await recentQuery.maybeSingle();
   if (error) throw error;
+  if (data?.id) return { id: String(data.id), active: true };
+
+  const normalizedMatch = await findNormalizedSubmission(input.normalizedUrl, input.normalizedHost);
+  if (normalizedMatch) return { id: normalizedMatch, active: false };
+  return null;
+}
+
+async function findNormalizedSubmission(normalizedUrl: string | null, normalizedHost: string | null): Promise<string | null> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase || (!normalizedUrl && !normalizedHost)) return null;
+
+  if (normalizedUrl) {
+    const { data, error } = await supabase
+      .from("api_transit_submissions")
+      .select("id")
+      .eq("normalized_url", normalizedUrl)
+      .in("review_status", ["pending", "collector_todo", "approved"])
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (error) {
+      if (isMissingColumnError(error)) return null;
+      throw error;
+    }
+    if (data?.id) return String(data.id);
+  }
+
+  if (!normalizedHost) return null;
+  const { data, error } = await supabase
+    .from("api_transit_submissions")
+    .select("id")
+    .eq("normalized_host", normalizedHost)
+    .in("review_status", ["pending", "collector_todo", "approved"])
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    if (isMissingColumnError(error)) return null;
+    throw error;
+  }
   return data?.id ? String(data.id) : null;
+}
+
+async function incrementDuplicateCount(id: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return;
+
+  const { data, error } = await supabase
+    .from("api_transit_submissions")
+    .select("duplicate_count")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    if (isMissingColumnError(error)) return;
+    throw error;
+  }
+  const nextCount = Number(data?.duplicate_count || 0) + 1;
+  const { error: updateError } = await supabase
+    .from("api_transit_submissions")
+    .update({ duplicate_count: nextCount })
+    .eq("id", id);
+  if (updateError && !isMissingColumnError(updateError)) throw updateError;
 }
 
 async function assertSubmitterRateLimit(
@@ -116,6 +211,15 @@ function cleanUrl(value: string | null | undefined): string | null {
 function cleanText(value: string | null | undefined): string | null {
   const text = String(value || "").trim();
   return text ? text : null;
+}
+
+function isMissingColumnError(error: unknown): boolean {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      "code" in error &&
+      ((error as { code?: unknown }).code === "42703" || (error as { code?: unknown }).code === "PGRST204")
+  );
 }
 
 function buildSubmittedMeta(input: CreateTransitSubmissionInput): Record<string, unknown> {

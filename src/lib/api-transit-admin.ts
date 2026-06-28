@@ -26,6 +26,7 @@ import type {
 } from "@/lib/api-transit-admin-types";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getSupabaseServerClient } from "@/lib/supabase";
+import { normalizeTransitSubmissionUrl } from "@/lib/api-transit-normalization";
 import { slugify, stableId } from "@/lib/utils";
 
 const ADMIN_STATION_LIMIT = 80;
@@ -98,6 +99,7 @@ export function getEmptyApiTransitAdminData(
       totalStations: 0,
       publishedStations: 0,
       pendingStations: 0,
+      removedStations: 0,
       totalOffers: 0,
       activeOffers: 0,
       pendingOffers: 0,
@@ -144,6 +146,8 @@ export async function updateApiTransitStation(input: {
   cautions?: string[];
   commercialOffers?: ApiTransitCommercialOffer[];
   verificationEvents?: ApiTransitVerificationEvent[];
+  removedAt?: string | null;
+  removedReason?: string | null;
 }): Promise<ApiTransitAdminStation> {
   const supabase = getSupabaseOrThrow();
   const row: DbRow = {
@@ -181,6 +185,8 @@ export async function updateApiTransitStation(input: {
   if (input.cautions !== undefined) row.cautions = uniqueText(input.cautions);
   if (input.commercialOffers !== undefined) row.commercial_offers = sanitizeCommercialOffers(input.commercialOffers);
   if (input.verificationEvents !== undefined) row.verification_events = sanitizeVerificationEvents(input.verificationEvents);
+  if (input.removedAt !== undefined) row.removed_at = cleanNullable(input.removedAt);
+  if (input.removedReason !== undefined) row.removed_reason = cleanNullable(input.removedReason);
 
   let { data, error } = await supabase
     .from("api_transit_stations")
@@ -301,9 +307,10 @@ export async function updateApiTransitOffer(input: {
         "status",
         "created_at",
         "updated_at",
-        "api_transit_stations(name,published)",
+        "api_transit_stations!inner(name,published,removed_at)",
       ].join(",")
     )
+    .is("api_transit_stations.removed_at", null)
     .maybeSingle();
 
   if (error) throw error;
@@ -319,6 +326,8 @@ export async function publishApiTransitStationWithOffers(input: {
   const station = await updateApiTransitStation({
     id: input.stationId,
     published: true,
+    removedAt: null,
+    removedReason: null,
     dataStatus: "verified",
     status: "active",
     usageAdvice: "try_small",
@@ -330,6 +339,36 @@ export async function publishApiTransitStationWithOffers(input: {
   }
   const result = await updateApiTransitOffers({ ids: offerIds, status: "active" });
   return { station, updatedOfferCount: result.updatedCount };
+}
+
+export async function removeApiTransitStation(input: {
+  id: string;
+  reason?: string | null;
+}): Promise<ApiTransitAdminStation> {
+  return updateApiTransitStation({
+    id: input.id,
+    published: false,
+    removedAt: new Date().toISOString(),
+    removedReason: cleanNullable(input.reason) || "后台移除",
+    dataStatus: "pending_review",
+    status: "unknown",
+    usageAdvice: "pending",
+    collectionStatus: "manual_review",
+  });
+}
+
+export async function restoreApiTransitStation(input: {
+  id: string;
+}): Promise<ApiTransitAdminStation> {
+  return updateApiTransitStation({
+    id: input.id,
+    removedAt: null,
+    removedReason: null,
+    published: false,
+    dataStatus: "pending_review",
+    status: "unknown",
+    usageAdvice: "pending",
+  });
 }
 
 export async function updateApiTransitSubmission(input: {
@@ -459,6 +498,7 @@ async function findStationForSubmission(
   const { data, error } = await supabase
     .from("api_transit_stations")
     .select("*")
+    .is("removed_at", null)
     .limit(500);
 
   if (error) throw error;
@@ -612,7 +652,8 @@ async function listAdminTransitStations(): Promise<ApiTransitAdminStation[]> {
   const { data, error } = await supabase
     .from("api_transit_stations")
     .select("*")
-    .order("published", { ascending: true })
+    .order("removed_at", { ascending: true, nullsFirst: true })
+    .order("published", { ascending: false })
     .order("last_collected_at", { ascending: false })
     .limit(ADMIN_STATION_LIMIT);
 
@@ -658,9 +699,10 @@ async function listAdminTransitOffers(): Promise<ApiTransitAdminOffer[]> {
         "status",
         "created_at",
         "updated_at",
-        "api_transit_stations(name,published)",
+        "api_transit_stations!inner(name,published,removed_at)",
       ].join(",")
     )
+    .is("api_transit_stations.removed_at", null)
     .order("status", { ascending: false })
     .order("last_verified_at", { ascending: false })
     .limit(ADMIN_OFFER_LIMIT);
@@ -822,6 +864,8 @@ function mapStation(
     lastCollectedAt: nullableString(row.last_collected_at),
     lastUpdatedAt: nullableString(row.last_updated_at),
     published: Boolean(row.published),
+    removedAt: nullableString(row.removed_at),
+    removedReason: nullableString(row.removed_reason),
     adminNote: nullableString(row.admin_note),
     strengths: stringArray(row.strengths),
     cautions: stringArray(row.cautions),
@@ -878,10 +922,12 @@ function mapOffer(row: DbRow): ApiTransitAdminOffer {
 }
 
 function mapSubmission(row: DbRow): ApiTransitAdminSubmission {
+  const submittedUrl = stringValue(row.submitted_url);
+  const normalized = normalizeTransitSubmissionUrl(submittedUrl);
   return {
     id: stringValue(row.id),
     submissionType: submissionType(row.submission_type),
-    submittedUrl: stringValue(row.submitted_url),
+    submittedUrl,
     submittedName: nullableString(row.submitted_name),
     apiBaseUrl: nullableString(row.api_base_url),
     pricingUrl: nullableString(row.pricing_url),
@@ -893,6 +939,10 @@ function mapSubmission(row: DbRow): ApiTransitAdminSubmission {
     probeStatus: probeStatus(row.probe_status),
     reviewStatus: reviewStatus(row.review_status),
     stationId: nullableString(row.station_id),
+    normalizedUrl: nullableString(row.normalized_url) || normalized.normalizedUrl,
+    normalizedHost: nullableString(row.normalized_host) || normalized.normalizedHost,
+    duplicateOf: nullableString(row.duplicate_of),
+    duplicateCount: numberValue(row.duplicate_count) || 0,
     adminNote: nullableString(row.admin_note),
     createdAt: timestampValue(row.created_at),
     updatedAt: nullableString(row.updated_at),
@@ -923,18 +973,34 @@ function buildMetrics(
   runs: ApiTransitAdminRun[],
 ): ApiTransitAdminMetrics {
   const offerCandidates = buildOfferCandidates(offers);
+  const activeStations = stations.filter((station) => !station.removedAt);
+  const visibleSubmissions = groupVisibleAdminSubmissions(submissions);
   return {
-    totalStations: stations.length,
-    publishedStations: stations.filter((station) => station.published).length,
-    pendingStations: stations.filter((station) => !station.published).length,
+    totalStations: activeStations.length,
+    publishedStations: activeStations.filter((station) => station.published).length,
+    pendingStations: activeStations.filter((station) => !station.published).length,
+    removedStations: stations.filter((station) => station.removedAt).length,
     totalOffers: offers.length,
     activeOffers: offers.filter((offer) => offer.status === "active").length,
     pendingOffers: offers.filter((offer) => offer.status === "needs_review").length,
     candidateOffers: offerCandidates.filter((candidate) => candidate.status === "needs_review").length,
-    pendingSubmissions: submissions.filter((submission) => submission.reviewStatus === "pending").length,
+    pendingSubmissions: visibleSubmissions.filter((submission) => submission.reviewStatus === "pending").length,
     successfulRuns: runs.filter((run) => run.status === "success").length,
     failedRuns: runs.filter((run) => run.status === "failed").length,
   };
+}
+
+function groupVisibleAdminSubmissions(submissions: ApiTransitAdminSubmission[]): ApiTransitAdminSubmission[] {
+  const byId = new Map(submissions.map((submission) => [submission.id, submission]));
+  const groups = new Map<string, ApiTransitAdminSubmission[]>();
+
+  for (const submission of submissions) {
+    const rootId = submission.duplicateOf && byId.has(submission.duplicateOf) ? submission.duplicateOf : null;
+    const key = rootId || submission.normalizedHost || submission.normalizedUrl || submission.submittedUrl || submission.id;
+    groups.set(key, [...(groups.get(key) || []), submission]);
+  }
+
+  return Array.from(groups.values()).map((group) => group.find((submission) => !submission.duplicateOf) || group[0]);
 }
 
 function buildOfferCandidates(offers: ApiTransitAdminOffer[]): ApiTransitOfferCandidate[] {

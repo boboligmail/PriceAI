@@ -66,6 +66,8 @@ export type ApiTransitAdminStation = {
   lastCollectedAt: string | null;
   lastUpdatedAt: string | null;
   published: boolean;
+  removedAt: string | null;
+  removedReason: string | null;
   adminNote: string | null;
   strengths: string[];
   cautions: string[];
@@ -160,6 +162,10 @@ export type ApiTransitAdminSubmission = {
   probeStatus: ApiTransitProbeStatus;
   reviewStatus: ApiTransitSubmissionReviewStatus;
   stationId: string | null;
+  normalizedUrl: string | null;
+  normalizedHost: string | null;
+  duplicateOf: string | null;
+  duplicateCount: number;
   adminNote: string | null;
   createdAt: string;
   updatedAt: string | null;
@@ -183,6 +189,7 @@ export type ApiTransitAdminMetrics = {
   totalStations: number;
   publishedStations: number;
   pendingStations: number;
+  removedStations: number;
   totalOffers: number;
   activeOffers: number;
   pendingOffers: number;
