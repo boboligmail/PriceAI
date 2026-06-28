@@ -4688,7 +4688,9 @@ function SponsorSettingsPanel({
                   <div>
                     <h4 className="text-sm font-semibold text-[#202829]">{sponsorPlacementLabel(kind)}</h4>
                     <p className="mt-1 text-xs leading-5 text-[#5a6061]">
-                      {kind === "listFooter" ? "底部区域支持多张图片卡，适合放 AI 周边服务赞助。" : "展示为轻量横幅或图文卡片。"}
+                      {kind === "listFooter"
+                        ? "底部区域支持多张图片卡，可放 AI 周边和中转 API 周边赞助；不得写成榜单推荐或排序权益。"
+                        : "展示为轻量横幅或图文卡片。"}
                     </p>
                   </div>
                   <label className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2d3435] ring-1 ring-[#adb3b4]/20">

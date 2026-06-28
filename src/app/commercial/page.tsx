@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, CircleDollarSign, FileText, Megaphone, ShieldCheck } from "lucide-react";
+import { ArrowRight, BadgeCheck, FileText, Megaphone, ShieldCheck } from "lucide-react";
 import { JsonLd } from "@/components/JsonLd";
 import { SiteHeader } from "@/components/SiteHeader";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "商务合作与广告投放",
-  description: "PriceAI 商务合作说明：广告位、赞助展示、AFF 合作、商家入驻资料要求和商业披露原则。",
+  title: "赞助广告位说明",
+  description: "PriceAI 赞助广告位说明：展示位置、适合对象、素材要求和不影响客观排序的投放边界。",
   alternates: {
     canonical: "/commercial",
   },
   openGraph: {
-    title: "PriceAI 商务合作与广告投放",
-    description: "了解 PriceAI 可合作位置、资料要求、披露方式和不影响客观排序的合作原则。",
+    title: "PriceAI 赞助广告位说明",
+    description: "了解 PriceAI 可投放的赞助广告位置、适合对象、资料要求和不影响客观排序的边界。",
     url: "https://priceai.cc/commercial",
     siteName: "PriceAI",
   },
@@ -24,49 +24,54 @@ const slots = [
   {
     title: "首页顶部横幅",
     fit: "云服务器、监控、开发者工具、域名、支付、算力、API 周边服务",
-    note: "顶部通知条支持关闭；不承接卡网订阅或中转站排名型推广，避免用户误以为是购买建议。",
+    format: "可关闭通知条，适合短标题、优惠活动或品牌入口。",
+    note: "不承接卡网订阅或中转站排名型推广，避免用户误以为是购买建议。",
   },
   {
     title: "首页生态合作位",
     fit: "AI 周边服务、开发者基础设施、工具类品牌、长期合作公告",
-    note: "用于轻曝光和品牌说明，不进入四个核心模块的排序逻辑。",
+    format: "首页模块之间的轻量图文位。",
+    note: "用于品牌说明和轻曝光，不进入四个核心模块的排序逻辑。",
   },
   {
     title: "底部赞助展示区",
-    fit: "IP 纯净度检测、云服务器、监控、支付、域名、网络与账号安全工具",
-    note: "位于价格免责声明下方、页面最底部，以图片卡片式展示多个赞助位；不承接卡网订阅或中转站排名型推广。",
+    fit: "IP 纯净度检测、云服务器、监控、支付、域名、网络与账号安全工具、API 中转周边服务",
+    format: "页面最底部的多图片卡片位，可承接多个赞助对象。",
+    note: "可以放中转 API 相关赞助，但必须是独立广告区，不能写成榜单推荐、稳定性背书或自然排序权益。",
   },
   {
     title: "中转 API 频道赞助位",
     fit: "API Gateway、中转站、模型路由平台、公开可核验的优惠码",
-    note: "可使用图片横幅或图文卡片，必须标注赞助关系；价格、倍率、可用性和风险提示仍按 PriceAI 规则展示。",
+    format: "频道页顶部或列表附近的横幅 / 图文卡片。",
+    note: "只提供明确标注的广告展示，不承接分佣说明；价格、倍率、可用性和风险提示仍按 PriceAI 规则展示。",
   },
   {
     title: "API 模型雷达合作位",
     fit: "模型 API、Token Plan、开发者工具、统一接口、模型路由相关服务",
+    format: "模型 API 页面中的开发者向展示位。",
     note: "更适合开发者向产品，要求提供清晰官网、定价页或公开说明。",
   },
 ];
 
-const cooperationModes = [
-  ["赞助展示", "按月或按周期展示，前台明确标注“赞助 / 广告”，适合没有 AFF 或价格不占优势的商家。"],
-  ["AFF / 返佣", "如果商家已有 AFF，可优先走返佣链接；前台会披露 AFF，不作为排序加权的唯一依据。"],
-  ["优惠码合作", "固定优惠码建议使用 PressAI，优惠形式由商家自定，可以是赠金、充值折扣或首充优惠。"],
-  ["入驻与数据对接", "中转站可提交公开价格、模型分组、充值倍率、监测页和测试 Key，供 PriceAI 核验后收录。"],
+const sponsorScope = [
+  ["本页只说明付费赞助展示", "适合想购买明确广告位的服务商。免费收录、资料提交和纠错入口会放在对应业务页面。"],
+  ["中转 API 不在这里讲分佣", "中转站或 API Gateway 可以购买频道广告位、模型页广告位或底部广告位，但不把分佣作为本页合作卖点。"],
+  ["广告位不是排名权益", "赞助展示不会改变价格、倍率、库存、稳定性、用户反馈和自然排序。"],
+  ["所有位置都要明确标注", "前台展示会使用“广告 / 赞助”标识，避免用户把商业曝光误解成 PriceAI 推荐。"],
 ];
 
 const requirements = [
   "官网地址、产品介绍、适合投放的页面位置和希望展示的周期。",
   "公司或个人主体、是否能开发票、合同抬头与付款方式。",
-  "若涉及中转 API，需提供公开价格页、模型分组倍率、充值倍率、模型基准价、上游来源说明和可用性监测页。",
-  "若涉及 AFF 或优惠码，需说明跳转链接、返佣规则、优惠码政策、数据后台或可核验的注册充值统计方式。",
   "广告素材需提供短标题、30 到 80 字说明、落地页、披露语，以及必要的 Logo、品牌图或横幅图。",
+  "若投放对象涉及中转 API，需提供公开价格页、模型分组倍率、充值倍率、模型基准价、上游来源说明和可用性监测页。",
+  "若使用优惠码，只说明优惠规则和落地页，不在本页展示分佣比例或返佣承诺。",
 ];
 
 const boundaries = [
   "商业合作不能购买自然排名，不能覆盖价格、可用性、用户反馈和风险提示。",
   "详情页和指南页默认不放广告位，避免影响用户判断和内容可信度。",
-  "涉及中转站时，赞助展示不等于 PriceAI 担保，用户仍需小额试用并回原站核验。",
+  "涉及中转 API 时，赞助展示不等于 PriceAI 担保，用户仍需小额试用并回原站核验。",
   "不接受误导性文案、夸大稳定性、隐藏上游来源或与公开页面不一致的价格宣传。",
 ];
 
@@ -84,10 +89,10 @@ export default function CommercialPage() {
             <div className="mx-auto max-w-4xl text-center">
               <p className="text-sm font-semibold text-[var(--color-success-text)]">商务合作</p>
               <h1 className="mt-5 text-balance font-serif text-[2.18rem] font-semibold leading-tight tracking-normal text-[var(--color-text-primary)] sm:text-5xl md:text-6xl">
-                广告可以做，但必须和客观比较分开。
+                赞助可以做，但必须和客观比较分开。
               </h1>
               <p className="mx-auto mt-5 max-w-[72ch] text-pretty text-base leading-8 text-[var(--color-text-muted)]">
-                PriceAI 接受赞助展示、AFF、优惠码和商家入驻合作。所有商业关系都会明确标识，不购买自然排序，不替任何商家担保。
+                这个页面只说明 PriceAI 的付费赞助广告位。广告展示会明确标注，不购买自然排序，不改变价格、倍率、库存和风险提示，也不替任何商家担保。
               </p>
               <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
                 <a
@@ -100,10 +105,10 @@ export default function CommercialPage() {
                   <ArrowRight size={16} />
                 </a>
                 <Link
-                  href="/api-transit/submit"
+                  href="#slots"
                   className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--color-panel)] px-6 text-sm font-semibold text-[var(--color-text-primary)] ring-1 ring-[var(--color-border-soft)] transition hover:bg-[var(--color-surface-hover)]"
                 >
-                  提交中转站资料
+                  查看广告位
                 </Link>
               </div>
             </div>
@@ -116,10 +121,10 @@ export default function CommercialPage() {
               <div>
                 <p className="text-sm font-semibold text-[var(--color-success-text)]">可合作位置</p>
                 <h2 className="mt-3 text-balance font-serif text-3xl font-semibold tracking-normal text-[var(--color-text-primary)] sm:text-4xl">
-                  不同页面承接不同类型的广告。
+                  不同页面承接不同类型的赞助。
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-[var(--color-text-muted)]">
-                  越靠近价格和详情判断的位置，披露要求越高。指南页和详情页默认不放广告。
+                  越靠近价格和详情判断的位置，披露要求越高。中转 API 可以买独立广告位，但不能购买排名、背书或评测结论。
                 </p>
               </div>
               <div className="divide-y divide-[var(--color-border-subtle)] overflow-hidden rounded-lg bg-[var(--color-surface)] ring-1 ring-[var(--color-border-soft)]">
@@ -131,6 +136,7 @@ export default function CommercialPage() {
                     </h3>
                     <div className="min-w-0">
                       <p className="text-sm leading-7 text-[var(--color-text-body)]">{slot.fit}</p>
+                      <p className="mt-1 text-sm leading-7 text-[var(--color-text-body)]">{slot.format}</p>
                       <p className="mt-1 text-sm leading-7 text-[var(--color-text-muted)]">{slot.note}</p>
                     </div>
                   </article>
@@ -143,16 +149,16 @@ export default function CommercialPage() {
         <section className="border-b border-[var(--color-border)]">
           <div className="mx-auto max-w-[1500px] border-x border-[var(--color-border-soft)] px-5 py-12 sm:px-8 md:py-14">
             <div className="mx-auto max-w-4xl text-center">
-              <p className="text-sm font-semibold text-[var(--color-success-text)]">合作方式</p>
+              <p className="text-sm font-semibold text-[var(--color-success-text)]">页面范围</p>
               <h2 className="mt-3 text-balance font-serif text-3xl font-semibold tracking-normal text-[var(--color-text-primary)] sm:text-4xl">
-                可以赞助，也可以返佣，但都要讲清楚。
+                这页先讲赞助广告，不讲免费合作。
               </h2>
             </div>
             <div className="mx-auto mt-8 grid max-w-6xl gap-3 md:grid-cols-2">
-              {cooperationModes.map(([title, body]) => (
+              {sponsorScope.map(([title, body]) => (
                 <article key={title} className="rounded-lg bg-[var(--color-panel)] p-5 ring-1 ring-[var(--color-border-soft)]">
                   <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-surface)] text-[var(--color-text-primary)] ring-1 ring-[var(--color-border-soft)]">
-                    <CircleDollarSign size={18} />
+                    <Megaphone size={18} />
                   </span>
                   <h3 className="mt-4 text-base font-semibold text-[var(--color-text-primary)]">{title}</h3>
                   <p className="mt-2 text-sm leading-7 text-[var(--color-text-muted)]">{body}</p>
@@ -200,10 +206,10 @@ export default function CommercialPage() {
               <div className="min-w-0">
                 <h2 className="flex items-center gap-2 text-base font-semibold text-[var(--color-text-primary)]">
                   <BadgeCheck size={18} />
-                  商家联系前建议先准备资料
+                  投放前建议先准备资料
                 </h2>
                 <p className="mt-2 text-sm leading-7 text-[var(--color-text-muted)]">
-                  如果是中转站，请优先准备公开价格页、监测页、分组倍率、充值倍率、优惠码政策和测试 Key。这样更容易判断适合走收录、AFF 还是赞助展示。
+                  如果是中转 API 相关赞助，请优先准备公开价格页、监测页、分组倍率、充值倍率、落地页和广告素材。PriceAI 会先判断适合放频道赞助位、模型页赞助位还是底部赞助展示区。
                 </p>
               </div>
               <a
@@ -227,10 +233,10 @@ function buildCommercialJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "PriceAI 商务合作与广告投放",
+    name: "PriceAI 赞助广告位说明",
     url: "https://priceai.cc/commercial",
     inLanguage: "zh-CN",
-    description: "说明 PriceAI 的广告位、赞助展示、AFF 合作、商家入驻资料要求和商业披露原则。",
+    description: "说明 PriceAI 的赞助广告位、适合对象、资料要求和不影响客观排序的投放边界。",
     isPartOf: {
       "@type": "WebSite",
       name: "PriceAI",
