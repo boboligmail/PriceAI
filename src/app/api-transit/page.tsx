@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { ShieldCheck } from "lucide-react";
 import { getTransitStations } from "@/lib/api-transit-db";
 import { getTransitModelFamilyOptions } from "@/lib/api-transit";
 import { formatRate, getSummaryStats } from "@/lib/api-transit";
@@ -90,6 +91,13 @@ export default async function ApiTransitPage() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2 lg:justify-end">
+            <Link
+              href="/api-transit/detector"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-[#202829] px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(45,52,53,0.08)] transition hover:bg-[#2d3435]"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              模型检测
+            </Link>
             <Link
               href="/guides/api-transit"
               className="inline-flex h-11 items-center justify-center rounded-full bg-white px-4 text-sm font-semibold text-[#2d3435] shadow-[0_12px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/15 transition hover:bg-[#f5f7f7] hover:text-[#202829]"
