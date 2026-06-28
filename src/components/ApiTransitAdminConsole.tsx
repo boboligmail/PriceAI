@@ -35,6 +35,11 @@ import type {
   ApiTransitSubmissionReviewStatus,
   ApiTransitVerificationEvent,
 } from "@/lib/api-transit-admin-types";
+import {
+  TRANSIT_ACCOUNT_POOL_LABELS,
+  TRANSIT_CHANNEL_TYPE_LABELS,
+  TRANSIT_RISK_LABELS,
+} from "@/data/api-transit/types";
 import { apiTransitLogoDisplayUrl } from "@/lib/api-transit-logo-url";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 
@@ -99,6 +104,9 @@ type ApiTransitOfferEditInput = {
 };
 const adminFieldClassName =
   "h-11 w-full rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm text-[#202829] outline-none transition placeholder:text-[#9aa2a3] focus:border-[#2d3435]";
+const transitChannelTypeOptions = Object.entries(TRANSIT_CHANNEL_TYPE_LABELS);
+const transitAccountPoolOptions = Object.entries(TRANSIT_ACCOUNT_POOL_LABELS);
+const transitRiskLabelOptions = Object.entries(TRANSIT_RISK_LABELS);
 
 export function ApiTransitAdminConsole({ data }: { data: ApiTransitAdminData }) {
   return <ApiTransitAdminPanel data={data} framed />;
@@ -1226,14 +1234,14 @@ function StationEditDialog({
             commercialRelation: formText(formData, "commercialRelation") || station.commercialRelation,
             collectorKind: formText(formData, "collectorKind") || station.collectorKind,
             collectionStatus: formText(formData, "collectionStatus") || station.collectionStatus,
-            channelTypes: splitList(formText(formData, "channelTypes")),
-            accountPools: splitList(formText(formData, "accountPools")),
+            channelTypes: formList(formData, "channelTypes"),
+            accountPools: formList(formData, "accountPools"),
             paymentMethods: splitList(formText(formData, "paymentMethods")),
             minimumTopUp: formNullableText(formData, "minimumTopUp"),
             balanceExpiry: formNullableText(formData, "balanceExpiry"),
             supportChannels: splitList(formText(formData, "supportChannels")),
             refundPolicy: formNullableText(formData, "refundPolicy"),
-            riskLabels: splitList(formText(formData, "riskLabels")),
+            riskLabels: formList(formData, "riskLabels"),
             status: formText(formData, "status") || station.status,
             dataStatus: formText(formData, "dataStatus") || station.dataStatus,
             usageAdvice: formText(formData, "usageAdvice") || station.usageAdvice,
@@ -1246,121 +1254,138 @@ function StationEditDialog({
           });
         }}
       >
-        <div className="grid gap-3 md:grid-cols-2">
-          <AdminField label="站点名称">
-            <input name="name" defaultValue={station.name} className={adminFieldClassName} required />
-          </AdminField>
-          <AdminField label="官网 URL">
-            <input name="websiteUrl" defaultValue={station.websiteUrl} className={adminFieldClassName} type="url" required />
-          </AdminField>
-          <AdminField label="站点 Logo">
-            <StationLogoField station={station} />
-          </AdminField>
-          <AdminField label="API Base URL">
-            <input name="apiBaseUrl" defaultValue={station.apiBaseUrl || ""} className={adminFieldClassName} type="url" />
-          </AdminField>
-          <AdminField label="价格页 / 价格接口">
-            <input name="pricingUrl" defaultValue={station.pricingUrl || ""} className={adminFieldClassName} type="url" />
-          </AdminField>
-          <AdminField label="公开监测页">
-            <input name="monitorUrl" defaultValue={station.monitorUrl || ""} className={adminFieldClassName} type="url" />
-          </AdminField>
-          <AdminField label="系统 / 采集器类型">
-            <input name="collectorKind" defaultValue={station.collectorKind} className={adminFieldClassName} />
-          </AdminField>
-          <AdminField label="采集状态">
-            <select name="collectionStatus" defaultValue={station.collectionStatus} className={adminFieldClassName}>
-              <option value="pending">待采集</option>
-              <option value="success">成功</option>
-              <option value="partial">部分</option>
-              <option value="failed">失败</option>
-              <option value="manual_review">人工</option>
-            </select>
-          </AdminField>
-          <AdminField label="来源类型">
-            <select name="sourceType" defaultValue={station.sourceType} className={adminFieldClassName}>
-              <option value="manual_collected">运营整理</option>
-              <option value="user_submitted">用户推荐</option>
-              <option value="merchant_submitted">商家入驻</option>
-            </select>
-          </AdminField>
-          <AdminField label="商业关系">
-            <select name="commercialRelation" defaultValue={station.commercialRelation} className={adminFieldClassName}>
-              <option value="none">无</option>
-              <option value="listed">收录</option>
-              <option value="partner">合作</option>
-              <option value="affiliate">AFF</option>
-              <option value="sponsored">赞助</option>
-              <option value="unknown">未知</option>
-            </select>
-          </AdminField>
-          <AdminField label="站点状态">
-            <select name="status" defaultValue={station.status} className={adminFieldClassName}>
-              <option value="active">可用</option>
-              <option value="limited">受限</option>
-              <option value="unavailable">不可用</option>
-              <option value="unknown">未知</option>
-            </select>
-          </AdminField>
-          <AdminField label="数据状态">
-            <select name="dataStatus" defaultValue={station.dataStatus} className={adminFieldClassName}>
-              <option value="sample">样例</option>
-              <option value="pending_review">待审核</option>
-              <option value="verified">已核验</option>
-            </select>
-          </AdminField>
-          <AdminField label="使用建议">
-            <select name="usageAdvice" defaultValue={station.usageAdvice} className={adminFieldClassName}>
-              <option value="try_small">小额试用</option>
-              <option value="cautious">谨慎</option>
-              <option value="not_recommended">不推荐</option>
-              <option value="pending">待判断</option>
-            </select>
-          </AdminField>
-          <label className="flex h-11 items-center gap-2 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm font-medium text-[#2d3435]">
-            <input name="published" type="checkbox" defaultChecked={station.published} className="h-4 w-4 accent-[#2d3435]" />
-            前台发布
-          </label>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
-          <AdminField label="渠道标签">
-            <input name="channelTypes" defaultValue={station.channelTypes.join("，")} className={adminFieldClassName} placeholder="一手自建号池，逆向，云厂商，官方 API" />
-          </AdminField>
-          <AdminField label="号池标签">
-            <input name="accountPools" defaultValue={station.accountPools.join("，")} className={adminFieldClassName} placeholder="Plus，Pro，Max，Kiro" />
-          </AdminField>
-          <AdminField label="支付方式（前台重点）">
-            <input name="paymentMethods" defaultValue={station.paymentMethods.join("，")} className={adminFieldClassName} />
-          </AdminField>
-          <AdminField label="售后渠道">
-            <input name="supportChannels" defaultValue={station.supportChannels.join("，")} className={adminFieldClassName} />
-          </AdminField>
-          <AdminField label="最低充值（前台重点）">
-            <input name="minimumTopUp" defaultValue={station.minimumTopUp || ""} className={adminFieldClassName} />
-          </AdminField>
-          <AdminField label="余额有效期（有公开信息再填）">
-            <input name="balanceExpiry" defaultValue={station.balanceExpiry || ""} className={adminFieldClassName} />
-          </AdminField>
-        </div>
-        <AdminField label="风险标签">
-          <input name="riskLabels" defaultValue={station.riskLabels.join("，")} className={adminFieldClassName} />
-        </AdminField>
-        <div className="grid gap-3 md:grid-cols-2">
-          <AdminField label="优点，一行一个">
-            <textarea name="strengths" defaultValue={station.strengths.join("\n")} className={`${adminFieldClassName} min-h-24 resize-y py-2 leading-6`} />
-          </AdminField>
-          <AdminField label="注意事项，一行一个">
-            <textarea name="cautions" defaultValue={station.cautions.join("\n")} className={`${adminFieldClassName} min-h-24 resize-y py-2 leading-6`} />
-          </AdminField>
-        </div>
-        <section className="rounded-lg border border-[#adb3b4]/25 bg-[#f8fafa] p-3">
-          <div className="mb-3 text-sm font-semibold text-[#202829]">可用优惠 / AFF</div>
+        <AdminFormSection
+          title="基础资料"
+          description="前台识别站点的核心信息，运营时最常改。"
+        >
           <div className="grid gap-3 md:grid-cols-2">
-            <AdminField label="优惠标题">
-              <input name="offerTitle" defaultValue={station.commercialOffers[0]?.title || ""} className={adminFieldClassName} placeholder="例如 首充 9 折 / PriceAI 专属优惠" />
+            <AdminField label="站点名称">
+              <input name="name" defaultValue={station.name} className={adminFieldClassName} required />
             </AdminField>
-            <AdminField label="列表短文案">
-              <input name="offerListLabel" defaultValue={station.commercialOffers[0]?.listLabel || ""} className={adminFieldClassName} placeholder="例如 首充 6.8 折 / 注册赠送 $1" />
+            <AdminField label="官网 URL">
+              <input name="websiteUrl" defaultValue={station.websiteUrl} className={adminFieldClassName} type="url" required />
+            </AdminField>
+            <AdminField label="站点 Logo">
+              <StationLogoField station={station} />
+            </AdminField>
+            <AdminField label="站点状态">
+              <select name="status" defaultValue={station.status} className={adminFieldClassName}>
+                <option value="active">可用</option>
+                <option value="limited">受限</option>
+                <option value="unavailable">不可用</option>
+                <option value="unknown">未知</option>
+              </select>
+            </AdminField>
+            <label className="flex h-11 items-center gap-2 rounded-lg border border-[#adb3b4]/30 bg-white px-3 text-sm font-medium text-[#2d3435]">
+              <input name="published" type="checkbox" defaultChecked={station.published} className="h-4 w-4 accent-[#2d3435]" />
+              前台发布
+            </label>
+          </div>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="公开资料"
+          description="用户购买前能核验的页面和说明，优先维护公开价格与监测入口。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="公开价格页 / 快照地址">
+              <input name="pricingUrl" defaultValue={station.pricingUrl || ""} className={adminFieldClassName} type="url" />
+            </AdminField>
+            <AdminField label="公开监测页">
+              <input name="monitorUrl" defaultValue={station.monitorUrl || ""} className={adminFieldClassName} type="url" />
+            </AdminField>
+          </div>
+          <AdminField label="站点简介">
+            <textarea name="summary" defaultValue={station.summary} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
+          </AdminField>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="计费与售后"
+          description="购买前决策信息，能公开确认时尽量补全。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="最低充值">
+              <input name="minimumTopUp" defaultValue={station.minimumTopUp || ""} className={adminFieldClassName} />
+            </AdminField>
+            <AdminField label="余额有效期">
+              <input name="balanceExpiry" defaultValue={station.balanceExpiry || ""} className={adminFieldClassName} />
+            </AdminField>
+            <AdminField label="支付方式">
+              <input name="paymentMethods" defaultValue={station.paymentMethods.join("，")} className={adminFieldClassName} />
+            </AdminField>
+            <AdminField label="售后渠道">
+              <input name="supportChannels" defaultValue={station.supportChannels.join("，")} className={adminFieldClassName} />
+            </AdminField>
+          </div>
+          <AdminField label="退款说明">
+            <textarea name="refundPolicy" defaultValue={station.refundPolicy || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
+          </AdminField>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="来源标签与使用建议"
+          description="前台来源渠道和风险提示优先看这里，代码推断只做兜底。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="资料来源">
+              <select name="sourceType" defaultValue={station.sourceType} className={adminFieldClassName}>
+                <option value="manual_collected">运营整理</option>
+                <option value="user_submitted">用户推荐</option>
+                <option value="merchant_submitted">商家入驻</option>
+              </select>
+            </AdminField>
+            <AdminField label="使用建议">
+              <select name="usageAdvice" defaultValue={station.usageAdvice} className={adminFieldClassName}>
+                <option value="try_small">小额试用</option>
+                <option value="cautious">谨慎</option>
+                <option value="not_recommended">不推荐</option>
+                <option value="pending">待判断</option>
+              </select>
+            </AdminField>
+            <AdminCheckboxGroup
+              label="渠道标签"
+              name="channelTypes"
+              options={transitChannelTypeOptions}
+              selected={station.channelTypes}
+            />
+            <AdminCheckboxGroup
+              label="号池标签"
+              name="accountPools"
+              options={transitAccountPoolOptions}
+              selected={station.accountPools}
+            />
+            <AdminCheckboxGroup
+              label="风险标签"
+              name="riskLabels"
+              options={transitRiskLabelOptions}
+              selected={station.riskLabels}
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="优点，一行一个">
+              <textarea name="strengths" defaultValue={station.strengths.join("\n")} className={`${adminFieldClassName} min-h-24 resize-y py-2 leading-6`} />
+            </AdminField>
+            <AdminField label="注意事项，一行一个">
+              <textarea name="cautions" defaultValue={station.cautions.join("\n")} className={`${adminFieldClassName} min-h-24 resize-y py-2 leading-6`} />
+            </AdminField>
+          </div>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="商业关系与优惠"
+          description="AFF、赞助、合作都需要清楚披露，不影响客观排序口径。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="商业关系">
+              <select name="commercialRelation" defaultValue={station.commercialRelation} className={adminFieldClassName}>
+                <option value="none">无</option>
+                <option value="listed">收录</option>
+                <option value="partner">合作</option>
+                <option value="affiliate">AFF</option>
+                <option value="sponsored">赞助</option>
+                <option value="unknown">未知</option>
+              </select>
             </AdminField>
             <AdminField label="优惠类型">
               <select name="offerType" defaultValue={station.commercialOffers[0]?.type || "coupon"} className={adminFieldClassName}>
@@ -1368,6 +1393,12 @@ function StationEditDialog({
                 <option value="affiliate">AFF 链接</option>
                 <option value="sponsored">赞助权益</option>
               </select>
+            </AdminField>
+            <AdminField label="优惠标题">
+              <input name="offerTitle" defaultValue={station.commercialOffers[0]?.title || ""} className={adminFieldClassName} placeholder="例如 首充 9 折 / PriceAI 专属优惠" />
+            </AdminField>
+            <AdminField label="列表短文案">
+              <input name="offerListLabel" defaultValue={station.commercialOffers[0]?.listLabel || ""} className={adminFieldClassName} placeholder="例如 首充 6.8 折 / 注册赠送 $1" />
             </AdminField>
             <AdminField label="优惠码">
               <input name="offerCode" defaultValue={station.commercialOffers[0]?.code || ""} className={adminFieldClassName} />
@@ -1383,7 +1414,7 @@ function StationEditDialog({
               前台展示优惠
             </label>
           </div>
-          <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             <AdminField label="优惠说明">
               <textarea name="offerDescription" defaultValue={station.commercialOffers[0]?.description || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
             </AdminField>
@@ -1391,24 +1422,76 @@ function StationEditDialog({
               <textarea name="offerDisclosure" defaultValue={station.commercialOffers[0]?.disclosure || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} placeholder="例如 该链接可能包含 AFF，不影响排序口径。" />
             </AdminField>
           </div>
-        </section>
-        <AdminField label="核验记录，一行一条：日期 | 来源 | 状态 | 标题 | 说明">
-          <textarea
-            name="verificationEvents"
-            defaultValue={formatVerificationEventsForInput(station.verificationEvents)}
-            className={`${adminFieldClassName} min-h-28 resize-y py-2 leading-6`}
-            placeholder="2026-06-17 | priceai | success | 价格页已解析 | 已核验 Claude / GPT 倍率"
-          />
-        </AdminField>
-        <AdminField label="站点简介">
-          <textarea name="summary" defaultValue={station.summary} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
-        </AdminField>
-        <AdminField label="退款说明（有公开信息再填）">
-          <textarea name="refundPolicy" defaultValue={station.refundPolicy || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
-        </AdminField>
-        <AdminField label="后台备注">
-          <textarea name="adminNote" defaultValue={station.adminNote || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
-        </AdminField>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="采集配置"
+          description="内部字段，不直接作为前台合作资料展示。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="API Base URL（内部采集）">
+              <input name="apiBaseUrl" defaultValue={station.apiBaseUrl || ""} className={adminFieldClassName} type="url" />
+            </AdminField>
+            <AdminField label="系统 / 采集器类型">
+              <input name="collectorKind" defaultValue={station.collectorKind} className={adminFieldClassName} />
+            </AdminField>
+            <AdminField label="采集状态">
+              <select name="collectionStatus" defaultValue={station.collectionStatus} className={adminFieldClassName}>
+                <option value="pending">待采集</option>
+                <option value="success">成功</option>
+                <option value="partial">部分</option>
+                <option value="failed">失败</option>
+                <option value="manual_review">人工</option>
+              </select>
+            </AdminField>
+          </div>
+          <div className="grid gap-2 rounded-lg bg-white px-3 py-2 text-xs leading-5 text-[#5a6061] sm:grid-cols-3">
+            <div>
+              <span className="font-semibold text-[#202829]">最后采集：</span>
+              {station.lastCollectedAt ? formatRelativeTime(station.lastCollectedAt) : "未记录"}
+            </div>
+            <div>
+              <span className="font-semibold text-[#202829]">最近检测：</span>
+              {station.latestRunAt ? formatRelativeTime(station.latestRunAt) : "未记录"}
+            </div>
+            <div>
+              <span className="font-semibold text-[#202829]">检测状态：</span>
+              {station.latestRunStatus ? runStatusLabel(station.latestRunStatus) : "未记录"}
+            </div>
+            {station.collectionError ? (
+              <div className="break-words sm:col-span-3">
+                <span className="font-semibold text-[#9b3328]">采集错误：</span>
+                {station.collectionError}
+              </div>
+            ) : null}
+          </div>
+        </AdminFormSection>
+
+        <AdminFormSection
+          title="风险审核与备注"
+          description="控制数据核验状态，记录人工判断和后续下架依据。"
+        >
+          <div className="grid gap-3 md:grid-cols-2">
+            <AdminField label="数据状态">
+              <select name="dataStatus" defaultValue={station.dataStatus} className={adminFieldClassName}>
+                <option value="sample">样例</option>
+                <option value="pending_review">待审核</option>
+                <option value="verified">已核验</option>
+              </select>
+            </AdminField>
+          </div>
+          <AdminField label="核验记录，一行一条：日期 | 来源 | 状态 | 标题 | 说明">
+            <textarea
+              name="verificationEvents"
+              defaultValue={formatVerificationEventsForInput(station.verificationEvents)}
+              className={`${adminFieldClassName} min-h-28 resize-y py-2 leading-6`}
+              placeholder="2026-06-17 | priceai | success | 价格页已解析 | 已核验 Claude / GPT 倍率"
+            />
+          </AdminField>
+          <AdminField label="后台备注">
+            <textarea name="adminNote" defaultValue={station.adminNote || ""} className={`${adminFieldClassName} min-h-20 resize-y py-2 leading-6`} />
+          </AdminField>
+        </AdminFormSection>
         <AdminDialogActions loading={loading} onClose={onClose} submitLabel="保存站点" />
       </form>
     </AdminEditDialog>
@@ -1580,10 +1663,18 @@ function OfferEditDialog({
             <input name="currency" defaultValue={offer.currency} className={adminFieldClassName} />
           </AdminField>
           <AdminField label="号池">
-            <input name="accountPool" defaultValue={offer.accountPool} className={adminFieldClassName} placeholder="Plus / Pro / Max / Kiro" />
+            <select name="accountPool" defaultValue={offer.accountPool} className={adminFieldClassName}>
+              {transitAccountPoolOptions.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
           </AdminField>
           <AdminField label="渠道类型">
-            <input name="channelType" defaultValue={offer.channelType} className={adminFieldClassName} placeholder="一手自建号池 / 逆向 / 云厂商" />
+            <select name="channelType" defaultValue={offer.channelType} className={adminFieldClassName}>
+              {transitChannelTypeOptions.map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
           </AdminField>
           <AdminField label="价格来源">
             <input name="priceSource" defaultValue={offer.priceSource} className={adminFieldClassName} />
@@ -1662,6 +1753,63 @@ function AdminField({ children, label }: { children: ReactNode; label: string })
       <span className="mb-1.5 block text-xs font-semibold text-[#5a6061]">{label}</span>
       {children}
     </label>
+  );
+}
+
+function AdminCheckboxGroup({
+  label,
+  name,
+  options,
+  selected,
+}: {
+  label: string;
+  name: string;
+  options: Array<[string, string]>;
+  selected: string[];
+}) {
+  const selectedSet = new Set(selected);
+
+  return (
+    <fieldset className="md:col-span-2">
+      <legend className="mb-1.5 block text-xs font-semibold text-[#5a6061]">{label}</legend>
+      <div className="grid gap-2 rounded-lg border border-[#adb3b4]/30 bg-white p-2 sm:grid-cols-2 lg:grid-cols-4">
+        {options.map(([value, optionLabel]) => (
+          <label
+            key={value}
+            className="flex min-h-9 items-center gap-2 rounded-md px-2 text-sm font-medium text-[#2d3435] transition hover:bg-[#edf1f2]"
+          >
+            <input
+              name={name}
+              type="checkbox"
+              value={value}
+              defaultChecked={selectedSet.has(value)}
+              className="h-4 w-4 accent-[#2d3435]"
+            />
+            <span>{optionLabel}</span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+function AdminFormSection({
+  children,
+  description,
+  title,
+}: {
+  children: ReactNode;
+  description?: string;
+  title: string;
+}) {
+  return (
+    <section className="space-y-3 rounded-lg border border-[#adb3b4]/25 bg-[#f8fafa] p-3">
+      <div>
+        <h3 className="text-sm font-semibold text-[#202829]">{title}</h3>
+        {description ? <p className="mt-1 text-xs leading-5 text-[#5a6061]">{description}</p> : null}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -1856,6 +2004,13 @@ function formText(formData: FormData, name: string): string {
 function formNullableText(formData: FormData, name: string): string | null {
   const text = formText(formData, name);
   return text ? text : null;
+}
+
+function formList(formData: FormData, name: string): string[] {
+  return formData
+    .getAll(name)
+    .map((value) => String(value).trim())
+    .filter(Boolean);
 }
 
 function formNullableNumber(formData: FormData, name: string): number | null {
