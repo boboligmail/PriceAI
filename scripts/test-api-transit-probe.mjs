@@ -40,4 +40,17 @@ assert.deepEqual(
   ],
 );
 
+const profiles = [
+  { stationId: "published-with-key", profileId: "published-with-key-gpt" },
+  { stationId: "pending-with-key", profileId: "pending-with-key-claude" },
+  { stationId: "public-pricing-only", profileId: "public-pricing-only" },
+];
+assert.deepEqual(
+  __test.filterProfilesByRunnableStationIds(profiles, new Set(["published-with-key", "pending-with-key"])),
+  profiles.slice(0, 2),
+);
+assert.equal(__test.shouldRestrictToRunnableStations({ post: true }), true);
+assert.equal(__test.shouldRestrictToRunnableStations({ post: true, station: "pending-with-key" }), false);
+assert.equal(__test.shouldRestrictToRunnableStations({ post: true, dryRun: true }), false);
+
 console.log("api transit probe target test passed");
