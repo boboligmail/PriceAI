@@ -163,6 +163,7 @@ async function probeProfile(profile, options) {
   const modelList = await probeModelList(profile, baseUrl, options);
   const availableModels = modelList.ok ? modelList.models : [];
   const targets = selectProbeTargets({
+    profileFamily: inferProbeProfileFamily(profile),
     configuredTargets: profile.targets || [],
     offerModels: options.offerModels,
     availableModels,
@@ -343,13 +344,16 @@ async function probeCompletion(profile, baseUrl, target, options) {
 
 function selectProbeTargets(input) {
   const configuredTargets = normalizeConfiguredTargets(input.configuredTargets);
+  const profileFamily = normalizeFamily(input.profileFamily);
   const targetPriority = stringValue(input.targetPriority);
   const priorityTargets =
     targetPriority === "latest_highest_available" || targetPriority === "last_available"
       ? configuredTargets.toReversed()
       : configuredTargets;
   const dbTargets = normalizeDbTargets(input.offerModels);
-  const merged = [...priorityTargets, ...dbTargets, ...defaultTargets];
+  const merged = [...priorityTargets, ...dbTargets, ...defaultTargets].filter(
+    (target) => !profileFamily || target.family === profileFamily,
+  );
   const byTargetKey = new Map();
 
   for (const target of merged) {
@@ -388,6 +392,14 @@ function normalizeConfiguredTargets(targets) {
       keywords: stringArray(target.keywords),
     }))
     .filter((target) => target.family && target.standardModel);
+}
+
+function inferProbeProfileFamily(profile) {
+  const explicitFamily = normalizeFamily(profile.family || profile.profileId || profile.apiKeyEnv || profile.groupName);
+  if (explicitFamily) return explicitFamily;
+
+  const configuredFamilies = new Set(normalizeConfiguredTargets(profile.targets).map((target) => target.family));
+  return configuredFamilies.size === 1 ? Array.from(configuredFamilies)[0] : null;
 }
 
 function normalizeDbTargets(offerModels) {
