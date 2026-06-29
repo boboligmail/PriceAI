@@ -36,6 +36,7 @@ import {
 import {
   compareStations,
   formatAvailability,
+  getRechargeCoefficientFromRatio,
   formatMultiplierRange,
   formatRate,
   getRateBadgeClass,
@@ -348,8 +349,11 @@ export default function TransitStationExplorer({ stations }: Props) {
 }
 
 function RechargeRatioDisplay({ station }: { station: TransitStation }) {
-  const ratioText = station.prices[0]?.rechargeRatio ?? null;
-  const coefficient = getStationRechargeCoefficient(station);
+  const primaryRatioText = station.prices[0]?.rechargeRatio ?? null;
+  const ratioText = getDisplayRechargeRatio(primaryRatioText);
+  const coefficient =
+    getRechargeCoefficientFromRatio(ratioText) ??
+    getStationRechargeCoefficient(station);
 
   if (!ratioText || coefficient === null) {
     return <span className="text-xs text-[#7f8889]">未公开</span>;
@@ -358,12 +362,26 @@ function RechargeRatioDisplay({ station }: { station: TransitStation }) {
   return (
     <span
       className="inline-flex items-center gap-1.5"
-      title={`原始比例：${ratioText}，1 元约等于 ${(parseRechargeRatio(ratioText) ?? 0).toFixed(2)} 站内美元额度`}
+      title={rechargeRatioTitle(primaryRatioText, ratioText)}
     >
       <span className="font-bold text-[#2d3435]">{formatRate(coefficient)}</span>
       <span className="rounded-full bg-[#eef3f8] px-1.5 py-0.5 text-[10px] font-bold text-[#47657a]">{ratioText}</span>
     </span>
   );
+}
+
+function getDisplayRechargeRatio(text: string | null): string | null {
+  if (!text) return null;
+  const match = text.match(/\d+(?:\.\d+)?\s*:\s*\d+(?:\.\d+)?/);
+  return match?.[0]?.replace(/\s+/g, "") ?? null;
+}
+
+function rechargeRatioTitle(originalText: string | null, displayRatio: string): string {
+  const quota = parseRechargeRatio(displayRatio);
+  const quotaText = quota === null ? "未解析" : `1 元约等于 ${quota.toFixed(2)} 站内美元额度`;
+  return originalText && originalText !== displayRatio
+    ? `充值比例：${displayRatio}；原始说明：${originalText}；${quotaText}`
+    : `充值比例：${displayRatio}；${quotaText}`;
 }
 
 function CombinedRateCell({
@@ -592,6 +610,7 @@ function AvailabilityCell({ station, compact = false }: { station: TransitStatio
       <TransitAvailabilityStrip
         rate={station.availability.sevenDayRate}
         samples={station.availability.sevenDaySamples}
+        firstCheckedAt={station.availability.firstCheckedAt}
         lastCheckedAt={station.availability.lastCheckedAt}
         className="mt-1"
       />

@@ -147,4 +147,4 @@ function availabilityBarClass(tone: "good" | "warn" | "bad" | "empty"): string {
 }
 
 const TRANSIT_AVAILABILITY_WINDOW_DAYS = 7;
-const TRANSIT_EXPECTED_PROBE_INTERVAL_MINUTES = 5;
+const TRANSIT_EXPECTED_PROBE_INTERVAL_MINUTES = 60;

@@ -87,7 +87,9 @@ if (isCli()) {
 export async function probeApiTransitStations(options = {}) {
   options = normalizeOptions(options);
   const startedAt = new Date().toISOString();
-  const profiles = selectProfiles(await loadProbeProfilesForRun(options), options);
+  const selectedProfiles = selectProfiles(await loadProbeProfilesForRun(options), options);
+  const disabledProfiles = selectedProfiles.filter((profile) => !profile.enabled);
+  const profiles = selectedProfiles.filter((profile) => profile.enabled);
   const supabase = getSupabaseClient();
   const stationIds = profiles.map((profile) => profile.stationId);
   const dbOfferModels = supabase ? await listOfferModels(supabase, stationIds) : new Map();
@@ -99,12 +101,11 @@ export async function probeApiTransitStations(options = {}) {
   const rollups = [];
   const skipped = [];
 
-  for (const profile of profiles) {
-    if (!profile.enabled) {
-      skipped.push(buildSkippedProfile(profile, "profile_disabled"));
-      continue;
-    }
+  for (const profile of disabledProfiles) {
+    skipped.push(buildSkippedProfile(profile, "profile_disabled"));
+  }
 
+  for (const profile of profiles) {
     const envApiKey = options.env?.[profile.apiKeyEnv] || envValue(profile.apiKeyEnv);
     const credential = envApiKey
       ? { apiKey: envApiKey, source: "env", credentialId: null }
@@ -144,6 +145,7 @@ export async function probeApiTransitStations(options = {}) {
     finishedAt: new Date().toISOString(),
     counts: {
       profiles: profiles.length,
+      selectedProfiles: selectedProfiles.length,
       probed: runs.length,
       skipped: skipped.length,
       successfulRuns: runs.filter((run) => run.row.status === "success").length,

@@ -99,7 +99,7 @@
     "apiBaseUrl": "https://apinode.ltd/v1",
     "apiKeyEnv": "API_TRANSIT_APINODE_LTD_CLAUDE_KEY",
     "protocol": "openai_compatible",
-    "enabled": true,
+    "enabled": false,
     "targetLimit": 1,
     "targets": [
       {

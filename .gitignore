@@ -41,7 +41,6 @@ yarn-error.log*
 /.trellis/
 
 # local/manual workflow drafts
-/.github/workflows/probe-api-transit.yml
 /scripts/refine-ldxp-probe-relevance.mjs
 
 # local docs kept off GitHub and production deploys
