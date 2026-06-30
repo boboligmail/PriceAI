@@ -30,17 +30,17 @@ const themeInitScript = `
 export const metadata: Metadata = {
   metadataBase: new URL("https://ai-home.example.com"),
   title: {
-    default: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
+    default: "ai-home | VPS 云服务器与 GPU 租赁平台配置价格表",
     template: "%s | ai-home",
   },
-  description: "比较 VPS 云服务器、轻量云和 GPU 租赁平台的计费方式、适用场景、价格来源和风险提示。",
+  description: "对比 VPS 云服务器与 GPU 租赁平台的商家、价格、CPU、内存、硬盘、流量和官方核验链接。",
   applicationName: "ai-home",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
-    description: "把 VPS、轻量云和 GPU 租赁平台整理成可筛选、可核验的云算力选型入口。",
+    title: "ai-home | VPS 云服务器与 GPU 租赁平台配置价格表",
+    description: "把 VPS、轻量云和 GPU 租赁平台整理成可直接对比配置、价格和核验链接的云算力清单。",
     url: "https://ai-home.example.com",
     siteName: "ai-home",
     locale: "zh_CN",
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary",
-    title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
-    description: "查看 VPS、轻量云和 GPU 租赁平台的计费方式、适用场景和价格来源。",
+    title: "ai-home | VPS 云服务器与 GPU 租赁平台配置价格表",
+    description: "对比 VPS、轻量云和 GPU 租赁平台的价格、CPU、内存、硬盘、流量和官方核验入口。",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
