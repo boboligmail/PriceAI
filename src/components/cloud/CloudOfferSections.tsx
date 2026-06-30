@@ -27,7 +27,7 @@ export function CloudOfferSection({
         </div>
 
         <div className="overflow-hidden rounded-[1.5rem] bg-[var(--color-panel)] shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-soft)]">
-          <div className="hidden grid-cols-[220px_240px_minmax(0,1fr)_180px] gap-4 bg-[var(--color-surface)] px-5 py-3 text-xs font-bold text-[var(--color-text-soft)] md:grid">
+          <div className="hidden grid-cols-[220px_240px_minmax(0,1fr)_170px] gap-4 bg-[var(--color-surface)] px-5 py-3 text-xs font-bold text-[var(--color-text-soft)] md:grid">
             <span>商家</span>
             <span>价格</span>
             <span>配置明细</span>
@@ -48,7 +48,7 @@ function CloudOfferRow({ offer }: { offer: CloudOffer }) {
 
   return (
     <article className="border-t border-[var(--color-border-soft)] px-5 py-5 first:border-t-0">
-      <div className="grid gap-4 md:grid-cols-[220px_240px_minmax(0,1fr)_180px] md:items-start">
+      <div className="grid gap-4 md:grid-cols-[220px_240px_minmax(0,1fr)_170px] md:items-start">
         <div>
           <p className="text-xs font-bold text-[var(--color-text-soft)] md:hidden">商家</p>
           <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-soft)] md:mt-0">{offer.kind === "vps" ? "VPS" : "GPU"}</p>
@@ -90,19 +90,13 @@ function CloudOfferRow({ offer }: { offer: CloudOffer }) {
             href={offer.pricingUrl}
             target="_blank"
             rel="noreferrer"
+            aria-label={`核验 ${offer.provider} ${offer.priceDisplay} 的官方价格`}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-text-on-primary)] transition hover:bg-[var(--color-primary-hover)]"
           >
-            核验价格
+            核验此价格
             <ArrowUpRight size={15} />
           </a>
-          <a
-            href={offer.homepageUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex min-h-10 items-center justify-center rounded-full bg-[var(--color-surface)] px-4 text-sm font-semibold text-[var(--color-text-primary)] ring-1 ring-[var(--color-border-soft)] transition hover:bg-[var(--color-surface-hover)]"
-          >
-            打开官网
-          </a>
+          <p className="text-center text-xs leading-5 text-[var(--color-text-soft)]">对应当前价格行</p>
         </div>
       </div>
 
