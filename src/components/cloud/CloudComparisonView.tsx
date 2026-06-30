@@ -1,6 +1,5 @@
 import { JsonLd } from "@/components/JsonLd";
 import { SiteHeader } from "@/components/SiteHeader";
-import { CloudChoicePanel } from "@/components/cloud/CloudChoicePanel";
 import { CloudOfferSection } from "@/components/cloud/CloudOfferSections";
 import { cloudComparisonSummary, getCloudOffersByKind, type CloudOffer } from "@/lib/cloud-comparison";
 
@@ -24,17 +23,16 @@ export function CloudComparisonView({
       </div>
 
       <main>
-        <CloudChoicePanel />
         <CloudOfferSection
           id="vps"
           title="VPS / 云服务器"
-          description="适合网站、数据库、小服务、代理节点、Docker 应用和长期在线任务。先看月成本，再看地区、流量、备份和 IPv4。"
+          description="直接按商家、价格、CPU、内存、硬盘和流量对比。这里是入门参考规格，下单前点右侧链接核验官方价格。"
           offers={vpsOffers}
         />
         <CloudOfferSection
           id="gpu"
           title="GPU 租赁平台"
-          description="适合 AI 绘图、模型训练、LoRA 微调、推理服务和短期算力任务。先看每小时价格，再看显存、库存、存储和中断风险。"
+          description="直接展示 GPU 型号、显存、存储和附加费用口径。Marketplace 平台的 CPU、内存、带宽会随主机变化。"
           offers={gpuOffers}
         />
       </main>

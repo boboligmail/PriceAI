@@ -2,6 +2,14 @@ export type CloudOfferKind = "vps" | "gpu";
 
 export type CloudDataStatus = "manual_reference" | "pending_collector" | "needs_review";
 
+export type CloudOfferConfig = {
+  readonly compute: string;
+  readonly memory: string;
+  readonly storage: string;
+  readonly network: string;
+  readonly note: string;
+};
+
 export type CloudOffer = {
   id: string;
   kind: CloudOfferKind;
@@ -10,6 +18,7 @@ export type CloudOffer = {
   pricingUrl: string;
   homepageUrl: string;
   priceDisplay: string;
+  config: CloudOfferConfig;
   priceBasis: string;
   priceHighlights: readonly string[];
   billing: string;
@@ -30,6 +39,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://www.hetzner.com/cloud",
     pricingUrl: "https://www.hetzner.com/cloud/cost-optimized",
     priceDisplay: "CX23：EUR 6.53/月 或 EUR 0.0105/小时起",
+    config: { compute: "2 vCPU", memory: "4 GB RAM", storage: "40 GB NVMe SSD", network: "20 TB 流量包", note: "IPv4 通常另计费" },
     priceBasis: "2026-06-15 起新订单/升降配执行新价；示例为德国/芬兰 CX23，不含 VAT 和 IPv4。",
     priceHighlights: [
       "入门参考：CX23，2 vCPU / 4 GB RAM / 40 GB SSD",
@@ -52,6 +62,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://www.vultr.com/products/cloud-compute/",
     pricingUrl: "https://www.vultr.com/pricing/",
     priceDisplay: "Regular Performance：$2.50/月起",
+    config: { compute: "1 vCPU", memory: "512 MB RAM", storage: "10 GB SSD", network: "0.50 TB 带宽", note: "共享 CPU 入门档" },
     priceBasis: "Regular Performance 官方产品页给出 $2.50/月起；云主机按小时使用，月度费用有上限口径。",
     priceHighlights: [
       "入门参考：Regular Performance 共享 CPU",
@@ -74,6 +85,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://www.digitalocean.com/products/droplets",
     pricingUrl: "https://www.digitalocean.com/pricing/droplets",
     priceDisplay: "Basic Droplet：$4/月起",
+    config: { compute: "1 vCPU", memory: "512 MB RAM", storage: "10 GB SSD", network: "500 GiB 出站流量", note: "Basic 入门档" },
     priceBasis: "官方 Droplets 价格页显示最低 $4/月；价格随 RAM、CPU、SSD、带宽配置变化。",
     priceHighlights: [
       "入门参考：Basic Droplet，$4/月起",
@@ -96,6 +108,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://contabo.com/en/vps/",
     pricingUrl: "https://contabo.com/en/pricing/",
     priceDisplay: "Cloud VPS 10：EUR 5.50/月起",
+    config: { compute: "4 vCPU", memory: "6 GB RAM", storage: "100 GB NVMe", network: "32 TB 流量", note: "可能有开通费/地区费" },
     priceBasis: "官方 pricing 页展示 Cloud VPS 10 为 EUR 5.50/月；地区、期限和附加项可能改变总价。",
     priceHighlights: [
       "入门参考：Cloud VPS 10，EUR 5.50/月",
@@ -118,6 +131,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://www.runpod.io/",
     pricingUrl: "https://www.runpod.io/gpu-models/rtx-4090",
     priceDisplay: "RTX 4090：$0.34/小时起",
+    config: { compute: "RTX 4090", memory: "24 GB VRAM", storage: "Volume 另计", network: "按实例/地区核验", note: "CPU/RAM 随 Pod 配置变化" },
     priceBasis: "官方 RTX 4090 型号页展示 from $0.34/hr；Pods、Serverless、Clusters 的计费口径不同。",
     priceHighlights: [
       "入门参考：RTX 4090 24GB，$0.34/hr 起",
@@ -140,6 +154,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://vast.ai/",
     pricingUrl: "https://vast.ai/pricing/gpu/RTX-4090",
     priceDisplay: "RTX 4090：$0.35/hr 起",
+    config: { compute: "RTX 4090", memory: "24 GB VRAM", storage: "按主机配置", network: "带宽随主机变化", note: "CPU/RAM/可靠性要逐台看" },
     priceBasis: "官方 RTX 4090 价格页展示实时平台参考价；实际 offer 随主机、可靠性、带宽、磁盘和地区变化。",
     priceHighlights: [
       "参考价：RTX 4090 $0.35/hr 起",
@@ -162,6 +177,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://lambda.ai/service/gpu-cloud",
     pricingUrl: "https://lambda.ai/service/gpu-cloud/pricing",
     priceDisplay: "Quadro RTX 6000：$0.69/GPU/hr 起",
+    config: { compute: "Quadro RTX 6000", memory: "24 GB VRAM", storage: "文件系统/持久盘另看", network: "按实例区域核验", note: "热门 GPU 可能缺货" },
     priceBasis: "官方 Instances pricing 按 PRICE/GPU/HR 展示；税费另计，热门实例按先到先得可用。",
     priceHighlights: [
       "1x 入门参考：Quadro RTX 6000 24GB，$0.69/GPU/hr",
@@ -184,6 +200,7 @@ export const cloudOffers: CloudOffer[] = [
     homepageUrl: "https://tensordock.com/",
     pricingUrl: "https://www.tensordock.com/gpu-4090.html",
     priceDisplay: "RTX 4090：$0.37/hr 起",
+    config: { compute: "RTX 4090", memory: "24 GB VRAM", storage: "按主机配置", network: "按地区/主机核验", note: "CPU/RAM 可自定义" },
     priceBasis: "官方 RTX 4090 产品页示例为 $0.37/hr 起；CPU/RAM/存储配置和 marketplace 可用性会改变最终价格。",
     priceHighlights: [
       "4090 专页示例：RTX 4090 24GB，$0.37/hr 起",
