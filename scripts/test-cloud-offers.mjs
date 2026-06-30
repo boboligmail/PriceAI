@@ -57,6 +57,19 @@ assert(librarySource.includes('data/cloud-offers-db.json'), "cloud comparison li
 assert(explorerSource.includes('"use client"') || explorerSource.includes("'use client'"), "cloud explorer must be a client component");
 assert(explorerSource.includes("CPU") && explorerSource.includes("内存"), "VPS filters must expose CPU and memory controls");
 assert(explorerSource.includes("显存") && explorerSource.includes("小时价"), "GPU filters must expose VRAM and hourly price controls");
+assert(explorerSource.includes("GPU 型号"), "GPU filters must expose a GPU model selector");
+assert(explorerSource.includes("getGpuModelOptions"), "GPU model selector must be generated from real offer data");
 assert(explorerSource.includes("pageSize") && explorerSource.includes("分页"), "cloud explorer must paginate the full offer list");
+
+const gpuModels = new Set(
+  payload.offers
+    .filter((offer) => offer.kind === "gpu")
+    .map((offer) => `${offer.compute} ${offer.product}`.match(/\b(RTX\s?\d{4}|GTX\s?\d{4}|A\d{2,4}|H\d{3,4}|L\d{1,2}|T\d|V\d{3}|B\d{3,4}|MI\d{2,3}X?)\b/i)?.[1]?.toUpperCase().replace(/(RTX|GTX)\s?(\d)/, "$1 $2"))
+    .filter(Boolean),
+);
+
+assert(gpuModels.has("RTX 3090"), "GPU database must include RTX 3090 rows for model filtering");
+assert(gpuModels.has("A100"), "GPU database must include A100 rows for model filtering");
+assert(gpuModels.has("H100"), "GPU database must include H100 rows for model filtering");
 
 console.log(`cloud offer contract ok: ${payload.offers.length} offers (${vpsCount} VPS, ${gpuCount} GPU)`);

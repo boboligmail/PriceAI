@@ -3,21 +3,25 @@
 import { useMemo, useSyncExternalStore, useState, type ChangeEvent } from "react";
 import { CloudOfferTable } from "@/components/cloud/CloudOfferSections";
 import type { CloudOffer, CloudOfferKind } from "@/lib/cloud-comparison";
+import {
+  billingOptions,
+  compareOffers,
+  getGpuModel,
+  getGpuModelOptions,
+  getSortOptions,
+  gpuCountOptions,
+  hourlyOptions,
+  matchesBilling,
+  monthlyOptions,
+  storageOptions,
+  toPageSize,
+  toSortMode,
+  type SortMode,
+  vpsCpuOptions,
+  vpsMemoryOptions,
+  vramOptions,
+} from "@/lib/cloud-offer-filters";
 import { getCloudOfferMetrics } from "@/lib/cloud-offer-metrics";
-
-type SortMode = "price-asc" | "monthly-asc" | "cpu-desc" | "memory-desc" | "storage-desc" | "gpu-desc" | "vram-desc" | "provider-asc";
-
-const pageSizeOptions = [25, 50, 100] as const;
-const vpsCpuOptions = [["0", "CPU 全部"], ["1", "1 核+"], ["2", "2 核+"], ["4", "4 核+"], ["8", "8 核+"]] as const;
-const vpsMemoryOptions = [["0", "内存全部"], ["1", "1 GB+"], ["2", "2 GB+"], ["4", "4 GB+"], ["8", "8 GB+"], ["16", "16 GB+"]] as const;
-const storageOptions = [["0", "硬盘全部"], ["20", "20 GB+"], ["40", "40 GB+"], ["80", "80 GB+"], ["160", "160 GB+"], ["512", "512 GB+"]] as const;
-const monthlyOptions = [["0", "月价不限"], ["5", "$5 内"], ["10", "$10 内"], ["20", "$20 内"], ["50", "$50 内"]] as const;
-const gpuCountOptions = [["0", "GPU 数全部"], ["0.5", "半卡+"], ["1", "1 张+"], ["2", "2 张+"], ["4", "4 张+"], ["8", "8 张+"]] as const;
-const vramOptions = [["0", "显存全部"], ["8", "8 GB+"], ["16", "16 GB+"], ["24", "24 GB+"], ["48", "48 GB+"], ["80", "80 GB+"]] as const;
-const hourlyOptions = [["0", "小时价不限"], ["0.2", "$0.20 内"], ["0.5", "$0.50 内"], ["1", "$1 内"], ["2", "$2 内"], ["5", "$5 内"]] as const;
-const billingOptions = [["all", "计费全部"], ["spot", "Spot"], ["ondemand", "On-demand"], ["reserved", "Reserved"], ["hour", "按小时"], ["month", "按月"]] as const;
-const vpsSortOptions: readonly (readonly [SortMode, string])[] = [["monthly-asc", "月价从低到高"], ["cpu-desc", "CPU 从高到低"], ["memory-desc", "内存从高到低"], ["storage-desc", "硬盘从高到低"], ["provider-asc", "商家 A-Z"]];
-const gpuSortOptions: readonly (readonly [SortMode, string])[] = [["price-asc", "价格从低到高"], ["vram-desc", "显存从高到低"], ["gpu-desc", "GPU 数从高到低"], ["provider-asc", "商家 A-Z"]];
 
 export function CloudOfferExplorer({
   offers,
@@ -35,6 +39,7 @@ export function CloudOfferExplorer({
   const [storageMin, setStorageMin] = useState("0");
   const [monthlyMax, setMonthlyMax] = useState("0");
   const [gpuCountMin, setGpuCountMin] = useState("0");
+  const [gpuModel, setGpuModel] = useState("all");
   const [vramMin, setVramMin] = useState("0");
   const [hourlyMax, setHourlyMax] = useState("0");
   const [billingMode, setBillingMode] = useState("all");
@@ -49,6 +54,8 @@ export function CloudOfferExplorer({
     }),
     [offers],
   );
+
+  const gpuModelOptions = useMemo(() => getGpuModelOptions(offers), [offers]);
 
   const filteredOffers = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -68,6 +75,7 @@ export function CloudOfferExplorer({
 
       return (
         metrics.gpuCount >= Number(gpuCountMin) &&
+        (gpuModel === "all" || getGpuModel(offer) === gpuModel) &&
         metrics.vramGb >= Number(vramMin) &&
         (Number(hourlyMax) === 0 || offer.priceUsd <= Number(hourlyMax)) &&
         matchesBilling(offer.billing, billingMode)
@@ -75,7 +83,7 @@ export function CloudOfferExplorer({
     });
 
     return [...rows].sort((left, right) => compareOffers(left, right, sortMode));
-  }, [activeKind, billingMode, cpuMin, gpuCountMin, hourlyMax, memoryMin, monthlyMax, offers, query, sortMode, storageMin, vramMin]);
+  }, [activeKind, billingMode, cpuMin, gpuCountMin, gpuModel, hourlyMax, memoryMin, monthlyMax, offers, query, sortMode, storageMin, vramMin]);
 
   const pageCount = Math.max(1, Math.ceil(filteredOffers.length / pageSize));
   const safePage = Math.min(page, pageCount);
@@ -136,6 +144,7 @@ export function CloudOfferExplorer({
             ) : (
               <>
                 <SelectField label="GPU 数" value={gpuCountMin} options={gpuCountOptions} onChange={(value) => updateFilter(setGpuCountMin, value)} />
+                <SelectField label="GPU 型号" value={gpuModel} options={gpuModelOptions} onChange={(value) => updateFilter(setGpuModel, value)} />
                 <SelectField label="显存" value={vramMin} options={vramOptions} onChange={(value) => updateFilter(setVramMin, value)} />
                 <SelectField label="小时价" value={hourlyMax} options={hourlyOptions} onChange={(value) => updateFilter(setHourlyMax, value)} />
                 <SelectField label="计费" value={billingMode} options={billingOptions} onChange={(value) => updateFilter(setBillingMode, value)} />
@@ -222,43 +231,6 @@ function Pagination({ page, pageCount, onPageChange }: { readonly page: number; 
       </button>
     </div>
   );
-}
-
-function matchesBilling(billing: string, mode: string) {
-  return mode === "all" || billing.toLowerCase().includes(mode);
-}
-
-function compareOffers(left: CloudOffer, right: CloudOffer, sortMode: SortMode) {
-  const leftMetrics = getCloudOfferMetrics(left);
-  const rightMetrics = getCloudOfferMetrics(right);
-
-  if (sortMode === "provider-asc") return left.provider.localeCompare(right.provider);
-  if (sortMode === "monthly-asc") return left.monthlyEstimateUsd - right.monthlyEstimateUsd;
-  if (sortMode === "cpu-desc") return rightMetrics.cpuCores - leftMetrics.cpuCores;
-  if (sortMode === "memory-desc") return rightMetrics.memoryGb - leftMetrics.memoryGb;
-  if (sortMode === "storage-desc") return rightMetrics.storageGb - leftMetrics.storageGb;
-  if (sortMode === "gpu-desc") return rightMetrics.gpuCount - leftMetrics.gpuCount;
-  if (sortMode === "vram-desc") return rightMetrics.vramGb - leftMetrics.vramGb;
-  return left.priceUsd - right.priceUsd;
-}
-
-function getSortOptions(kind: CloudOfferKind): readonly (readonly [SortMode, string])[] {
-  return kind === "gpu" ? gpuSortOptions : vpsSortOptions;
-}
-
-function toSortMode(value: string, kind: CloudOfferKind): SortMode {
-  for (const [optionValue] of getSortOptions(kind)) {
-    if (optionValue === value) return optionValue;
-  }
-  return kind === "gpu" ? "price-asc" : "monthly-asc";
-}
-
-function toPageSize(value: string) {
-  const parsed = Number(value);
-  for (const option of pageSizeOptions) {
-    if (option === parsed) return option;
-  }
-  return 25;
 }
 
 function useHashKind(): CloudOfferKind {
