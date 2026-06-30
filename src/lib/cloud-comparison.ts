@@ -1,6 +1,6 @@
 export type CloudOfferKind = "vps" | "gpu";
 
-import cloudOfferPayload from "../../data/cloud-offers.json";
+import cloudOfferPayload from "../../data/cloud-offers-db.json";
 
 export type CloudDataStatus = "parsed_source" | "manual_reference" | "pending_collector" | "needs_review";
 
@@ -13,23 +13,26 @@ export type CloudOfferConfig = {
 };
 
 export type CloudOffer = {
-  id: string;
-  kind: CloudOfferKind;
-  provider: string;
-  product: string;
-  pricingUrl: string;
-  homepageUrl: string;
-  priceDisplay: string;
-  config: CloudOfferConfig;
-  priceBasis: string;
+  readonly id: string;
+  readonly kind: CloudOfferKind;
+  readonly provider: string;
+  readonly product: string;
+  readonly pricingUrl: string;
+  readonly homepageUrl: string;
+  readonly priceUsd: number;
+  readonly monthlyEstimateUsd: number;
+  readonly priceDisplay: string;
+  readonly config: CloudOfferConfig;
+  readonly priceBasis: string;
   priceHighlights: readonly string[];
-  billing: string;
-  regions: string[];
-  specs: string[];
-  bestFor: string[];
-  cautions: string[];
-  dataStatus: CloudDataStatus;
-  lastChecked: string;
+  readonly billing: string;
+  readonly sourceName: string;
+  readonly regions: readonly string[];
+  readonly specs: readonly string[];
+  readonly bestFor: readonly string[];
+  readonly cautions: readonly string[];
+  readonly dataStatus: CloudDataStatus;
+  readonly lastChecked: string;
 };
 
 type CloudOfferPayloadRow = {
@@ -37,6 +40,8 @@ type CloudOfferPayloadRow = {
   readonly kind: CloudOfferKind;
   readonly provider: string;
   readonly product: string;
+  readonly priceUsd: number;
+  readonly monthlyEstimateUsd: number;
   readonly priceText: string;
   readonly billing: string;
   readonly compute: string;
@@ -48,17 +53,20 @@ type CloudOfferPayloadRow = {
   readonly sourceName: string;
   readonly sourceUrl: string;
   readonly verifyUrl: string;
+  readonly sourceType: string;
   readonly lastChecked: string;
 };
 
 type CloudOfferPayload = {
   readonly updatedAt: string;
+  readonly generatedAt: string;
   readonly selection: string;
   readonly offers: readonly CloudOfferPayloadRow[];
 };
 
 const cloudOfferData: CloudOfferPayload = {
   updatedAt: cloudOfferPayload.updatedAt,
+  generatedAt: cloudOfferPayload.generatedAt,
   selection: cloudOfferPayload.selection,
   offers: cloudOfferPayload.offers.flatMap((offer) => {
     if (offer.kind !== "vps" && offer.kind !== "gpu") return [];
@@ -68,6 +76,8 @@ const cloudOfferData: CloudOfferPayload = {
         kind: offer.kind,
         provider: offer.provider,
         product: offer.product,
+        priceUsd: offer.priceUsd,
+        monthlyEstimateUsd: offer.monthlyEstimateUsd,
         priceText: offer.priceText,
         billing: offer.billing,
         compute: offer.compute,
@@ -79,6 +89,7 @@ const cloudOfferData: CloudOfferPayload = {
         sourceName: offer.sourceName,
         sourceUrl: offer.sourceUrl,
         verifyUrl: offer.verifyUrl,
+        sourceType: offer.sourceType,
         lastChecked: offer.lastChecked,
       },
     ];
@@ -92,6 +103,8 @@ export const cloudOffers: CloudOffer[] = cloudOfferData.offers.map((offer) => ({
   product: offer.product,
   homepageUrl: offer.sourceUrl,
   pricingUrl: offer.verifyUrl,
+  priceUsd: offer.priceUsd,
+  monthlyEstimateUsd: offer.monthlyEstimateUsd,
   priceDisplay: offer.priceText,
   config: {
     compute: offer.compute,
@@ -103,6 +116,7 @@ export const cloudOffers: CloudOffer[] = cloudOfferData.offers.map((offer) => ({
   priceBasis: `${offer.sourceName} 抓取结果；${offer.risk}`,
   priceHighlights: [offer.billing, offer.region, offer.sourceName],
   billing: offer.billing,
+  sourceName: offer.sourceName,
   regions: offer.region ? offer.region.split(" / ") : [],
   specs: [offer.compute, offer.memory, offer.storage],
   bestFor: [offer.kind === "vps" ? "长期在线服务" : "短时算力任务"],

@@ -24,22 +24,30 @@ export function CloudOfferSection({
           <p className="text-xs text-[var(--color-text-soft)]">更新日期：{cloudComparisonSummary.updatedAt}</p>
         </div>
 
-        <div className="overflow-hidden rounded-[1.5rem] bg-[var(--color-panel)] shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-soft)]">
-          <div className="hidden grid-cols-[180px_210px_130px_140px_160px_minmax(150px,1fr)_150px] gap-4 bg-[var(--color-surface)] px-5 py-3 text-xs font-bold text-[var(--color-text-soft)] lg:grid">
-            <span>商家</span>
-            <span>价格</span>
-            <span>CPU / 显卡</span>
-            <span>内存 / 显存</span>
-            <span>硬盘 / 存储</span>
-            <span>流量 / 备注</span>
-            <span>跳转链接</span>
-          </div>
-          {offers.map((offer) => (
-            <CloudOfferRow key={offer.id} offer={offer} />
-          ))}
-        </div>
+        <CloudOfferTable offers={offers} />
       </div>
     </section>
+  );
+}
+
+export function CloudOfferTable({ offers }: { readonly offers: readonly CloudOffer[] }) {
+  return (
+    <div className="overflow-hidden rounded-[1.5rem] bg-[var(--color-panel)] shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-soft)]">
+      <div className="hidden grid-cols-[180px_210px_130px_140px_160px_minmax(150px,1fr)_150px] gap-4 bg-[var(--color-surface)] px-5 py-3 text-xs font-bold text-[var(--color-text-soft)] lg:grid">
+        <span>商家</span>
+        <span>价格</span>
+        <span>CPU / 显卡</span>
+        <span>内存 / 显存</span>
+        <span>硬盘 / 存储</span>
+        <span>流量 / 备注</span>
+        <span>跳转链接</span>
+      </div>
+      {offers.length === 0 ? (
+        <div className="px-5 py-12 text-center text-sm text-[var(--color-text-muted)]">没有符合条件的结果，放宽筛选条件再试。</div>
+      ) : (
+        offers.map((offer) => <CloudOfferRow key={offer.id} offer={offer} />)
+      )}
+    </div>
   );
 }
 

@@ -3,9 +3,13 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const dataPath = join(here, "..", "data", "cloud-offers.json");
+const dataPath = join(here, "..", "data", "cloud-offers-db.json");
+const explorerPath = join(here, "..", "src", "components", "cloud", "CloudOfferExplorer.tsx");
+const libraryPath = join(here, "..", "src", "lib", "cloud-comparison.ts");
 const raw = readFileSync(dataPath, "utf8");
 const payload = JSON.parse(raw);
+const explorerSource = readFileSync(explorerPath, "utf8");
+const librarySource = readFileSync(libraryPath, "utf8");
 
 function assert(condition, message) {
   if (!condition) {
@@ -13,8 +17,10 @@ function assert(condition, message) {
   }
 }
 
-assert(Array.isArray(payload.offers), "cloud-offers.json must expose an offers array");
-assert(payload.offers.length === 30, `expected exactly 30 cloud offers, got ${payload.offers.length}`);
+assert(Array.isArray(payload.offers), "cloud-offers-db.json must expose an offers array");
+assert(payload.offers.length >= 500, `expected the full cloud offer database, got ${payload.offers.length}`);
+assert(typeof payload.selection === "string" && payload.selection.includes("全量入库"), "cloud offer selection copy must describe the full database");
+assert(!payload.selection.includes("共 30 条"), "cloud offer selection copy must not describe the old fixed 30-row list");
 
 const kinds = new Set(payload.offers.map((offer) => offer.kind));
 assert(kinds.has("vps"), "offers must include VPS rows");
@@ -44,7 +50,13 @@ for (const offer of payload.offers) {
 
 const vpsCount = payload.offers.filter((offer) => offer.kind === "vps").length;
 const gpuCount = payload.offers.filter((offer) => offer.kind === "gpu").length;
-assert(vpsCount >= 10, `expected at least 10 VPS offers, got ${vpsCount}`);
-assert(gpuCount >= 10, `expected at least 10 GPU offers, got ${gpuCount}`);
+assert(vpsCount >= 100, `expected at least 100 VPS offers, got ${vpsCount}`);
+assert(gpuCount >= 100, `expected at least 100 GPU offers, got ${gpuCount}`);
+
+assert(librarySource.includes('data/cloud-offers-db.json'), "cloud comparison library must read the full offer database");
+assert(explorerSource.includes('"use client"') || explorerSource.includes("'use client'"), "cloud explorer must be a client component");
+assert(explorerSource.includes("CPU") && explorerSource.includes("内存"), "VPS filters must expose CPU and memory controls");
+assert(explorerSource.includes("显存") && explorerSource.includes("小时价"), "GPU filters must expose VRAM and hourly price controls");
+assert(explorerSource.includes("pageSize") && explorerSource.includes("分页"), "cloud explorer must paginate the full offer list");
 
 console.log(`cloud offer contract ok: ${payload.offers.length} offers (${vpsCount} VPS, ${gpuCount} GPU)`);
