@@ -21,7 +21,7 @@ export function CloudChoicePanel() {
                 先选用途，再选云服务器或 GPU 平台
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-[var(--color-text-muted)]">
-                不先堆参数。先判断你是要长期在线，还是短期算力；再看每个平台适合谁、大概多少钱、最大风险和去哪里核验价格。
+                不先堆参数。先判断你是要长期在线，还是短期算力；下面直接用商家、价格、配置明细和跳转链接做清单，方便快速扫一遍再去官网核价。
               </p>
               <div className="mt-7 grid gap-3 sm:grid-cols-2">
                 {cloudChoiceCards.map((card) => (
@@ -54,7 +54,7 @@ export function CloudChoicePanel() {
                   </div>
                 );
               })}
-              <p className="rounded-2xl bg-[#fff8e6] px-4 py-3 text-xs leading-6 text-[#7a5a00]">
+              <p className="rounded-2xl bg-[var(--color-warning-bg)] px-4 py-3 text-xs leading-6 text-[var(--color-warning-text)]">
                 这里不是实时最低价榜单。价格是入门参考，真正下单前必须回官网核验地区、库存、税费、备份、流量和关机计费。
               </p>
             </div>
@@ -66,7 +66,7 @@ export function CloudChoicePanel() {
         <div className="mx-auto max-w-[1500px] border-x border-[var(--color-border-soft)] px-5 py-8 sm:px-8">
           <div className="mb-4 flex items-center gap-2 text-sm font-bold text-[var(--color-text-primary)]">
             <ShieldAlert size={18} className="text-[var(--color-success-text)]" />
-            顶部筛选区：先缩小范围，不做复杂搜索
+            顶部筛选区：先缩小范围，下方按商家列表对比
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {cloudFilterGroups.map((group) => (
