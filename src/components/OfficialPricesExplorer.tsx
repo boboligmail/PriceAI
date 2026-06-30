@@ -231,7 +231,7 @@ export function OfficialPricesExplorer({ dataset }: { dataset: OfficialPricesDat
       )}
 
       <p className="mt-8 text-xs leading-6 text-[#5a6061]">
-        免责声明：PriceAI 仅整理公开页面可见价格，不参与交易，不保证任何地区一定可开通。人民币估算价不包含税费、支付渠道汇率、银行手续费、礼品卡溢价或地区政策差异。
+        免责声明：ai-home 仅整理公开页面可见价格，不参与交易，不保证任何地区一定可开通。人民币估算价不包含税费、支付渠道汇率、银行手续费、礼品卡溢价或地区政策差异。
       </p>
     </main>
     </>

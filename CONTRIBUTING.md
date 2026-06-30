@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你愿意改进 PriceAI。这个项目当前重点是让 AI 订阅报价更容易比较，并让采集器、分类规则和前台体验逐步稳定。
+感谢你愿意改进 ai-home。这个项目当前重点是让 AI 订阅报价更容易比较，并让采集器、分类规则和前台体验逐步稳定。
 
 ## 本地开发
 
@@ -30,9 +30,9 @@ npm run build
 
 ## 授权边界
 
-PriceAI 的软件代码使用 [GNU Affero General Public License v3.0](./LICENSE)。如果你修改代码并将其作为网络服务提供给用户，需要遵守 AGPL-3.0 的源码提供要求。
+ai-home 的软件代码使用 [GNU Affero General Public License v3.0](./LICENSE)。如果你修改代码并将其作为网络服务提供给用户，需要遵守 AGPL-3.0 的源码提供要求。
 
-`PriceAI` 名称、Logo、域名、视觉品牌、线上生产数据、渠道数据、价格快照、指南内容和截图不随软件代码授权。Fork 或二次部署时，请避免使用会让用户误认为是官方 PriceAI 的名称、Logo 或域名。更多说明见 [DATA_LICENSE.md](./DATA_LICENSE.md) 和 [TRADEMARKS.md](./TRADEMARKS.md)。
+`ai-home` 名称、Logo、域名、视觉品牌、线上生产数据、渠道数据、价格快照、指南内容和截图不随软件代码授权。Fork 或二次部署时，请避免使用会让用户误认为是官方 ai-home 的名称、Logo 或域名。更多说明见 [DATA_LICENSE.md](./DATA_LICENSE.md) 和 [TRADEMARKS.md](./TRADEMARKS.md)。
 
 ## 采集器贡献
 

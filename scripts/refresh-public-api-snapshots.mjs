@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 
-const DEFAULT_BASE_URL = "https://priceai.cc";
+const DEFAULT_BASE_URL = "https://ai-home.example.com";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_DIRTY_ALERT_MS = 15 * 60 * 1000;
 const DEFAULT_LAST_REFRESH_ALERT_MS = 20 * 60 * 1000;
@@ -20,7 +20,7 @@ const cronSecret = envValue("CRON_SECRET") || envValue("ADMIN_PASSWORD");
 
 if (!cronSecret) {
   await notifyAlert({
-    title: "PriceAI 公开快照刷新缺少 CRON_SECRET",
+    title: "ai-home 公开快照刷新缺少 CRON_SECRET",
     message: "服务器刷新脚本无法调用受保护刷新端点。",
     severity: "critical",
   });
@@ -55,7 +55,7 @@ try {
 
   if (issues.length) {
     await notifyAlert({
-      title: "PriceAI 公开快照刷新存在积压",
+      title: "ai-home 公开快照刷新存在积压",
       message: issues.join("；"),
       severity: "warning",
       details: summary,
@@ -64,7 +64,7 @@ try {
   }
 } catch (error) {
   await notifyAlert({
-    title: "PriceAI 公开快照刷新失败",
+    title: "ai-home 公开快照刷新失败",
     message: errorMessage(error),
     severity: "critical",
     details: {
@@ -133,7 +133,7 @@ async function notifyAlert({ title, message, severity, details = {} }) {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        product: "PriceAI",
+        product: "ai-home",
         event: "public-api-snapshot-refresh",
         title,
         message,
@@ -200,7 +200,7 @@ Usage:
 
 Environment:
   CRON_SECRET                               Required endpoint secret
-  PRICEAI_BASE_URL                         Optional, defaults to https://priceai.cc
+  PRICEAI_BASE_URL                         Optional, defaults to https://ai-home.example.com
   PRICEAI_ALERT_WEBHOOK_URL                Optional alert webhook
   PRICEAI_PUBLIC_SNAPSHOT_DIRTY_ALERT_MS   Optional dirty backlog alert threshold
 `);

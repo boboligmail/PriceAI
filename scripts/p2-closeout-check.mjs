@@ -14,7 +14,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const defaultOfficialSnapshotPath = path.join(repoRoot, "data", "official-prices", "latest.json");
 const defaultReportPath = path.join(repoRoot, "docs", "planning", "p2-closeout-report.md");
 const userAgent =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) PriceAI/1.0";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ai-home/1.0";
 
 if (isCli()) {
   const args = normalizeOptions(parseArgs(process.argv.slice(2)));
@@ -253,7 +253,7 @@ function renderMarkdownReport(result) {
       .join("\n")
     : `| ${result.officialPrices.message} | 0 | - |`;
 
-  return `# PriceAI P2 收口检查报告
+  return `# ai-home P2 收口检查报告
 
 > 生成时间：${result.generatedAt}  
 > 阶段：${result.p2Status.stage}  

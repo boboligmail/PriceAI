@@ -4,8 +4,8 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const API_ROOT = "https://analyticsadmin.googleapis.com/v1beta";
-const DEFAULT_SITE_URL = "https://priceai.cc";
-const DEFAULT_PROPERTY_NAME = "PriceAI";
+const DEFAULT_SITE_URL = "https://ai-home.example.com";
+const DEFAULT_PROPERTY_NAME = "ai-home";
 const DEFAULT_TIME_ZONE = "Asia/Shanghai";
 const DEFAULT_CURRENCY = "CNY";
 
@@ -293,9 +293,9 @@ function printHelp() {
 Options:
   --list-accounts          List Google Analytics accounts and exit.
   --account accounts/123   Use a specific Google Analytics account.
-  --property PriceAI       GA4 property display name. Default: PriceAI.
-  --stream "PriceAI Web"   Web stream display name. Default: "<property> Web".
-  --site-url URL           Web stream URL. Default: https://priceai.cc.
+  --property ai-home       GA4 property display name. Default: ai-home.
+  --stream "ai-home Web"   Web stream display name. Default: "<property> Web".
+  --site-url URL           Web stream URL. Default: https://ai-home.example.com.
   --time-zone Zone         Reporting time zone. Default: Asia/Shanghai.
   --currency Code          Reporting currency. Default: CNY.
   --write-env              Write NEXT_PUBLIC_GA_MEASUREMENT_ID to .env.local.

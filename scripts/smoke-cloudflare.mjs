@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://priceai.cc";
+const DEFAULT_BASE_URL = "https://ai-home.example.com";
 const SMOKE_FETCH_TIMEOUT_MS = Number(process.env.CLOUDFLARE_SMOKE_TIMEOUT_MS || 15_000);
 
 const baseUrl = normalizeBaseUrl(
@@ -99,7 +99,7 @@ for (const check of checks) {
     const response = await fetchWithTimeout(url, {
       method: check.method || "GET",
       headers: {
-        "user-agent": "PriceAI Cloudflare smoke check",
+        "user-agent": "ai-home Cloudflare smoke check",
       },
     });
     const body = await response.arrayBuffer();
@@ -242,7 +242,7 @@ async function validateNextStaticAssets(baseUrl) {
   try {
     const response = await fetchWithTimeout(pageUrl, {
       headers: {
-        "user-agent": "PriceAI Cloudflare smoke check",
+        "user-agent": "ai-home Cloudflare smoke check",
       },
     });
     const html = await response.text();
@@ -277,7 +277,7 @@ async function validateNextStaticAssets(baseUrl) {
         const assetStartedAt = Date.now();
         const assetResponse = await fetchWithTimeout(assetUrl, {
           headers: {
-            "user-agent": "PriceAI Cloudflare smoke check",
+            "user-agent": "ai-home Cloudflare smoke check",
           },
         });
         const body = await assetResponse.arrayBuffer();

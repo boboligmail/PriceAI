@@ -102,7 +102,7 @@ const TRANSIT_RISK_CONFIRMATION_VERSION = "v1";
 const TRANSIT_RISK_CONFIRMATION_DAYS = 30;
 const TRANSIT_RISK_CONFIRMATION_STORAGE_PREFIX = "priceai.apiTransit.riskConfirmation";
 const TRANSIT_RISK_WARNING_TEXT =
-  "中转站存在跑路、余额损失、价格变动和渠道不可控风险。首次使用建议小额充值，勿囤积余额，充值前请回原站核验价格与规则。PriceAI 不售卖 API，也不替任何商家担保。";
+  "中转站存在跑路、余额损失、价格变动和渠道不可控风险。首次使用建议小额充值，勿囤积余额，充值前请回原站核验价格与规则。ai-home 不售卖 API，也不替任何商家担保。";
 
 export default function TransitStationDetail({ station, children }: Props) {
   const router = useRouter();
@@ -506,8 +506,8 @@ function OutboundRiskDialog({
         </div>
 
         <p id={descriptionId} className="mt-5 max-w-[70ch] text-sm leading-7 text-[#2d3435]">
-          <strong className="font-extrabold text-[#2f7a4b]">外部站点不由 PriceAI 运营。</strong>
-          PriceAI 只整理公开资料、监测结果和用户反馈，不等于背书、付款建议或服务承诺。中转站可能出现服务中断、价格变化、扣费异常、停运跑路、隐私泄露、余额无法退回等风险。请先核对目标站域名、服务条款、退款规则和密钥权限，并建议
+          <strong className="font-extrabold text-[#2f7a4b]">外部站点不由 ai-home 运营。</strong>
+          ai-home 只整理公开资料、监测结果和用户反馈，不等于背书、付款建议或服务承诺。中转站可能出现服务中断、价格变化、扣费异常、停运跑路、隐私泄露、余额无法退回等风险。请先核对目标站域名、服务条款、退款规则和密钥权限，并建议
           <strong className="font-extrabold text-[#202829]"> 按需小额充值，随用随充，不要一次性存入大额余额。</strong>
         </p>
 
@@ -570,7 +570,7 @@ function TransitRiskTicker() {
   const riskItems = [
     TRANSIT_RISK_WARNING_TEXT,
     "充值前请回原站核验价格、倍率、退款规则和服务条款。",
-    "PriceAI 只整理公开资料、监测结果和用户反馈，不售卖 API，也不替任何商家担保。",
+    "ai-home 只整理公开资料、监测结果和用户反馈，不售卖 API，也不替任何商家担保。",
   ];
 
   return (
@@ -1391,7 +1391,7 @@ function PriceGroupMobileCard({
         ))}
         <ProbePolicyTag
           label={`监测 ${shortModelLabel(primaryPrice.standardModel)}`}
-          title="PriceAI 先拉取该分组 Key 的可用模型列表，再按最新且级别最高的可用模型发起一次请求。监测频率按实际样本展示；价格和分组倍率按公开价格或后台确认记录沉淀。"
+          title="ai-home 先拉取该分组 Key 的可用模型列表，再按最新且级别最高的可用模型发起一次请求。监测频率按实际样本展示；价格和分组倍率按公开价格或后台确认记录沉淀。"
         />
       </div>
 
@@ -1453,7 +1453,7 @@ function PriceGroupRow({
         <ProbePolicyTag
           className="mt-2"
           label={`监测 ${shortModelLabel(primaryPrice.standardModel)}`}
-          title="PriceAI 先拉取该分组 Key 的可用模型列表，再按最新且级别最高的可用模型发起一次请求。监测频率按实际样本展示；价格和分组倍率按公开价格或后台确认记录沉淀。"
+          title="ai-home 先拉取该分组 Key 的可用模型列表，再按最新且级别最高的可用模型发起一次请求。监测频率按实际样本展示；价格和分组倍率按公开价格或后台确认记录沉淀。"
         />
       </td>
       <td className="px-4 py-4">

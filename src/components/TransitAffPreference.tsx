@@ -63,7 +63,7 @@ export function TransitAffPreferenceToggle({ className = "" }: { className?: str
     <button
       type="button"
       aria-pressed={enabled}
-      title={enabled ? "关闭后仅访问原站官网链接" : "开启后优先使用 PriceAI 优惠 / AFF 链接"}
+      title={enabled ? "关闭后仅访问原站官网链接" : "开启后优先使用 ai-home 优惠 / AFF 链接"}
       onClick={() => setEnabled(!enabled)}
       className={`inline-flex h-11 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-semibold transition-colors ${
         enabled

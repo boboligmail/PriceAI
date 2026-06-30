@@ -61,15 +61,15 @@ export async function buildMdxGuideMetadata(slug: string): Promise<Metadata> {
       canonical: frontmatter.canonical,
     },
     openGraph: {
-      title: `${frontmatter.title} | PriceAI`,
+      title: `${frontmatter.title} | ai-home`,
       description: frontmatter.description,
-      url: `https://priceai.cc${frontmatter.canonical}`,
+      url: `https://ai-home.example.com${frontmatter.canonical}`,
     },
   };
 }
 
 export function buildMdxGuideJsonLd(frontmatter: MdxGuideFrontmatter) {
-  const pageUrl = `https://priceai.cc${frontmatter.canonical}`;
+  const pageUrl = `https://ai-home.example.com${frontmatter.canonical}`;
   const items: unknown[] = [
     {
       "@context": "https://schema.org",
@@ -80,18 +80,18 @@ export function buildMdxGuideJsonLd(frontmatter: MdxGuideFrontmatter) {
       description: frontmatter.description,
       author: {
         "@type": "Organization",
-        name: "PriceAI",
+        name: "ai-home",
       },
       publisher: {
         "@type": "Organization",
-        name: "PriceAI",
+        name: "ai-home",
       },
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "PriceAI", item: "https://priceai.cc" },
+        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://ai-home.example.com" },
         { "@type": "ListItem", position: 2, name: "指南", item: pageUrl },
       ],
     },

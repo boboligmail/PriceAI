@@ -216,7 +216,7 @@ export const guideReadingPaths: GuideReadingPath[] = [
       {
         href: "/channels?stock=available",
         label: "回到有货报价",
-        description: "最后回到 PriceAI，按有货最低价、来源和更新时间筛选。",
+        description: "最后回到 ai-home，按有货最低价、来源和更新时间筛选。",
       },
     ],
   },

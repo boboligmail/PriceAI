@@ -13,7 +13,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const configDir = path.join(repoRoot, "config", "official-prices");
 const defaultOutPath = path.join(repoRoot, "data", "official-prices", "latest.json");
 const userAgent =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) PriceAI/1.0";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) ai-home/1.0";
 
 const DEFAULT_TIMEOUT_MS = 25000;
 const FETCH_DELAY_MS = 250;

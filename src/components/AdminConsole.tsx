@@ -2328,7 +2328,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Link href="/" className="text-sm font-medium text-[#5a6061] transition-colors hover:text-[#2d3435]">
-              &larr; PriceAI
+              &larr; ai-home
             </Link>
             <span className="text-[#adb3b4]">/</span>
             <h1 className="font-serif text-lg font-semibold text-[#202829]">后台管理</h1>
@@ -2701,7 +2701,7 @@ export function AdminConsole({ data }: { data: AdminSummary }) {
                             <button
                               type="button"
                               disabled={loadingAction === `reject-${submission.id}`}
-                              onClick={() => rejectSubmission(submission, "不符合 PriceAI 当前定位，已从采集器待办移除。")}
+                              onClick={() => rejectSubmission(submission, "不符合 ai-home 当前定位，已从采集器待办移除。")}
                               className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-medium text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-60"
                             >
                               {loadingAction === `reject-${submission.id}` ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
@@ -8457,7 +8457,7 @@ function buildSourceCollectCommand(source: Source): string {
 
 function buildSourceCollectorContext(source: Source): string {
   return [
-    "请为 PriceAI 新增或修复来源采集器：",
+    "请为 ai-home 新增或修复来源采集器：",
     `- 来源 ID：${source.id}`,
     `- 来源名称：${source.name}`,
     `- 入口链接：${source.entryUrl}`,
@@ -8506,7 +8506,7 @@ function buildApiProviderSubmissionContext(submission: ApiProviderSubmission): s
   const domain = stringMeta(meta, "domain") || safeDomain(submission.submittedUrl) || "未识别";
   const reason = stringMeta(meta, "support_reason") || submission.adminNote || "需要确认是否新增 API 模型数据源。";
   return [
-    "请为 PriceAI API 模型模块新增或修复公开 API 渠道数据：",
+    "请为 ai-home API 模型模块新增或修复公开 API 渠道数据：",
     `- 提交链接：${submission.submittedUrl}`,
     `- 域名：${domain}`,
     `- 解析来源名：${submission.parsedProviderName || submission.submittedName || "待确认"}`,
@@ -8523,7 +8523,7 @@ function buildApiProviderSubmissionContext(submission: ApiProviderSubmission): s
 
 function buildApiProviderCandidateContext(candidate: ApiProviderCandidate): string {
   return [
-    "请为 PriceAI API 模型模块核验候选渠道并补齐数据：",
+    "请为 ai-home API 模型模块核验候选渠道并补齐数据：",
     `- 候选 ID：${candidate.id}`,
     `- 候选名称：${candidate.name}`,
     `- 类型：${apiProviderTypeLabels[candidate.type]}`,
@@ -8558,7 +8558,7 @@ function buildCollectorContext(submission: ChannelSubmission): string {
     "当前没有可用自动采集器，需要补解析脚本后重新试采集。";
 
   return [
-    "请为 PriceAI 新增采集器支持：",
+    "请为 ai-home 新增采集器支持：",
     `- 来源 URL：${submission.url}`,
     `- 域名：${domain}`,
     `- 失败原因：${reason}`,

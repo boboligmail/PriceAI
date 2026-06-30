@@ -90,7 +90,7 @@ export async function updateSponsorSettings(input: SponsorSettingsInput): Promis
     .upsert({
       id: SPONSOR_SETTINGS_ID,
       provider: "priceai",
-      base_url: "https://priceai.cc/commercial",
+      base_url: "https://ai-home.example.com/commercial",
       model: "sponsor-settings",
       timeout_ms: 12000,
       settings: serializeSponsorSettings(next),

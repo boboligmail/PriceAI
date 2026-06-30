@@ -81,7 +81,7 @@ export function PlatformLandingPage({
                 </p>
               </div>
               <p className="mt-4 text-xs leading-6 text-[#5a6061]">
-                PriceAI 不卖货、不收款、不担保渠道。实际价格、库存、交付和售后规则以原平台为准。
+                ai-home 不卖货、不收款、不担保渠道。实际价格、库存、交付和售后规则以原平台为准。
               </p>
             </aside>
           </section>
@@ -287,14 +287,14 @@ function buildPlatformJsonLd(config: PlatformPageConfig, products: ExplorerProdu
       hasPart: products.map((product) => ({
         "@type": "Product",
         name: product.displayName,
-        url: `https://priceai.cc/products/${product.slug}`,
+        url: `https://ai-home.example.com/products/${product.slug}`,
       })),
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "PriceAI", item: "https://priceai.cc" },
+        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://ai-home.example.com" },
         { "@type": "ListItem", position: 2, name: config.platform, item: config.pageUrl },
       ],
     },

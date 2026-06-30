@@ -1,6 +1,6 @@
 export function AppLogo({ compact = false }: { compact?: boolean }) {
   return (
-    <span className="inline-flex min-w-0 items-center gap-2 text-[#202829] sm:gap-3" aria-label="PriceAI AI 比价雷达">
+    <span className="inline-flex min-w-0 items-center gap-2 text-[#202829] sm:gap-3" aria-label="ai-home 云算力比价">
       <span className={`grid shrink-0 place-items-center ${compact ? "h-9 w-9" : "h-9 w-9 sm:h-11 sm:w-11"}`}>
         <svg
           viewBox="0 0 64 64"
@@ -22,11 +22,11 @@ export function AppLogo({ compact = false }: { compact?: boolean }) {
       </span>
       <span className="flex min-w-0 flex-col leading-none">
         <span className={`truncate font-sans font-extrabold tracking-[-0.01em] text-[#202829] ${compact ? "text-2xl" : "text-[1.75rem] sm:text-3xl"}`}>
-          PriceAI
+          ai-home
         </span>
         {!compact ? (
           <span className="mt-1.5 hidden text-[0.62rem] font-semibold tracking-[0.22em] text-[#6b7374] sm:block">
-            AI 比价雷达
+            CLOUD PRICE RADAR
           </span>
         ) : null}
       </span>

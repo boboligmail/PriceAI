@@ -28,28 +28,28 @@ const themeInitScript = `
 `;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://priceai.cc"),
+  metadataBase: new URL("https://ai-home.example.com"),
   title: {
-    default: "PriceAI | AI 订阅与 API 购买前决策入口",
-    template: "%s | PriceAI",
+    default: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
+    template: "%s | ai-home",
   },
-  description: "购买 AI 订阅或接入 API 前，比较卡网订阅、官方订阅、官方 API 和中转 API 的价格、来源、库存和更新时间。",
-  applicationName: "PriceAI",
+  description: "比较 VPS 云服务器、轻量云和 GPU 租赁平台的计费方式、适用场景、价格来源和风险提示。",
+  applicationName: "ai-home",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "PriceAI | AI 订阅与 API 购买前决策入口",
-    description: "把卡网订阅、官方订阅、官方 API 和中转 API 整理成可搜索、可比较、可核验的购买前参考。",
-    url: "https://priceai.cc",
-    siteName: "PriceAI",
+    title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
+    description: "把 VPS、轻量云和 GPU 租赁平台整理成可筛选、可核验的云算力选型入口。",
+    url: "https://ai-home.example.com",
+    siteName: "ai-home",
     locale: "zh_CN",
     type: "website",
   },
   twitter: {
     card: "summary",
-    title: "PriceAI | AI 订阅与 API 购买前决策入口",
-    description: "查看 AI 订阅和 API 获取方式的价格、来源、库存和更新时间。",
+    title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
+    description: "查看 VPS、轻量云和 GPU 租赁平台的计费方式、适用场景和价格来源。",
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],

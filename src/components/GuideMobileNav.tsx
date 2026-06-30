@@ -160,7 +160,7 @@ export function GuideMobileNav({ currentHref }: { currentHref: string }) {
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
                 <BookOpenText size={18} className="shrink-0 text-[#2f7a4b]" />
-                <p className="truncate text-sm font-bold text-[#202829]">PriceAI 指南</p>
+                <p className="truncate text-sm font-bold text-[#202829]">ai-home 指南</p>
               </div>
               <button
                 type="button"

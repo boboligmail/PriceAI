@@ -6,7 +6,7 @@ product
 
 ## Users
 
-PriceAI has two primary user groups.
+ai-home has two primary user groups.
 
 The first group is buyers comparing AI subscription and account channels. They usually know the platform they want, such as ChatGPT, Claude, Gemini, Grok, Google, API/CDK, or email accounts, but do not want to open many card sites one by one just to compare price and stock. They need a fast, direct view of available offers, unavailable offers, source names, original product titles, and purchase links.
 
@@ -14,7 +14,7 @@ The second group is the site operator. The operator reviews submitted channels, 
 
 ## Product Purpose
 
-PriceAI is a focused AI subscription price comparison tool. It groups noisy card-site goods into standard products, then shows multi-source offers with a simple status model: in stock or out of stock.
+ai-home is a focused AI subscription price comparison tool. It groups noisy card-site goods into standard products, then shows multi-source offers with a simple status model: in stock or out of stock.
 
 The product exists to make price comparison faster and more trustworthy than visiting each source manually. Success means users can answer three questions in seconds: what is the lowest available price, which source provides it, and when the data was last collected.
 
@@ -24,13 +24,13 @@ The admin workflow must protect data quality. A submitted channel should first b
 
 Practical, restrained, and credible.
 
-The product should feel like a professional working tool rather than a marketing site. It can have a refined editorial touch through the PriceAI wordmark, serif headings, and calm spacing, but the dominant impression must be clarity, not decoration.
+The product should feel like a professional working tool rather than a marketing site. It can have a refined editorial touch through the ai-home wordmark, serif headings, and calm spacing, but the dominant impression must be clarity, not decoration.
 
 Copy should be direct. It should explain data state and next actions without vague trust language, unnecessary scoring systems, or overloaded categories. The interface should avoid mystical credibility labels and keep core statuses concrete.
 
 ## Anti-references
 
-Do not make PriceAI feel like a landing page, coupon site, or decorative SaaS showcase. Avoid oversized hero sections, flashy gradients, generic AI-dashboard decoration, empty marketing claims, and repeated card grids that hide the core comparison job.
+Do not make ai-home feel like a landing page, coupon site, or decorative SaaS showcase. Avoid oversized hero sections, flashy gradients, generic AI-dashboard decoration, empty marketing claims, and repeated card grids that hide the core comparison job.
 
 Do not bury comparison behind multiple clicks. The product should prioritize tables, compact lists, clear filters, and direct source links.
 

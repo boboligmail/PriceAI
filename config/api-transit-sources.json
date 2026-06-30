@@ -19,7 +19,7 @@
       "标准模型覆盖 GPT、Claude、Gemini、GLM、DeepSeek 和 GPT Image 2，并区分 Official 与 Kiro 来源。"
     ],
     "cautions": [
-      "公开 uptime 来自 OneHop 页面，不等同 PriceAI 使用测试 Key 的实测结果。",
+      "公开 uptime 来自 OneHop 页面，不等同 ai-home 使用测试 Key 的实测结果。",
       "控制台 bundle 存在 Sub2API 上游只读镜像信息，实际上游与路由策略仍需商家补充。"
     ],
     "commercialOffers": [
@@ -32,7 +32,7 @@
         "code": "PRICEAI",
         "url": "https://onehop.ai/invite/EYPFRA",
         "validUntil": null,
-        "disclosure": "该链接可能包含 AFF；优惠为首充充值折扣，不改变模型公开价格倍率，也不代表 PriceAI 担保。",
+        "disclosure": "该链接可能包含 AFF；优惠为首充充值折扣，不改变模型公开价格倍率，也不代表 ai-home 担保。",
         "enabled": true
       }
     ]
@@ -52,7 +52,7 @@
     },
     "channelTypes": ["undisclosed"],
     "accountPools": ["kiro", "max", "pro"],
-    "summary": "站长提供 partner API，公开返回 Claude / GPT 分组倍率和最近一次可用性监测；PriceAI 会保留原始快照并继续用长期样本验证稳定性。"
+    "summary": "站长提供 partner API，公开返回 Claude / GPT 分组倍率和最近一次可用性监测；ai-home 会保留原始快照并继续用长期样本验证稳定性。"
   },
   {
     "id": "sudocode-chat",
@@ -64,7 +64,7 @@
     "collectorKind": "new_api_pricing",
     "channelTypes": ["undisclosed"],
     "accountPools": ["undisclosed"],
-    "summary": "公开 New API 价格接口可读取，已进入 PriceAI API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
+    "summary": "公开 New API 价格接口可读取，已进入 ai-home API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
   },
   {
     "id": "packyapi-com",
@@ -77,7 +77,7 @@
     "collectorKind": "new_api_pricing",
     "channelTypes": ["undisclosed"],
     "accountPools": ["undisclosed"],
-    "summary": "公开 New API 价格接口可读取，已进入 PriceAI API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
+    "summary": "公开 New API 价格接口可读取，已进入 ai-home API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
   },
   {
     "id": "9527code-com",
@@ -89,7 +89,7 @@
     "collectorKind": "new_api_pricing",
     "channelTypes": ["undisclosed"],
     "accountPools": ["undisclosed"],
-    "summary": "公开 New API 价格接口可读取，已进入 PriceAI API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
+    "summary": "公开 New API 价格接口可读取，已进入 ai-home API 中转站自动价格采集池；稳定性和真实扣费仍需测试 Key 或人工样本补充。"
   },
   {
     "id": "kksj-org",
@@ -164,7 +164,7 @@
     "collectorKind": "new_api_pricing",
     "channelTypes": ["first_party_pool", "reseller", "mixed"],
     "accountPools": ["mixed", "undisclosed"],
-    "summary": "站长通过 PriceAI 表单提交，公开 New API 价格接口可读取；渠道包含自建号池、二级分销和混合渠道，需继续接入测试 Key 做可用性监测。"
+    "summary": "站长通过 ai-home 表单提交，公开 New API 价格接口可读取；渠道包含自建号池、二级分销和混合渠道，需继续接入测试 Key 做可用性监测。"
   },
   {
     "id": "longshang-pro",

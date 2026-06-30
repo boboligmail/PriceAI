@@ -56,7 +56,7 @@ const placementCopy: Record<SponsorPlacementKind, PlacementCopy> = {
     id: "home-ecosystem",
     label: "广告",
     eyebrow: "首页生态合作位",
-    title: "PriceAI 生态合作展示",
+    title: "ai-home 生态合作展示",
     body: "承接 AI 周边服务、开发者基础设施或工具类品牌的轻曝光；不参与四个模块的客观排序。",
     cta: "查看合作方式",
     slot: "首页模块下方",

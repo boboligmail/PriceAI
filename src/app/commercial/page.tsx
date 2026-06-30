@@ -8,22 +8,22 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "赞助位合作",
-  description: "PriceAI 赞助位合作说明：面向正在比较 AI 订阅、官方 API 和中转 API 的用户，提供顶部横幅、首页生态位、频道赞助位和底部展示区。",
+  description: "ai-home 赞助位合作说明：面向正在比较 AI 订阅、官方 API 和中转 API 的用户，提供顶部横幅、首页生态位、频道赞助位和底部展示区。",
   alternates: {
     canonical: "/commercial",
   },
   openGraph: {
-    title: "PriceAI 赞助位合作",
-    description: "了解 PriceAI 可投放的赞助位置、适合对象、展示形式和投放资料要求。",
-    url: "https://priceai.cc/commercial",
-    siteName: "PriceAI",
+    title: "ai-home 赞助位合作",
+    description: "了解 ai-home 可投放的赞助位置、适合对象、展示形式和投放资料要求。",
+    url: "https://ai-home.example.com/commercial",
+    siteName: "ai-home",
   },
 };
 
 const slots = [
   {
     title: "首页顶部横幅",
-    audience: "刚进入 PriceAI、还在选择购买路径的用户。",
+    audience: "刚进入 ai-home、还在选择购买路径的用户。",
     fit: "云服务器、监控、开发者工具、域名、支付、算力、API 周边服务",
     format: "可关闭通知条，适合短期活动、品牌入口或重要更新。",
     note: "适合做轻提醒，不适合承载复杂说明。",
@@ -74,7 +74,7 @@ const requirements = [
 ];
 
 const boundaries = [
-  "赞助位会明确标注为广告或赞助，避免被误解成 PriceAI 推荐。",
+  "赞助位会明确标注为广告或赞助，避免被误解成 ai-home 推荐。",
   "赞助不会改变价格、倍率、库存、稳定性、用户反馈和自然排序。",
   "不接受“官方推荐”“最稳定”“包可用”等无法核验或容易误导的表述。",
   "中转 API 可以展示优惠入口，但用户仍需回原站核验并小额试用。",
@@ -97,7 +97,7 @@ export default function CommercialPage() {
                 把你的服务展示给正在比较 AI 价格的人。
               </h1>
               <p className="mx-auto mt-5 max-w-[72ch] text-pretty text-base leading-8 text-[var(--color-text-muted)]">
-                PriceAI 的赞助位适合展示云服务、开发者工具、网络检测、API Gateway、中转 API 周边服务。可以做品牌露出、优惠活动入口、资料页引流和长期合作展示。
+                ai-home 的赞助位适合展示云服务、开发者工具、网络检测、API Gateway、中转 API 周边服务。可以做品牌露出、优惠活动入口、资料页引流和长期合作展示。
               </p>
               <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
                 <a
@@ -247,14 +247,14 @@ function buildCommercialJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "PriceAI 赞助位合作",
-    url: "https://priceai.cc/commercial",
+    name: "ai-home 赞助位合作",
+    url: "https://ai-home.example.com/commercial",
     inLanguage: "zh-CN",
-    description: "说明 PriceAI 的赞助位、适合对象、展示形式和投放资料要求。",
+    description: "说明 ai-home 的赞助位、适合对象、展示形式和投放资料要求。",
     isPartOf: {
       "@type": "WebSite",
-      name: "PriceAI",
-      url: "https://priceai.cc",
+      name: "ai-home",
+      url: "https://ai-home.example.com",
     },
   };
 }

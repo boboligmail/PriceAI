@@ -7,7 +7,7 @@ import {
   missingEnv,
 } from "./cloudflare-env.mjs";
 
-const DEFAULT_BASE_URL = "https://priceai.cc";
+const DEFAULT_BASE_URL = "https://ai-home.example.com";
 const DEFAULT_REF = "main";
 const WORKFLOW_FILE = "deploy-cloudflare-worker.yml";
 
@@ -22,7 +22,7 @@ const untrackedChanges = gitStatus(["--short", "--untracked-files=normal"]).filt
 );
 const currentBranch = gitOutput(["branch", "--show-current"]) || "(detached)";
 
-console.log(`PriceAI production target: Cloudflare Workers / OpenNext`);
+console.log(`ai-home production target: Cloudflare Workers / OpenNext`);
 console.log(`Smoke base URL: ${options.smokeBaseUrl}`);
 console.log(`Current branch: ${currentBranch}`);
 console.log(`Deployment ref: ${options.ref}`);

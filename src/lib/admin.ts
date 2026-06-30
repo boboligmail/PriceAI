@@ -1354,7 +1354,7 @@ export async function parseSubmissionMetadata(rawUrl: string, context: Submissio
       method: "GET",
       signal: controller.signal,
       headers: {
-        "user-agent": "AIPriceHubBot/1.0 (+https://priceai.cc)",
+        "user-agent": "AIPriceHubBot/1.0 (+https://ai-home.example.com)",
         accept: "text/html,application/xhtml+xml",
       },
     });
@@ -1894,7 +1894,7 @@ async function fetchShopGoodsFromGoods(baseUrl: string, itemUrl: string, goodsKe
           "content-type": "application/json",
           accept: "application/json, text/plain, */*",
           "user-agent": attempt === 0
-            ? "AIPriceHubBot/1.0 (+https://priceai.cc)"
+            ? "AIPriceHubBot/1.0 (+https://ai-home.example.com)"
             : "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36",
           origin: baseUrl,
           referer: itemUrl,

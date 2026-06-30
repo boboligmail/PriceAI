@@ -16,7 +16,7 @@ const dashboardUrl = "https://freedomstore.asia/dashboard";
 const apiBaseUrl = "https://freedomstore.asia/v1";
 const groupEndpoint = "https://freedomstore.asia/api/v1/groups/available";
 const loginEndpoint = "https://freedomstore.asia/api/v1/auth/login";
-const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitAccountCollector";
+const userAgent = "Mozilla/5.0 ai-home/1.0 APITransitAccountCollector";
 
 const verifiedModelMatrix = [
   {
@@ -207,7 +207,7 @@ function buildRows(groups, collectedAt, options) {
     source_type: "manual_collected",
     commercial_relation: "none",
     summary:
-      "通过 FreedomStore 登录态分组接口抓取 Sub2API 分组倍率，并结合 PriceAI 临时 Key 实测结果发布。当前只展示 GPT 5.5 与 Claude Sonnet/Opus 4.6/4.7 的已通过样本；GPT 5.4 与 Claude Opus 4.8 不作为可用模型展示。",
+      "通过 FreedomStore 登录态分组接口抓取 Sub2API 分组倍率，并结合 ai-home 临时 Key 实测结果发布。当前只展示 GPT 5.5 与 Claude Sonnet/Opus 4.6/4.7 的已通过样本；GPT 5.4 与 Claude Opus 4.8 不作为可用模型展示。",
     channel_types: ["official_api", "cloud", "first_party_pool", "mixed"],
     account_pools: ["plus", "team", "pro", "official_api", "mixed", "undisclosed"],
     payment_methods: [],
@@ -222,7 +222,7 @@ function buildRows(groups, collectedAt, options) {
     availability_seven_day_samples: offers.length,
     availability_first_checked_at: offers.length ? collectedAt : null,
     availability_last_checked_at: collectedAt,
-    availability_note: "登录分组接口已抓取；可用性来自 PriceAI 临时 Key 的单轮抽样，失败目标未发布为可用模型。",
+    availability_note: "登录分组接口已抓取；可用性来自 ai-home 临时 Key 的单轮抽样，失败目标未发布为可用模型。",
     feedback_pending_count: 0,
     feedback_verified_risk_count: 0,
     feedback_merchant_responded_count: 0,
@@ -294,7 +294,7 @@ function buildOfferRow({ group, groupPlan, model, collectedAt }) {
     currency: "CNY",
     account_pool: groupPlan.accountPool,
     channel_type: groupPlan.channelType,
-    price_source: "Sub2API 登录分组接口 + PriceAI 临时 Key 实测",
+    price_source: "Sub2API 登录分组接口 + ai-home 临时 Key 实测",
     source_url: dashboardUrl,
     availability_seven_day_rate: 1,
     availability_seven_day_samples: 1,
@@ -313,7 +313,7 @@ function buildOfferRow({ group, groupPlan, model, collectedAt }) {
         updatedAt: group.updatedAt,
       },
       probe: {
-        source: "PriceAI temporary key",
+        source: "ai-home temporary key",
         result: "passed",
       },
     },

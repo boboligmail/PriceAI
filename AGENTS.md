@@ -5,9 +5,9 @@
 <!-- END:nextjs-agent-rules -->
 
 <!-- BEGIN:priceai-deploy-rules -->
-# PriceAI 生产部署默认走 Cloudflare
+# ai-home 生产部署默认走 Cloudflare
 
-`priceai.cc` 与 `www.priceai.cc` 的生产入口是 Cloudflare Workers + OpenNext。默认生产发布必须使用：
+`ai-home.example.com` 与 `www.ai-home.example.com` 的生产入口是 Cloudflare Workers + OpenNext。默认生产发布必须使用：
 
 ```bash
 npm run deploy:production
@@ -23,17 +23,17 @@ npm run deploy:production -- --check
 <!-- END:priceai-deploy-rules -->
 
 <!-- BEGIN:priceai-db-migration-rules -->
-# PriceAI 数据库迁移默认交给 Supabase GitHub Integration
+# ai-home 数据库迁移默认交给 Supabase GitHub Integration
 
-生产数据库迁移由 Supabase Dashboard 的 GitHub Integration 管理：repo 为 `physics-dimension/PriceAI`，working directory 为 `.`，production branch 为 `main`。`supabase/migrations/*.sql` 合入 `main` 后，由 Supabase 集成负责应用到生产项目。
+生产数据库迁移由 Supabase Dashboard 的 GitHub Integration 管理：repo 为 `YOUR_GITHUB_USER/ai-home`，working directory 为 `.`，production branch 为 `main`。`supabase/migrations/*.sql` 合入 `main` 后，由 Supabase 集成负责应用到生产项目。
 
 不要默认把 `supabase db push` 加回 `.github/workflows/deploy-cloudflare-worker.yml`，也不要让 Cloudflare Workers/OpenNext 发布流程依赖本机或 GitHub Actions 里的 `SUPABASE_ACCESS_TOKEN`、`SUPABASE_DB_PASSWORD` 来做生产迁移。除非用户明确要求替换 Supabase GitHub Integration，否则 Cloudflare workflow 只负责站点部署。
 
 涉及 migration 的发布完成后，要同时确认 Supabase GitHub Integration / checks 状态，以及生产 API 的真实行为。优先验证相关业务端点，例如：
 
 ```bash
-curl -I https://priceai.cc/api/explorer
-curl https://priceai.cc/api/explorer
+curl -I https://ai-home.example.com/api/explorer
+curl https://ai-home.example.com/api/explorer
 ```
 
 如果本机 `git push` 或 GitHub HTTPS 连接超时，可显式走本机代理：

@@ -274,7 +274,7 @@ export const TRANSIT_COMMERCIAL_OFFER_TYPE_LABELS: Record<TransitCommercialOffer
 };
 
 export const TRANSIT_VERIFICATION_EVENT_SOURCE_LABELS: Record<TransitVerificationEventSource, string> = {
-  priceai: "PriceAI 核验",
+  priceai: "ai-home 核验",
   official: "官方监测",
   user: "用户反馈",
   merchant: "商家提交",

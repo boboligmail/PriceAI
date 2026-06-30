@@ -40,7 +40,7 @@ export const seedStations: TransitStation[] = [
     strengths: ["公开价格页较完整", "Claude / GPT 分组清楚", "支持公开监控"],
     cautions: ["当前仍作为样例口径展示", "首次使用仍建议小额充值"],
     commercialOffers: [
-      offer("packy-first", "coupon", "首充 9 折", "站点公开优惠示例，使用前请回原站确认。", "PRICEAI", "https://www.packyapi.com", null, "该优惠不代表 PriceAI 担保。"),
+      offer("packy-first", "coupon", "首充 9 折", "站点公开优惠示例，使用前请回原站确认。", "PRICEAI", "https://www.packyapi.com", null, "该优惠不代表 ai-home 担保。"),
     ],
     verificationEvents: [
       event("packy-price", "priceai", "success", "公开价格页已解析", "已收录 Claude / GPT 主流模型倍率。", "2026-06-15 10:40"),
@@ -216,7 +216,7 @@ export const seedStations: TransitStation[] = [
       sevenDayRate: 0.884,
       sevenDaySamples: 44,
       lastCheckedAt: "2026-06-14 19:20",
-      note: "用户反馈样本，未完成 PriceAI 核验",
+      note: "用户反馈样本，未完成 ai-home 核验",
     },
     prices: [
       price("claude", "Claude Sonnet 4.6", "Claude 混池", "1:1", 0.28, 0.84, 4.2, null, null, "mixed", "mixed", 0.861, 12),

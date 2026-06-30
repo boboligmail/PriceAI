@@ -23,7 +23,7 @@ const accessModeOptions: Array<{
   {
     id: "public_only",
     title: "公开资料接入",
-    description: "提供价格页或监测页，PriceAI 自动抓取公开信息。",
+    description: "提供价格页或监测页，ai-home 自动抓取公开信息。",
     icon: <Globe2 className="h-4 w-4" />,
   },
   {
@@ -81,7 +81,7 @@ function TransitSubmissionModal({
   const title = mode === "submit" ? "提交一个 API 中转站" : "商家 / 总渠道商入驻";
   const description =
     mode === "submit"
-      ? "适合普通用户补充线索。PriceAI 会先做基础核验，再决定是否进入公开榜单或监控池。"
+      ? "适合普通用户补充线索。ai-home 会先做基础核验，再决定是否进入公开榜单或监控池。"
       : "适合希望进入展示、提供测试额度或补充一手证明的商家。商业关系会和客观数据分开展示。";
 
   useEffect(() => {
@@ -494,7 +494,7 @@ function CredentialSafetyConfirm({ label }: { label: string }) {
   return (
     <label className="flex items-start gap-2 rounded-lg bg-[#fff7e8] px-3 py-2 text-xs leading-5 text-[#7a541b]">
       <input name="credentialSafetyConfirmed" value="yes" type="checkbox" required className="mt-0.5 h-4 w-4 accent-[#2d3435]" />
-      <span>{label} PriceAI 仅用于价格解析、模型可用性抽样和监测，可要求删除。</span>
+      <span>{label} ai-home 仅用于价格解析、模型可用性抽样和监测，可要求删除。</span>
     </label>
   );
 }

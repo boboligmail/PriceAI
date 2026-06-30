@@ -13,7 +13,7 @@ const configPath = path.join(repoRoot, "config", "api-transit-sources.json");
 const envPath = path.join(repoRoot, ".env.local");
 const defaultOutPath = path.join(repoRoot, "data", "api-transit", "latest-public-pricing.json");
 
-const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitCollector";
+const userAgent = "Mozilla/5.0 ai-home/1.0 APITransitCollector";
 const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_RECHARGE_RATIO = "1:1";
 const NEW_API_USD_UNIT_PRICE_FACTOR = 2;
@@ -600,7 +600,7 @@ function oneHopAvailabilityFromDisplayMetrics(displayMetrics, collectedAt) {
     samples: samples.length,
     firstCheckedAt: earliestDay ? `${earliestDay}T00:00:00.000Z` : null,
     lastCheckedAt: latestDay ? `${latestDay}T00:00:00.000Z` : collectedAt,
-    note: `OneHop 公开模型目录 uptime14d，按日可用率样本，非 PriceAI API Key 实测${usageNote}。`,
+    note: `OneHop 公开模型目录 uptime14d，按日可用率样本，非 ai-home API Key 实测${usageNote}。`,
   };
 }
 
@@ -625,7 +625,7 @@ function summarizeOneHopStationAvailability(offers, collectedAt) {
     samples,
     firstCheckedAt: firstCheckedAt || null,
     lastCheckedAt: lastCheckedAt || collectedAt,
-    note: "OneHop 公开模型目录汇总 uptime14d；这些是商家页面公开样本，仍需 PriceAI 测试 Key 复核。",
+    note: "OneHop 公开模型目录汇总 uptime14d；这些是商家页面公开样本，仍需 ai-home 测试 Key 复核。",
   };
 }
 
@@ -849,7 +849,7 @@ function buildStationRow(source, collectedAt, collection = {}) {
     status: status === "failed" ? "unknown" : "active",
     source_type: "manual_collected",
     commercial_relation: source.commercialRelation || "none",
-    summary: source.summary || "公开价格接口可读取，已进入 PriceAI API 中转站自动价格采集池；稳定性和扣费检测仍需测试 Key 或人工样本补充。",
+    summary: source.summary || "公开价格接口可读取，已进入 ai-home API 中转站自动价格采集池；稳定性和扣费检测仍需测试 Key 或人工样本补充。",
     channel_types: source.channelTypes || ["undisclosed"],
     account_pools: source.accountPools || ["undisclosed"],
     payment_methods: source.paymentMethods || [],

@@ -97,9 +97,9 @@ PRICE_DATA_CACHE_TTL_MS = PRICE_DATA_EDGE_SECONDS * 1000
 生产或预览：
 
 ```bash
-curl -sS -D - -o /tmp/priceai-explorer.json https://priceai.cc/api/explorer
-curl -sS -D - -o /tmp/priceai-offers.json 'https://priceai.cc/api/offers?limit=30'
-curl -sS -D - -o /tmp/priceai-product-offers.json 'https://priceai.cc/api/products/chatgpt-plus/offers?limit=30'
+curl -sS -D - -o /tmp/priceai-explorer.json https://ai-home.example.com/api/explorer
+curl -sS -D - -o /tmp/priceai-offers.json 'https://ai-home.example.com/api/offers?limit=30'
+curl -sS -D - -o /tmp/priceai-product-offers.json 'https://ai-home.example.com/api/products/chatgpt-plus/offers?limit=30'
 ```
 
 验收点：

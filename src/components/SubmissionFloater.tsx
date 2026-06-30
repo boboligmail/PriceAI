@@ -159,7 +159,7 @@ export function SubmissionFloater() {
                   <span>{message}</span>
                 </div>
                 <CommunityPrompt>
-                  也欢迎加入 PriceAI 交流群，一起补充低价渠道、反馈价格变化。
+                  也欢迎加入 ai-home 交流群，一起补充低价渠道、反馈价格变化。
                 </CommunityPrompt>
               </div>
             ) : null}

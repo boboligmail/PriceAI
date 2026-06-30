@@ -13,7 +13,7 @@ const repoRoot = path.resolve(__dirname, "..");
 const envPath = path.join(repoRoot, ".env.local");
 const defaultOutPath = path.join(repoRoot, "tmp", "api-transit-sub2api-latest.json");
 
-const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitSub2APICollector";
+const userAgent = "Mozilla/5.0 ai-home/1.0 APITransitSub2APICollector";
 const DEFAULT_TIMEOUT_MS = 30000;
 const DEFAULT_RECHARGE_RATIO = "1:1";
 
@@ -253,7 +253,7 @@ async function saveAccountCredential(source, credential, collectedAt, options) {
         api_base_url: source.apiBaseUrl,
         pricing_url: source.dashboardUrl,
         contact: null,
-        notes: "Sub2API 测试账号凭据，仅用于 PriceAI 分组倍率刷新与低频抽样。",
+        notes: "Sub2API 测试账号凭据，仅用于 ai-home 分组倍率刷新与低频抽样。",
         submitted_models: [],
         submitted_meta: {
           ...meta,
@@ -285,7 +285,7 @@ async function saveAccountCredential(source, credential, collectedAt, options) {
             login_url: loginUrl,
             username: credential.email,
             password: credential.password,
-            notes: `Sub2API ${source.name} 测试账号，仅用于 PriceAI 分组倍率刷新。`,
+            notes: `Sub2API ${source.name} 测试账号，仅用于 ai-home 分组倍率刷新。`,
           },
           secret,
         ),
@@ -536,7 +536,7 @@ function buildRows(source, groups, selectedTargets, keyResults, probeResults, co
     status: groupCount ? "active" : "unknown",
     source_type: "manual_collected",
     commercial_relation: "none",
-    summary: `通过 Sub2API 登录态分组接口抓取 ${groups.length} 个活跃分组，并按 PriceAI 准入抽样只测试 GPT 5.5 与 Claude Opus 4.8。`,
+    summary: `通过 Sub2API 登录态分组接口抓取 ${groups.length} 个活跃分组，并按 ai-home 准入抽样只测试 GPT 5.5 与 Claude Opus 4.8。`,
     channel_types: channelTypes.length ? channelTypes : ["undisclosed"],
     account_pools: accountPools.length ? accountPools : ["undisclosed"],
     payment_methods: [],
@@ -673,7 +673,7 @@ async function buildCredentialRows(source, selectedTargets, keyResults, collecte
         family: meta.family,
         standard_model: meta.standard_model,
         raw_model_name: meta.raw_model_name,
-        notes: `Sub2API ${groupName} 分组 Key，仅用于 PriceAI 可用性监测。`,
+        notes: `Sub2API ${groupName} 分组 Key，仅用于 ai-home 可用性监测。`,
       }, secret),
       credential_meta: meta,
       expires_at: null,
@@ -705,7 +705,7 @@ function buildOfferRow(source, result, collectedAt) {
     currency: "CNY",
     account_pool: inferAccountPool(result.groupName),
     channel_type: inferChannelType(result.groupName),
-    price_source: "Sub2API 登录分组接口 + PriceAI 单轮抽样",
+    price_source: "Sub2API 登录分组接口 + ai-home 单轮抽样",
     source_url: source.dashboardUrl,
     availability_seven_day_rate: ok ? 1 : 0,
     availability_seven_day_samples: 1,

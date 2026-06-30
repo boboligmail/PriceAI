@@ -1,12 +1,12 @@
 import type { MetadataRoute } from "next";
 
-const siteUrl = "https://priceai.cc";
+const siteUrl = "https://ai-home.example.com";
 
 export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      allow: ["/", "/about", "/official-prices", "/api-models", "/api-transit", "/products/", "/platforms/", "/guides/"],
+      allow: ["/", "/cloud", "/about", "/official-prices", "/api-models", "/api-transit", "/products/", "/platforms/", "/guides/"],
       disallow: [
         "/admin",
         "/api/",

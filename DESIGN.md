@@ -1,5 +1,5 @@
 ---
-name: PriceAI
+name: ai-home
 description: AI subscription price comparison and source collection tool.
 colors:
   ink: "#202829"
@@ -80,15 +80,15 @@ components:
     height: "44px"
 ---
 
-# Design System: PriceAI
+# Design System: ai-home
 
 ## 1. Overview
 
 **Creative North Star: "The Price Desk"**
 
-PriceAI should feel like a calm comparison desk for noisy AI subscription markets. The interface has a restrained editorial surface, but its real job is operational: scan, compare, verify, and move quickly to the original source.
+ai-home should feel like a calm comparison desk for noisy AI subscription markets. The interface has a restrained editorial surface, but its real job is operational: scan, compare, verify, and move quickly to the original source.
 
-The visual system uses soft tinted neutrals, compact controls, light borders, and table-first information hierarchy. The PriceAI logo and serif headings add identity, while the surrounding UI stays familiar and work-focused.
+The visual system uses soft tinted neutrals, compact controls, light borders, and table-first information hierarchy. The ai-home logo and serif headings add identity, while the surrounding UI stays familiar and work-focused.
 
 This system rejects marketing-site composition, decorative AI motifs, heavy gradients, and ambiguous trust badges. Data should look specific, current, and easy to challenge.
 

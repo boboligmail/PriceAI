@@ -98,7 +98,7 @@ source_title/tags
 
 ## Decision (ADR-lite)
 
-**Context**: 反馈证据需要存图片，但 Supabase Storage 会把对象存储能力也压到数据库供应商上；PriceAI 生产已在 Cloudflare Workers 上运行，R2 更贴近部署边界。拼车/团购报价对用户有参考价值，但不应代表标准可买最低价。
+**Context**: 反馈证据需要存图片，但 Supabase Storage 会把对象存储能力也压到数据库供应商上；ai-home 生产已在 Cloudflare Workers 上运行，R2 更贴近部署边界。拼车/团购报价对用户有参考价值，但不应代表标准可买最低价。
 
 **Decision**: 图片证据放 Cloudflare R2 独立私有 bucket，Supabase 只存引用；拼车/团购作为 `shared_access` 标准标签保留在详情页和筛选里，但从默认最低价口径中排除，并在默认排序里后置。
 
@@ -108,7 +108,7 @@ source_title/tags
 
 - Cloudflare R2 bucket `priceai-feedback-evidence` 已创建并绑定为 `FEEDBACK_EVIDENCE_BUCKET`。
 - Supabase 生产 SQL 已应用并验证：`shared_access` 能识别拼车/团购报价，`warranty_long` 仍正常命中。
-- Cloudflare 生产版本 `f8f78c79-bae2-4ec1-ad5d-e9de0106d37a` 已部署到 `priceai.cc`。
+- Cloudflare 生产版本 `f8f78c79-bae2-4ec1-ad5d-e9de0106d37a` 已部署到 `ai-home.example.com`。
 - 线上 smoke 通过：默认 `chatgpt-plus` 报价前 20 条没有拼车/团购，`tags=shared_access` 返回 5 条，`/api/explorer` 中 ChatGPT Plus 默认最低价为 `8.5`。
 - 线上图片上传通过：`/api/feedback/evidence` 返回 `r2://feedback-evidence/feedback/2026/06/2849073f-19c7-49b4-b15f-95069b3ca0d7.png`，非法 R2 引用返回 400。
 

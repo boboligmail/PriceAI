@@ -538,7 +538,7 @@ export function ApiModelsExplorer({
                 </p>
                 {submitMessage.type === "success" ? (
                   <CommunityPrompt>
-                    也欢迎加入 PriceAI 交流群，一起补充模型 API 渠道和免费额度信息。
+                    也欢迎加入 ai-home 交流群，一起补充模型 API 渠道和免费额度信息。
                   </CommunityPrompt>
                 ) : null}
               </div>
@@ -606,7 +606,7 @@ export function ApiModelsExplorer({
       </section>
 
       <p className="mt-8 text-xs leading-6 text-[#5a6061]">
-        免责声明：PriceAI 只整理公开文档和公开页面中的 API 渠道信息，不售卖 API，不承诺可用性，不替任何渠道提供 SLA。免费和低价渠道可能存在限流、排队、模型下线、地区限制或条款变化。
+        免责声明：ai-home 只整理公开文档和公开页面中的 API 渠道信息，不售卖 API，不承诺可用性，不替任何渠道提供 SLA。免费和低价渠道可能存在限流、排队、模型下线、地区限制或条款变化。
       </p>
     </main>
     </>

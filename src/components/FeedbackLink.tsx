@@ -15,7 +15,7 @@ import { useEffect, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { qqGroupNumber, qqGroupQrCodeUrl, qqGroupUrl, telegramUrl } from "@/lib/community";
 
-const githubUrl = "https://github.com/physics-dimension/PriceAI";
+const githubUrl = "https://github.com/YOUR_GITHUB_USER/ai-home";
 
 type FeedbackType = "feature" | "data" | "channel" | "bug" | "ux" | "other";
 type FeedbackTypeOption = { value: FeedbackType; label: string; id?: string };
@@ -118,7 +118,7 @@ export function GitHubLink({
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
         compact ? getCompactButtonClassName(labelFrom, "sm:px-3.5", "2xl:px-3.5") : "h-10 gap-2 px-3.5"
       }`}
-      aria-label="打开 PriceAI GitHub 仓库"
+      aria-label="打开 ai-home GitHub 仓库"
     >
       <Image
         src="/brand-icons/github.svg"
@@ -151,7 +151,7 @@ export function QQGroupLink({
         className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
           compact ? getCompactButtonClassName(labelFrom, "sm:px-3", "2xl:px-3") : "h-10 gap-2 px-3.5"
         }`}
-        aria-label={`查看 PriceAI QQ 交流群加入方式，群号 ${qqGroupNumber}`}
+        aria-label={`查看 ai-home QQ 交流群加入方式，群号 ${qqGroupNumber}`}
         title={`QQ 群：${qqGroupNumber}`}
       >
         <QQIcon className="h-5 w-5" />
@@ -203,7 +203,7 @@ export function QQGroupDialog({ onClose }: { onClose: () => void }) {
                 <QQIcon className="h-6 w-6" />
               </div>
               <h2 id={titleId} className="mt-3 text-base font-bold text-[#202829]">
-                加入 PriceAI QQ 交流群
+                加入 ai-home QQ 交流群
               </h2>
               <p className="mt-1 text-sm leading-6 text-[#5a6061]">
                 反馈价格错误、缺货、渠道风险，或继续补充截图和链接。
@@ -252,7 +252,7 @@ export function QQGroupDialog({ onClose }: { onClose: () => void }) {
             <div className="rounded-lg border border-[#dfe4e5] bg-white p-2">
               <Image
                 src={qqGroupQrCodeUrl}
-                alt={`PriceAI QQ 交流群二维码，群号 ${qqGroupNumber}`}
+                alt={`ai-home QQ 交流群二维码，群号 ${qqGroupNumber}`}
                 width={1284}
                 height={2289}
                 className="mx-auto h-auto max-h-[280px] w-full rounded-md object-contain sm:max-h-[320px]"
@@ -289,7 +289,7 @@ export function QQGroupPromptButton() {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829]"
-        aria-label={`查看 PriceAI QQ 交流群加入方式，群号 ${qqGroupNumber}`}
+        aria-label={`查看 ai-home QQ 交流群加入方式，群号 ${qqGroupNumber}`}
       >
         <QQIcon className="h-3.5 w-3.5" />
         QQ 群
@@ -314,7 +314,7 @@ export function TelegramLink({
       className={`inline-flex shrink-0 items-center justify-center rounded-full bg-white text-sm font-semibold text-[#2d3435] shadow-[0_10px_30px_rgba(45,52,53,0.06)] ring-1 ring-[#adb3b4]/25 transition hover:-translate-y-0.5 hover:bg-[#f5f7f7] hover:text-[#202829] ${
         compact ? getCompactButtonClassName(labelFrom, "sm:px-3", "2xl:px-3") : "h-10 gap-2 px-3.5"
       }`}
-      aria-label="加入 PriceAI Telegram 交流群"
+      aria-label="加入 ai-home Telegram 交流群"
     >
       <Image
         src="/brand-icons/telegram.svg"
@@ -347,7 +347,7 @@ export function CommunityPrompt({
           target="_blank"
           rel="noreferrer"
           className="inline-flex h-8 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-bold text-[#2d3435] ring-1 ring-[#adb3b4]/35 transition hover:bg-[#edf0f1]"
-          aria-label="加入 PriceAI Telegram 交流群"
+          aria-label="加入 ai-home Telegram 交流群"
         >
           <Image
             src="/brand-icons/telegram.svg"
@@ -545,7 +545,7 @@ export function FeedbackDialog({
             ) : null}
 
             <CommunityPrompt className="mt-4">
-              想更快反馈价格、库存、分类问题？也可以加入 PriceAI 交流群。
+              想更快反馈价格、库存、分类问题？也可以加入 ai-home 交流群。
             </CommunityPrompt>
           </div>
 

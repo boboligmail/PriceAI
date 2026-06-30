@@ -69,7 +69,7 @@ export const defaultSponsorCreativesByPlacement: Record<SponsorPlacementKind, Sp
       id: "home-developer-stack",
       enabled: true,
       status: "live",
-      title: "PriceAI 生态合作展示",
+      title: "ai-home 生态合作展示",
       description: "适合 AI 周边服务、开发者基础设施或工具类品牌的轻曝光。",
       targetUrl: "/commercial#slots",
       visualTitle: "Developer Stack",

@@ -7,16 +7,16 @@ import { SiteHeader } from "@/components/SiteHeader";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "PriceAI 边界与披露",
-  description: "说明 PriceAI 的产品边界、数据来源、广告赞助披露原则，以及购买 AI 订阅或 API 前需要自行核验的内容。",
+  title: "ai-home 边界与披露",
+  description: "说明 ai-home 的产品边界、数据来源、广告赞助披露原则，以及购买 AI 订阅或 API 前需要自行核验的内容。",
   alternates: {
     canonical: "/about",
   },
   openGraph: {
-    title: "PriceAI 边界与披露",
-    description: "PriceAI 提供购买前信息，不卖货、不收款、不替任何渠道背书。",
-    url: "https://priceai.cc/about",
-    siteName: "PriceAI",
+    title: "ai-home 边界与披露",
+    description: "ai-home 提供购买前信息，不卖货、不收款、不替任何渠道背书。",
+    url: "https://ai-home.example.com/about",
+    siteName: "ai-home",
   },
 };
 
@@ -28,7 +28,7 @@ const boundaries = [
   },
   {
     title: "我们不提供什么",
-    body: "PriceAI 不卖货、不收款、不托管订单、不处理售后、不替渠道担保，也不承诺任何第三方服务可长期稳定交付。",
+    body: "ai-home 不卖货、不收款、不托管订单、不处理售后、不替渠道担保，也不承诺任何第三方服务可长期稳定交付。",
     icon: ShieldCheck,
   },
   {
@@ -56,7 +56,7 @@ const disclosures = [
   },
   {
     title: "联系合作",
-    body: "合作与赞助只通过明确的联系入口沟通，不在内容中暗示渠道被 PriceAI 担保。",
+    body: "合作与赞助只通过明确的联系入口沟通，不在内容中暗示渠道被 ai-home 担保。",
   },
 ];
 
@@ -74,7 +74,7 @@ export default function AboutPage() {
             <div className="mx-auto max-w-4xl text-center">
               <p className="text-sm font-semibold text-[var(--color-success-text)]">边界与披露</p>
               <h1 className="mt-5 text-balance font-serif text-[2.18rem] font-semibold leading-tight tracking-normal text-[var(--color-text-primary)] sm:text-5xl md:text-6xl">
-                PriceAI 提供购买前信息，不替任何渠道背书。
+                ai-home 提供购买前信息，不替任何渠道背书。
               </h1>
               <p className="mx-auto mt-5 max-w-[72ch] text-pretty text-base leading-8 text-[var(--color-text-muted)]">
                 首页已经承担购买路径分流。这个页面只保留项目边界、数据来源和商业披露原则，方便你判断哪些信息可以参考，哪些事情必须回到原平台确认。
@@ -127,7 +127,7 @@ export default function AboutPage() {
                   可核验的信息，才适合放在前面。
                 </h2>
                 <p className="mt-4 text-sm leading-7 text-[var(--color-text-muted)]">
-                  PriceAI 的长期方向不是做卖家列表，也不是给渠道打分，而是把购买前能被用户复查的信息沉淀下来。
+                  ai-home 的长期方向不是做卖家列表，也不是给渠道打分，而是把购买前能被用户复查的信息沉淀下来。
                 </p>
               </div>
               <div className="divide-y divide-[var(--color-border-subtle)] overflow-hidden rounded-lg bg-[var(--color-panel)] ring-1 ring-[var(--color-border-soft)]">
@@ -169,7 +169,7 @@ export default function AboutPage() {
             <div className="mx-auto mt-8 flex max-w-5xl flex-col items-center gap-3 rounded-lg bg-[var(--color-surface)] p-5 text-center ring-1 ring-[var(--color-border-soft)] sm:flex-row sm:justify-between sm:text-left">
               <div>
                 <h3 className="text-base font-semibold text-[var(--color-text-primary)]">合作与赞助</h3>
-                <p className="mt-1 text-sm leading-6 text-[var(--color-text-muted)]">只沟通合作，不代表 PriceAI 对任何渠道做担保。</p>
+                <p className="mt-1 text-sm leading-6 text-[var(--color-text-muted)]">只沟通合作，不代表 ai-home 对任何渠道做担保。</p>
               </div>
               <a
                 href="https://t.me/dimthink"
@@ -191,14 +191,14 @@ function buildAboutJsonLd() {
   return {
     "@context": "https://schema.org",
     "@type": "AboutPage",
-    name: "PriceAI 边界与披露",
-    url: "https://priceai.cc/about",
+    name: "ai-home 边界与披露",
+    url: "https://ai-home.example.com/about",
     inLanguage: "zh-CN",
-    description: "说明 PriceAI 的产品边界、数据来源和商业披露原则。",
+    description: "说明 ai-home 的产品边界、数据来源和商业披露原则。",
     isPartOf: {
       "@type": "WebSite",
-      name: "PriceAI",
-      url: "https://priceai.cc",
+      name: "ai-home",
+      url: "https://ai-home.example.com",
     },
   };
 }

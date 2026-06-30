@@ -7,7 +7,7 @@ import { getOfficialPricePlanSummaries } from "@/lib/official-prices";
 import { platformPageConfigList } from "@/lib/platform-pages";
 import { shouldNoIndexProduct } from "@/lib/product-seo";
 
-const siteUrl = "https://priceai.cc";
+const siteUrl = "https://ai-home.example.com";
 
 export const revalidate = 3600;
 
@@ -25,6 +25,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: now,
       changeFrequency: "daily",
       priority: 1,
+    },
+    {
+      url: `${siteUrl}/cloud`,
+      lastModified: now,
+      changeFrequency: "daily",
+      priority: 0.86,
     },
     {
       url: `${siteUrl}/channels`,

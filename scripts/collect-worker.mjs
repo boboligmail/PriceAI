@@ -20,7 +20,7 @@ const endpoint =
   args.endpoint ||
   process.env.CRON_PUBLIC_BASE_URL ||
   env.CRON_PUBLIC_BASE_URL ||
-  "https://priceai.cc";
+  "https://ai-home.example.com";
 const password =
   args.password ||
   process.env.ADMIN_PASSWORD ||

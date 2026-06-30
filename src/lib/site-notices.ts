@@ -39,7 +39,7 @@ export const siteNotices: SiteNoticeConfig[] = [
       exclude: ["/admin"],
     },
     eyebrow: "API 中转站调研",
-    title: "帮 PriceAI 判断要不要做 API 中转站评选",
+    title: "帮 ai-home 判断要不要做 API 中转站评选",
     body: "我们正在评估是否增加 API 中转站模块：把价格倍率、可用性、延迟、检测结果、供货渠道和入驻规则尽量摆到台面上。想用一份 2 分钟问卷，先收集普通用户、中转站站长和上游渠道的真实需求。",
     highlights: [
       {

@@ -49,7 +49,7 @@ export const platformPageConfigs = {
     slug: "chatgpt",
     platform: "ChatGPT",
     iconPlatform: "ChatGPT",
-    pageUrl: "https://priceai.cc/platforms/chatgpt",
+    pageUrl: "https://ai-home.example.com/platforms/chatgpt",
     productIds: [
       "chatgpt-free-account",
       "chatgpt-plus",
@@ -114,7 +114,7 @@ export const platformPageConfigs = {
     faqs: [
       [
         "ChatGPT Plus 和成品号要分开看吗？",
-        "PriceAI 当前把 Plus 直充、代充、卡密、成品号等都归到 ChatGPT Plus，因为用户购买前最关心的是 Plus 权益和当前可买价格。具体交付方式仍需要看原始商品名和原平台说明。",
+        "ai-home 当前把 Plus 直充、代充、卡密、成品号等都归到 ChatGPT Plus，因为用户购买前最关心的是 Plus 权益和当前可买价格。具体交付方式仍需要看原始商品名和原平台说明。",
       ],
       [
         "ChatGPT Plus CDK、卡密和账号购买有什么区别？",
@@ -130,15 +130,15 @@ export const platformPageConfigs = {
       ],
       [
         "为什么有些 ChatGPT 商品价格差很多？",
-        "常见原因包括官方订阅、地区价、代订、成品号、团队权益、短期号、卡密等路径不同。PriceAI 只做信息整理，不判断某个渠道一定安全。",
+        "常见原因包括官方订阅、地区价、代订、成品号、团队权益、短期号、卡密等路径不同。ai-home 只做信息整理，不判断某个渠道一定安全。",
       ],
       [
         "外层最低价为什么只看有货报价？",
         "缺货或下架商品即使价格更低，也不能代表当前可购买价格。所以列表和平台摘要优先使用有货最低价，缺货会在详情中明确标注。",
       ],
       [
-        "PriceAI 会直接卖 ChatGPT 订阅吗？",
-        "不会。PriceAI 不卖货、不收款、不参与交易，只展示来源、价格、库存状态和更新时间，最终购买需要到原平台自行判断。",
+        "ai-home 会直接卖 ChatGPT 订阅吗？",
+        "不会。ai-home 不卖货、不收款、不参与交易，只展示来源、价格、库存状态和更新时间，最终购买需要到原平台自行判断。",
       ],
     ],
     relatedTitle: "第一次买 ChatGPT 订阅？",
@@ -156,9 +156,9 @@ export const platformPageConfigs = {
         canonical: "/platforms/chatgpt",
       },
       openGraph: {
-        title: "ChatGPT 比价与订阅渠道价格 | PriceAI",
+        title: "ChatGPT 比价与订阅渠道价格 | ai-home",
         description: "购买 ChatGPT 订阅前，先比较 Plus、Pro、Team 邀请、普号、Plus CDK 和账号购买的价格、来源和更新时间。",
-        url: "https://priceai.cc/platforms/chatgpt",
+        url: "https://ai-home.example.com/platforms/chatgpt",
       },
     },
   },
@@ -166,7 +166,7 @@ export const platformPageConfigs = {
     slug: "gemini",
     platform: "Gemini",
     iconPlatform: "Gemini",
-    pageUrl: "https://priceai.cc/platforms/gemini",
+    pageUrl: "https://ai-home.example.com/platforms/gemini",
     productIds: ["gemini-pro-year", "gemini-pro-recharge", "gemini-ultra"],
     badge: "Gemini 平台价格页",
     title: "Gemini Pro 与 Google AI Ultra 价格对比",
@@ -238,8 +238,8 @@ export const platformPageConfigs = {
         "不建议只看最低价。Ultra 类商品价格高、权益复杂，更应该先确认是否为 Google AI Ultra、企业权益、积分或其他形式。",
       ],
       [
-        "PriceAI 会担保 Gemini 渠道吗？",
-        "不会。PriceAI 只聚合来源、价格、库存状态和更新时间，最终价格、交付和售后以原平台为准。",
+        "ai-home 会担保 Gemini 渠道吗？",
+        "不会。ai-home 只聚合来源、价格、库存状态和更新时间，最终价格、交付和售后以原平台为准。",
       ],
     ],
     relatedTitle: "准备看 Gemini 价格？",
@@ -257,9 +257,9 @@ export const platformPageConfigs = {
         canonical: "/platforms/gemini",
       },
       openGraph: {
-        title: "Gemini Pro 与 Google AI Ultra 价格对比 | PriceAI",
+        title: "Gemini Pro 与 Google AI Ultra 价格对比 | ai-home",
         description: "购买 Gemini Pro 或 Google AI Ultra 前，先比较有货最低价、官方地区价、Google Play 路径和第三方渠道说明。",
-        url: "https://priceai.cc/platforms/gemini",
+        url: "https://ai-home.example.com/platforms/gemini",
       },
     },
   },
@@ -267,7 +267,7 @@ export const platformPageConfigs = {
     slug: "claude",
     platform: "Claude",
     iconPlatform: "Claude",
-    pageUrl: "https://priceai.cc/platforms/claude",
+    pageUrl: "https://ai-home.example.com/platforms/claude",
     productIds: [
       "claude-pro-month",
       "claude-team-standard",
@@ -343,11 +343,11 @@ export const platformPageConfigs = {
       ],
       [
         "Claude 低价渠道靠谱吗？",
-        "PriceAI 不为任何渠道背书。可以把卡网当作信息源，先看售后群、联系方式、质保时间和原站投诉入口，再决定是否交易。",
+        "ai-home 不为任何渠道背书。可以把卡网当作信息源，先看售后群、联系方式、质保时间和原站投诉入口，再决定是否交易。",
       ],
       [
         "Claude 是否适合优先官方订阅？",
-        "如果更看重稳定和账号安全，官方订阅通常更稳；如果看重价格，可以用 PriceAI 对比第三方渠道，但要接受相应风险。",
+        "如果更看重稳定和账号安全，官方订阅通常更稳；如果看重价格，可以用 ai-home 对比第三方渠道，但要接受相应风险。",
       ],
     ],
     relatedTitle: "准备看 Claude 渠道？",
@@ -365,9 +365,9 @@ export const platformPageConfigs = {
         canonical: "/platforms/claude",
       },
       openGraph: {
-        title: "Claude Pro 与 Max 订阅渠道价格 | PriceAI",
+        title: "Claude Pro 与 Max 订阅渠道价格 | ai-home",
         description: "购买 Claude Pro 或 Claude Max 前，先比较有货最低价、官方参考价、账号交付和渠道风险。",
-        url: "https://priceai.cc/platforms/claude",
+        url: "https://ai-home.example.com/platforms/claude",
       },
     },
   },
@@ -375,12 +375,12 @@ export const platformPageConfigs = {
     slug: "api",
     platform: "API/CDK",
     iconPlatform: "API/CDK",
-    pageUrl: "https://priceai.cc/platforms/api",
+    pageUrl: "https://ai-home.example.com/platforms/api",
     productIds: ["openai-api-cdk"],
     badge: "API / CDK 平台价格页",
     title: "模型 API、CDK 与额度获取入口",
     intro:
-      "这里把订阅渠道里的 API / CDK / 额度商品和 PriceAI 模型 API 雷达串起来。适合想把模型接入 Codex、Cursor、OpenCode、自建应用或自动化脚本的用户。",
+      "这里把订阅渠道里的 API / CDK / 额度商品和 ai-home 模型 API 雷达串起来。适合想把模型接入 Codex、Cursor、OpenCode、自建应用或自动化脚本的用户。",
     primaryHref: "/api-models",
     primaryLabel: "查看模型 API 雷达",
     secondaryHref: "/api-transit",
@@ -421,7 +421,7 @@ export const platformPageConfigs = {
       },
       {
         title: "先收正规公开来源",
-        text: "PriceAI 当前优先整理官方 API、公开文档 API、免费测试入口和公开模型路由，不把灰色中转作为主线推荐。",
+        text: "ai-home 当前优先整理官方 API、公开文档 API、免费测试入口和公开模型路由，不把灰色中转作为主线推荐。",
       },
     ],
     faqs: [
@@ -439,10 +439,10 @@ export const platformPageConfigs = {
       ],
       [
         "为什么 API 平台页还要保留渠道报价？",
-        "因为一部分用户搜索的是 API/CDK 或额度商品，一部分用户搜索的是官方 API 和免费 API。PriceAI 会把两类入口分清楚，并引导到模型 API 雷达做更细对比。",
+        "因为一部分用户搜索的是 API/CDK 或额度商品，一部分用户搜索的是官方 API 和免费 API。ai-home 会把两类入口分清楚，并引导到模型 API 雷达做更细对比。",
       ],
       [
-        "PriceAI 会收录灰色中转 API 吗？",
+        "ai-home 会收录灰色中转 API 吗？",
         "当前策略优先收录官方或公开文档可核验的 API 渠道。第三方中转会更谨慎，重点看来源、文档、稳定性和风险边界。",
       ],
     ],
@@ -461,9 +461,9 @@ export const platformPageConfigs = {
         canonical: "/platforms/api",
       },
       openGraph: {
-        title: "模型 API、CDK 与额度获取入口 | PriceAI",
+        title: "模型 API、CDK 与额度获取入口 | ai-home",
         description: "把官方 API、免费 API、模型路由、Token Plan 和 API/CDK 渠道报价放在一起比较。",
-        url: "https://priceai.cc/platforms/api",
+        url: "https://ai-home.example.com/platforms/api",
       },
     },
   },

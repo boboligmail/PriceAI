@@ -321,7 +321,7 @@ export const apiProviderCandidates = [
     priority: "medium",
     evidenceStatus: "needs_pricing_parse",
     sourceLabel: "华为云 ModelArts 官网",
-    reason: "华为云有公开 AI 开发平台入口，但是否适合 PriceAI 的模型 API 价格对比需要核验。",
+    reason: "华为云有公开 AI 开发平台入口，但是否适合 ai-home 的模型 API 价格对比需要核验。",
     nextStep: "补华为云 MaaS/ModelArts 价格页和模型列表来源，确认计费维度。",
     notes: "已进入前台候选展示；偏企业云服务，后续需要继续简化计费口径。",
     updatedAt: apiModelUpdatedAt,

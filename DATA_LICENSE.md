@@ -1,6 +1,6 @@
 # Data and Content Policy
 
-This repository open sources the PriceAI software code. It does not grant a blanket license to copy PriceAI's production data, collected channel data, pricing snapshots, editorial content, screenshots, brand assets, or operational datasets.
+This repository open sources the ai-home software code. It does not grant a blanket license to copy ai-home's production data, collected channel data, pricing snapshots, editorial content, screenshots, brand assets, or operational datasets.
 
 ## Software Code
 
@@ -17,7 +17,7 @@ The following are not licensed for bulk copying, resale, republishing, or operat
 - Manually reviewed classification results.
 - User submissions, feedback, or moderation notes.
 
-You may use the public website normally as an end user. Do not scrape PriceAI at high volume, mirror the full dataset, or use PriceAI as a substitute data feed without permission.
+You may use the public website normally as an end user. Do not scrape ai-home at high volume, mirror the full dataset, or use ai-home as a substitute data feed without permission.
 
 ## Editorial Content and Assets
 
@@ -25,7 +25,7 @@ Guides, long-form explanations, screenshots, logos, icons, and marketing copy ar
 
 ## Attribution
 
-If you publish a fork or derivative service, please clearly state that it is not the official PriceAI service and link back to the official project:
+If you publish a fork or derivative service, please clearly state that it is not the official ai-home service and link back to the official project:
 
-- <https://priceai.cc>
-- <https://github.com/physics-dimension/PriceAI>
+- <https://ai-home.example.com>
+- <https://github.com/YOUR_GITHUB_USER/ai-home>

@@ -8,18 +8,18 @@ import { getGuideCategory, guideEntries } from "@/lib/guides";
 
 export const revalidate = 86400;
 
-const pageUrl = "https://priceai.cc/guides";
+const pageUrl = "https://ai-home.example.com/guides";
 
 export const metadata: Metadata = {
-  title: "PriceAI 快速入门：如何比价、判断渠道、提交渠道和反馈问题",
+  title: "ai-home 快速入门：如何比价、判断渠道、提交渠道和反馈问题",
   description:
-    "PriceAI 快速入门，了解这个 AI 订阅比价工具能做什么，如何查卡网渠道、官方地区价、模型 API，以及如何提交渠道、举报商品和反馈建议。",
+    "ai-home 快速入门，了解这个 AI 订阅比价工具能做什么，如何查卡网渠道、官方地区价、模型 API，以及如何提交渠道、举报商品和反馈建议。",
   alternates: {
     canonical: "/guides",
   },
   openGraph: {
-    title: "PriceAI 快速入门：如何比价、判断渠道、提交渠道和反馈问题 | PriceAI",
-    description: "了解 PriceAI 的定位、使用路径、渠道判断边界、提交渠道、举报商品和意见反馈入口。",
+    title: "ai-home 快速入门：如何比价、判断渠道、提交渠道和反馈问题 | ai-home",
+    description: "了解 ai-home 的定位、使用路径、渠道判断边界、提交渠道、举报商品和意见反馈入口。",
     url: pageUrl,
   },
 };
@@ -51,7 +51,7 @@ const verificationSteps = [
 const communityActions = [
   {
     title: "提交新渠道",
-    text: "如果你手里有更低价、更稳定的 AI 订阅渠道，可以提交给 PriceAI。每个人发现的渠道都有限，但大家把自己的低价渠道贡献出来，后面所有人都能少翻 Telegram、少刷闲鱼，直接在 PriceAI 里完成比价。好的平台需要大家一起共创。",
+    text: "如果你手里有更低价、更稳定的 AI 订阅渠道，可以提交给 ai-home。每个人发现的渠道都有限，但大家把自己的低价渠道贡献出来，后面所有人都能少翻 Telegram、少刷闲鱼，直接在 ai-home 里完成比价。好的平台需要大家一起共创。",
     href: "/channels#submit-channel",
     label: "提交渠道",
     icon: Send,
@@ -100,10 +100,10 @@ export default function GuidesIndexPage() {
               快速入门
             </div>
             <h1 className="mt-4 font-serif text-4xl font-semibold leading-tight tracking-normal text-[#202829] sm:text-5xl">
-              第一次用 PriceAI，先看这份入门说明。
+              第一次用 ai-home，先看这份入门说明。
             </h1>
             <p className="mt-5 max-w-[72ch] text-base leading-8 text-[#5a6061]">
-              PriceAI 是一个 AI 订阅和模型 API 的比价工具。它把分散在不同渠道里的价格、库存、来源、原始商品标题和更新时间整理到一起，帮助你少开几个网页，先完成比较，再决定是否跳转到原渠道购买。
+              ai-home 是一个 AI 订阅和模型 API 的比价工具。它把分散在不同渠道里的价格、库存、来源、原始商品标题和更新时间整理到一起，帮助你少开几个网页，先完成比较，再决定是否跳转到原渠道购买。
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <a
@@ -132,7 +132,7 @@ export default function GuidesIndexPage() {
 
           <section id="use-priceai" className="mt-10 border-b border-[#dfe4e5] pb-10">
             <p className="text-xs font-semibold text-[#7a8182]">按目的选择入口</p>
-            <h2 className="mt-3 font-serif text-3xl font-semibold tracking-normal text-[#202829]">你可以怎么用 PriceAI</h2>
+            <h2 className="mt-3 font-serif text-3xl font-semibold tracking-normal text-[#202829]">你可以怎么用 ai-home</h2>
             <div className="mt-6 divide-y divide-[#dfe4e5] border-y border-[#dfe4e5]">
               {productEntrances.map((item, index) => (
                 <Link
@@ -161,9 +161,9 @@ export default function GuidesIndexPage() {
               <ShieldCheck size={15} />
               购买前核验
             </div>
-            <h2 className="mt-3 font-serif text-3xl font-semibold tracking-normal text-[#202829]">PriceAI 是信息聚合工具，不是卖家背书。</h2>
+            <h2 className="mt-3 font-serif text-3xl font-semibold tracking-normal text-[#202829]">ai-home 是信息聚合工具，不是卖家背书。</h2>
             <p className="mt-4 max-w-[72ch] text-sm leading-7 text-[#5a6061]">
-              第三方渠道更像一个信息源和交易入口。PriceAI 会整理价格、库存、来源和更新时间，但不会替任何卖家承诺交付。真正购买前，仍然建议你回到原渠道做一次核验。
+              第三方渠道更像一个信息源和交易入口。ai-home 会整理价格、库存、来源和更新时间，但不会替任何卖家承诺交付。真正购买前，仍然建议你回到原渠道做一次核验。
             </p>
             <ol className="mt-6 divide-y divide-[#dfe4e5] border-y border-[#dfe4e5]">
               {verificationSteps.map((step, index) => (
@@ -178,10 +178,10 @@ export default function GuidesIndexPage() {
           </section>
 
           <section id="contribute" className="mt-10 border-b border-[#dfe4e5] pb-10">
-            <p className="text-xs font-semibold text-[#7a8182]">共建 PriceAI</p>
+            <p className="text-xs font-semibold text-[#7a8182]">共建 ai-home</p>
             <h2 className="mt-3 font-serif text-3xl font-semibold tracking-normal text-[#202829]">把你知道的低价渠道贡献出来。</h2>
             <p className="mt-4 max-w-[72ch] text-sm leading-7 text-[#5a6061]">
-              PriceAI 想成为大家获取 AI 订阅和模型 API 前的首选比价处，而不是每个人都去 Telegram、闲鱼或群聊里重新翻一遍资料。众人拾柴火焰高，渠道越多人一起补充，后面每个人做选择都会更省力。
+              ai-home 想成为大家获取 AI 订阅和模型 API 前的首选比价处，而不是每个人都去 Telegram、闲鱼或群聊里重新翻一遍资料。众人拾柴火焰高，渠道越多人一起补充，后面每个人做选择都会更省力。
             </p>
             <div className="mt-6 divide-y divide-[#dfe4e5] border-y border-[#dfe4e5]">
               {communityActions.map((item) => {
@@ -212,7 +212,7 @@ export default function GuidesIndexPage() {
                 <div>
                   <h3 className="font-semibold text-[#202829]">提交平台建议</h3>
                   <p className="mt-1 text-sm leading-7 text-[#5a6061]">
-                    如果你对 PriceAI 这个平台本身有建议，比如希望增加哪些功能、哪些体验需要改进、哪些分类或运营规则不合理，或者功能侧、运营侧还有其他想法，都可以通过意见反馈告诉我们。这里收的是对平台的建议，不只是页面 Bug。
+                    如果你对 ai-home 这个平台本身有建议，比如希望增加哪些功能、哪些体验需要改进、哪些分类或运营规则不合理，或者功能侧、运营侧还有其他想法，都可以通过意见反馈告诉我们。这里收的是对平台的建议，不只是页面 Bug。
                   </p>
                 </div>
                 <FeedbackLink />
@@ -318,34 +318,34 @@ function buildGuidesJsonLd() {
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
-      name: "PriceAI 快速入门",
+      name: "ai-home 快速入门",
       inLanguage: "zh-CN",
       url: pageUrl,
-      description: "PriceAI 快速入门，了解如何比价、判断渠道、提交渠道和反馈问题。",
+      description: "ai-home 快速入门，了解如何比价、判断渠道、提交渠道和反馈问题。",
       isPartOf: {
         "@type": "WebSite",
-        name: "PriceAI",
-        url: "https://priceai.cc",
+        name: "ai-home",
+        url: "https://ai-home.example.com",
       },
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "PriceAI", item: "https://priceai.cc" },
+        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://ai-home.example.com" },
         { "@type": "ListItem", position: 2, name: "快速入门", item: pageUrl },
       ],
     },
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      name: "PriceAI 指南列表",
+      name: "ai-home 指南列表",
       itemListElement: guideEntries.map((guide, index) => ({
         "@type": "ListItem",
         position: index + 1,
         name: guide.title,
         description: `${getGuideCategory(guide.categoryId)?.label ?? "指南"}：${guide.description}`,
-        url: `https://priceai.cc${guide.href}`,
+        url: `https://ai-home.example.com${guide.href}`,
       })),
     },
   ];

@@ -32,7 +32,7 @@ export async function generateMetadata({
     description: station.summary.slice(0, 160),
     alternates: { canonical: `/api-transit/${slug}` },
     openGraph: {
-      title: `${station.name} — API 中转站详情 | PriceAI`,
+      title: `${station.name} — API 中转站详情 | ai-home`,
       description: station.summary.slice(0, 160),
     },
   };
@@ -57,11 +57,11 @@ export default async function ApiTransitDetailPage({
             "@type": "WebPage",
             name: `${station.name} — API 中转站详情`,
             description: station.summary.slice(0, 160),
-            url: `https://priceai.cc/api-transit/${slug}`,
+            url: `https://ai-home.example.com/api-transit/${slug}`,
             isPartOf: {
               "@type": "WebSite",
-              name: "PriceAI",
-              url: "https://priceai.cc",
+              name: "ai-home",
+              url: "https://ai-home.example.com",
             },
           },
         ]}

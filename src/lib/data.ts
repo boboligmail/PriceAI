@@ -960,7 +960,7 @@ async function readDashboardData(): Promise<DashboardData> {
     console.error("Supabase dashboard read failed:", error);
     await notifyOperationalIssue({
       event: "dashboard-data-degraded",
-      title: "PriceAI 后台数据读取失败，已进入降级状态",
+      title: "ai-home 后台数据读取失败，已进入降级状态",
       severity: "critical",
       details: { message: errorMessage(error) },
     });
@@ -1061,7 +1061,7 @@ async function loadPublicOfferData(): Promise<PublicOfferData> {
     console.error("Supabase public offer read failed:", error);
     await notifyOperationalIssue({
       event: "public-offers-degraded",
-      title: "PriceAI 公开报价读取失败，前台已显示降级提示",
+      title: "ai-home 公开报价读取失败，前台已显示降级提示",
       severity: "critical",
       details: { message: errorMessage(error) },
     });

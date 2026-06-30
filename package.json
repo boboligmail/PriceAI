@@ -1,5 +1,5 @@
 {
-  "name": "ai-price-hub",
+  "name": "ai-home",
   "version": "1.0.0",
   "private": true,
   "license": "AGPL-3.0-only",
@@ -7,8 +7,8 @@
     "node": ">=24.0.0 <25"
   },
   "scripts": {
-    "dev": "node_modules/node/bin/node node_modules/next/dist/bin/next dev --webpack",
-    "build": "node_modules/node/bin/node node_modules/next/dist/bin/next build --webpack",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "build:cloudflare": "node scripts/build-cloudflare.mjs",
     "preview:cloudflare": "opennextjs-cloudflare preview",
     "deploy:production": "node scripts/deploy-production.mjs",
@@ -16,8 +16,8 @@
     "smoke:cloudflare": "node scripts/smoke-cloudflare.mjs",
     "check:cloudflare-env": "node scripts/check-cloudflare-env.mjs",
     "check:performance": "node scripts/check-performance-guards.mjs",
-    "start": "node_modules/node/bin/node node_modules/next/dist/bin/next start",
-    "lint": "node_modules/node/bin/node node_modules/eslint/bin/eslint.js",
+    "start": "next start",
+    "lint": "eslint",
     "collect:prices": "node scripts/collect-prices.mjs",
     "refresh:snapshots": "node scripts/refresh-public-api-snapshots.mjs",
     "collect:performance": "node scripts/analyze-collector-performance.mjs",

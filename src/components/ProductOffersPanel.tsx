@@ -1016,7 +1016,7 @@ function OfferRiskDetailDialog({ offer, onClose }: { offer: RawOffer; onClose: (
         ) : null}
 
         <p className="mt-4 text-xs leading-5 text-[#7a8587]">
-          这里展示的是系统预审后的用户高风险反馈摘要，不等同于平台最终裁定。PriceAI 不售卖、不担保商品，购买前仍需你和原店铺确认。
+          这里展示的是系统预审后的用户高风险反馈摘要，不等同于平台最终裁定。ai-home 不售卖、不担保商品，购买前仍需你和原店铺确认。
         </p>
 
         <button
@@ -1103,7 +1103,7 @@ function OfferExitNoticeDialog({ offer, onClose }: { offer: RawOffer; onClose: (
 
         <div className="mt-4 space-y-3 text-sm leading-6 text-[#3d4749]">
           <p>
-            PriceAI 只聚合公开报价，不售卖、不担保商品。分类和价格来自标题、标签和采集结果，最终商品细节、交付内容、售后规则仍以原店铺为准。
+            ai-home 只聚合公开报价，不售卖、不担保商品。分类和价格来自标题、标签和采集结果，最终商品细节、交付内容、售后规则仍以原店铺为准。
           </p>
           {shopApi ? (
             <p className="rounded-lg bg-[#eef8f1] px-3 py-2 text-[#2f7a4b]">
@@ -1640,8 +1640,8 @@ export function OfferFeedbackDialog({
           </label>
           <CommunityPrompt>
             {message?.type === "success"
-              ? "需要补充截图或查看处理进展？可以加入 PriceAI 交流群继续说明。"
-              : "如果问题比较紧急，或需要补充截图/聊天记录，也可以加入 PriceAI 交流群同步反馈。"}
+              ? "需要补充截图或查看处理进展？可以加入 ai-home 交流群继续说明。"
+              : "如果问题比较紧急，或需要补充截图/聊天记录，也可以加入 ai-home 交流群同步反馈。"}
           </CommunityPrompt>
           {message ? (
             <div className={`rounded-lg px-3 py-2 text-sm ${

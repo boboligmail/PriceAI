@@ -805,8 +805,8 @@ export function PriceExplorer({
               </div>
               <p className="mt-3 hidden max-w-[78ch] text-sm leading-7 text-[#5a6061] md:block">
                 {showingMerchants
-                  ? "卡网商家页展示 PriceAI 从公开页面和公开接口观察到的店铺信号。本站不卖货、不担保，销量、库存和售后规则以原平台为准。"
-                  : "PriceAI 聚合 AI 订阅卡网渠道报价。本站不卖货、不担保，价格仅供参考，实际交易和售后规则以原平台为准。"}
+                  ? "卡网商家页展示 ai-home 从公开页面和公开接口观察到的店铺信号。本站不卖货、不担保，销量、库存和售后规则以原平台为准。"
+                  : "ai-home 聚合 AI 订阅卡网渠道报价。本站不卖货、不担保，价格仅供参考，实际交易和售后规则以原平台为准。"}
               </p>
             </div>
 
@@ -1691,7 +1691,7 @@ function MerchantTimeSummary({ merchant, compact = false }: { merchant: PublicMe
 
   return (
     <div className={className}>
-      <MerchantTimeTile label="PriceAI 收录" value={<MerchantElapsedDays value={includedAt} />} />
+      <MerchantTimeTile label="ai-home 收录" value={<MerchantElapsedDays value={includedAt} />} />
       <MerchantTimeTile
         label="公开运营"
         value={shopCreatedAt ? formatMerchantAge(shopCreatedAt) : "未公开"}

@@ -58,7 +58,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${summary.displayName} API 渠道`,
       description: `对比 ${summary.displayName} 的公开 API 渠道和限制。`,
-      url: `https://priceai.cc/api-models/${id}`,
+      url: `https://ai-home.example.com/api-models/${id}`,
     },
   };
 }
@@ -168,7 +168,7 @@ export default async function ApiModelDetailPage({
         </section>
 
         <p className="mt-8 text-xs leading-6 text-[#5a6061]">
-          免责声明：PriceAI 只整理公开文档和公开页面中的 API 渠道信息，不售卖 API，不承诺可用性，不替任何渠道提供 SLA。免费和低价渠道可能存在限流、排队、模型下线、地区限制或条款变化。
+          免责声明：ai-home 只整理公开文档和公开页面中的 API 渠道信息，不售卖 API，不承诺可用性，不替任何渠道提供 SLA。免费和低价渠道可能存在限流、排队、模型下线、地区限制或条款变化。
         </p>
       </div>
     </main>

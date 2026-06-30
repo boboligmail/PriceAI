@@ -17,16 +17,16 @@
   },
   "routes": [
     {
-      "pattern": "cf.priceai.cc",
+      "pattern": "cf.ai-home.example.com",
       "custom_domain": true
     },
     {
-      "pattern": "priceai.cc/*",
-      "zone_name": "priceai.cc"
+      "pattern": "ai-home.example.com/*",
+      "zone_name": "ai-home.example.com"
     },
     {
-      "pattern": "www.priceai.cc/*",
-      "zone_name": "priceai.cc"
+      "pattern": "www.ai-home.example.com/*",
+      "zone_name": "ai-home.example.com"
     }
   ],
   "services": [
@@ -62,9 +62,9 @@
     ]
   },
   "vars": {
-    "CRON_PUBLIC_BASE_URL": "https://priceai.cc",
+    "CRON_PUBLIC_BASE_URL": "https://ai-home.example.com",
     "NEXT_PUBLIC_UMAMI_SCRIPT_URL": "https://umami.dimthink.com/script.js",
     "NEXT_PUBLIC_UMAMI_WEBSITE_ID": "ded26a4f-77c4-45ed-86ef-774b0fed0ef6",
-    "NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS": "priceai.cc,www.priceai.cc"
+    "NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS": "ai-home.example.com,www.ai-home.example.com"
   }
 }

@@ -1515,7 +1515,7 @@ function StationEditDialog({
               </select>
             </AdminField>
             <AdminField label="优惠标题">
-              <input name="offerTitle" defaultValue={station.commercialOffers[0]?.title || ""} className={adminFieldClassName} placeholder="例如 首充 9 折 / PriceAI 专属优惠" />
+              <input name="offerTitle" defaultValue={station.commercialOffers[0]?.title || ""} className={adminFieldClassName} placeholder="例如 首充 9 折 / ai-home 专属优惠" />
             </AdminField>
             <AdminField label="列表短文案">
               <input name="offerListLabel" defaultValue={station.commercialOffers[0]?.listLabel || ""} className={adminFieldClassName} placeholder="例如 首充 6.8 折 / 注册赠送 $1" />

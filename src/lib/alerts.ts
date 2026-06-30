@@ -15,7 +15,7 @@ export async function notifyOperationalIssue(input: {
   if (!webhookUrl) return;
 
   const payload = {
-    product: "PriceAI",
+    product: "ai-home",
     event: input.event,
     title: input.title,
     severity: input.severity || "warning",

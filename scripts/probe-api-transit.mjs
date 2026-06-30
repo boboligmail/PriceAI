@@ -16,7 +16,7 @@ const DEFAULT_TIMEOUT_MS = 20000;
 const DEFAULT_TARGET_LIMIT = 4;
 const MAX_MODELS_SNAPSHOT = 200;
 const AVAILABILITY_SAMPLE_LOOKBACK_LIMIT = 2000;
-const userAgent = "Mozilla/5.0 PriceAI/1.0 APITransitProbe";
+const userAgent = "Mozilla/5.0 ai-home/1.0 APITransitProbe";
 let cachedFileEnv = null;
 
 const defaultTargets = [
@@ -845,8 +845,8 @@ function isAvailabilitySample(item) {
 }
 
 function availabilityNote(label, availability) {
-  if (!availability.samples) return "暂无 PriceAI API Key 可用性探测样本。";
-  return `PriceAI API Key 探测：近 7 日 ${label} ${availability.success}/${availability.samples} 个样本成功。`;
+  if (!availability.samples) return "暂无 ai-home API Key 可用性探测样本。";
+  return `ai-home API Key 探测：近 7 日 ${label} ${availability.success}/${availability.samples} 个样本成功。`;
 }
 
 function groupOfferRowsByModel(offerRows) {

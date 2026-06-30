@@ -3,7 +3,7 @@
 import os from "node:os";
 
 const VERSION = "0.1.0";
-const DEFAULT_ENDPOINT = "https://priceai.cc";
+const DEFAULT_ENDPOINT = "https://ai-home.example.com";
 const DEFAULT_KIND = "shopApi";
 const DEFAULT_FAMILY = "shopApi";
 const DEFAULT_LIMIT = 3;

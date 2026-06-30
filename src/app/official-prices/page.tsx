@@ -12,9 +12,9 @@ export const metadata: Metadata = {
     canonical: "/official-prices",
   },
   openGraph: {
-    title: "PriceAI 官方订阅地区价",
+    title: "ai-home 官方订阅地区价",
     description: "用 App Store 公开价格做 AI 订阅官方地区价基准。",
-    url: "https://priceai.cc/official-prices",
+    url: "https://ai-home.example.com/official-prices",
   },
 };
 
@@ -35,23 +35,23 @@ function buildOfficialPricesJsonLd(appCount: number, regionCount: number, priceC
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
-      name: "PriceAI 官方订阅地区价",
-      url: "https://priceai.cc/official-prices",
+      name: "ai-home 官方订阅地区价",
+      url: "https://ai-home.example.com/official-prices",
       inLanguage: "zh-CN",
       description:
         "基于公开价格页面整理 ChatGPT、Claude、Gemini、Grok 等 AI 订阅的官方地区价和人民币估算价。",
       mainEntity: {
         "@type": "Dataset",
-        name: "PriceAI official regional subscription prices",
+        name: "ai-home official regional subscription prices",
         description:
           "A curated dataset of official regional subscription prices, original prices, CNY estimates, exchange-rate dates, and source links.",
-        url: "https://priceai.cc/official-prices",
-        license: "https://github.com/physics-dimension/PriceAI/blob/main/LICENSE",
+        url: "https://ai-home.example.com/official-prices",
+        license: "https://github.com/YOUR_GITHUB_USER/ai-home/blob/main/LICENSE",
         creator: {
           "@type": "Organization",
-          name: "PriceAI",
-          url: "https://priceai.cc",
-          sameAs: "https://github.com/physics-dimension/PriceAI",
+          name: "ai-home",
+          url: "https://ai-home.example.com",
+          sameAs: "https://github.com/YOUR_GITHUB_USER/ai-home",
         },
         variableMeasured: ["app", "plan", "region", "original price", "CNY estimate", "exchange rate", "source"],
         measurementTechnique: "Public App Store price pages and exchange-rate estimates",
@@ -76,7 +76,7 @@ function buildOfficialPricesJsonLd(appCount: number, regionCount: number, priceC
           name: "地区价一定能开通吗？",
           acceptedAnswer: {
             "@type": "Answer",
-            text: "不一定。不同地区的开通条件、支付方式、税费、汇率和可用性可能不同，PriceAI 只整理公开价格，不承诺某地区一定能购买。",
+            text: "不一定。不同地区的开通条件、支付方式、税费、汇率和可用性可能不同，ai-home 只整理公开价格，不承诺某地区一定能购买。",
           },
         },
         {

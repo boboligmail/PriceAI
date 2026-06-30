@@ -16,9 +16,9 @@ export const metadata: Metadata = {
     canonical: "/api-transit/models",
   },
   openGraph: {
-    title: "PriceAI 中转 API 模型对比",
+    title: "ai-home 中转 API 模型对比",
     description: "按主流标准模型对比中转站价格与稳定性。",
-    url: "https://priceai.cc/api-transit/models",
+    url: "https://ai-home.example.com/api-transit/models",
   },
 };
 
@@ -44,8 +44,8 @@ export default async function ApiTransitModelsPage() {
         data={{
           "@context": "https://schema.org",
           "@type": "CollectionPage",
-          name: "PriceAI 中转 API 模型对比",
-          url: "https://priceai.cc/api-transit/models",
+          name: "ai-home 中转 API 模型对比",
+          url: "https://ai-home.example.com/api-transit/models",
           inLanguage: "zh-CN",
           description: "按主流标准模型对比 API 中转站价格与稳定性。",
         }}

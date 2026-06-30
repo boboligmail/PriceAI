@@ -8,10 +8,10 @@ import { JsonLd } from "@/components/JsonLd";
 export const metadata: Metadata = {
   title: "提交 API 中转站 / 商家入驻",
   description:
-    "向 PriceAI 推荐 API 中转站、提交价格修正或申请商家入驻。商家可选择公开资料、低额度测试 Key 或专用测试账号接入。",
+    "向 ai-home 推荐 API 中转站、提交价格修正或申请商家入驻。商家可选择公开资料、低额度测试 Key 或专用测试账号接入。",
   alternates: { canonical: "/api-transit/submit" },
   openGraph: {
-    title: "提交 API 中转站 / 商家入驻 | PriceAI",
+    title: "提交 API 中转站 / 商家入驻 | ai-home",
     description: "推荐中转站、提交价格修正或申请商家入驻，当前先走人工核验。",
   },
 };
@@ -29,7 +29,7 @@ const submissionTypes = [
   },
   {
     title: "上游 / 批发线索",
-    description: "如果你是上游、总渠道商或批发商，可以提交合作线索，但 PriceAI 仍会把商业关系和客观数据分开展示。",
+    description: "如果你是上游、总渠道商或批发商，可以提交合作线索，但 ai-home 仍会把商业关系和客观数据分开展示。",
     fields: ["可供给的模型范围", "号池来源和稳定性证明", "价格口径和结算方式", "是否接受小额公开测试"],
   },
 ];
@@ -42,8 +42,8 @@ export default function ApiTransitSubmitPage() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "提交 API 中转站 / 商家入驻",
-          url: "https://priceai.cc/api-transit/submit",
-          description: "向 PriceAI 推荐 API 中转站、提交价格修正或申请商家入驻。",
+          url: "https://ai-home.example.com/api-transit/submit",
+          description: "向 ai-home 推荐 API 中转站、提交价格修正或申请商家入驻。",
           inLanguage: "zh-CN",
         }}
       />
@@ -60,7 +60,7 @@ export default function ApiTransitSubmitPage() {
             提交 API 中转站 / 商家入驻
           </h1>
           <p className="mt-3 text-sm leading-[1.8] text-[#5a6061]">
-            你可以推荐站点、提交价格修正、反馈不可用情况，或申请商家入驻。商家入驻可以选择公开资料、低额度测试 Key 或专用测试账号接入，方便 PriceAI 自动解析和审核。
+            你可以推荐站点、提交价格修正、反馈不可用情况，或申请商家入驻。商家入驻可以选择公开资料、低额度测试 Key 或专用测试账号接入，方便 ai-home 自动解析和审核。
           </p>
         </div>
 
@@ -94,7 +94,7 @@ export default function ApiTransitSubmitPage() {
         <section className="mt-5 rounded-lg border border-[#dfe4e5] bg-white p-5 shadow-[0_20px_55px_rgba(45,52,53,0.045)]">
           <h2 className="text-base font-extrabold text-[#202829]">提交方式</h2>
           <p className="mt-2 max-w-[760px] text-sm leading-7 text-[#5a6061]">
-            当前提交后会进入后台待审队列。PriceAI 会按公开资料、测试 Key 或测试账号的接入方式尝试解析价格、分组倍率和可用性样本，再由人工决定是否展示。
+            当前提交后会进入后台待审队列。ai-home 会按公开资料、测试 Key 或测试账号的接入方式尝试解析价格、分组倍率和可用性样本，再由人工决定是否展示。
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
             <FeedbackLink />

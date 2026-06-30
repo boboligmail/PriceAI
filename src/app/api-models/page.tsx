@@ -11,9 +11,9 @@ export const metadata: Metadata = {
     canonical: "/api-models",
   },
   openGraph: {
-    title: "PriceAI API 模型雷达",
+    title: "ai-home API 模型雷达",
     description: "对比官方 API、Token Plan 和免费测试入口。",
-    url: "https://priceai.cc/api-models",
+    url: "https://ai-home.example.com/api-models",
   },
 };
 
@@ -38,23 +38,23 @@ function buildApiModelsJsonLd(modelCount: number, providerCount: number, offerCo
     {
       "@context": "https://schema.org",
       "@type": "CollectionPage",
-      name: "PriceAI API 模型雷达",
-      url: "https://priceai.cc/api-models",
+      name: "ai-home API 模型雷达",
+      url: "https://ai-home.example.com/api-models",
       inLanguage: "zh-CN",
       description:
         "整理官方 API、公开模型路由、免费 API、Token Plan、价格、额度和限制，帮助用户比较模型 API 获取方式。",
       mainEntity: {
         "@type": "Dataset",
-        name: "PriceAI API model access dataset",
+        name: "ai-home API model access dataset",
         description:
           "A curated dataset of public model API providers, offers, free quotas, Token Plans, prices, and source links.",
-        url: "https://priceai.cc/api-models",
-        license: "https://github.com/physics-dimension/PriceAI/blob/main/LICENSE",
+        url: "https://ai-home.example.com/api-models",
+        license: "https://github.com/YOUR_GITHUB_USER/ai-home/blob/main/LICENSE",
         creator: {
           "@type": "Organization",
-          name: "PriceAI",
-          url: "https://priceai.cc",
-          sameAs: "https://github.com/physics-dimension/PriceAI",
+          name: "ai-home",
+          url: "https://ai-home.example.com",
+          sameAs: "https://github.com/YOUR_GITHUB_USER/ai-home",
         },
         variableMeasured: ["model", "provider", "price", "free quota", "token plan", "limit", "source"],
         measurementTechnique: "Public documentation and reviewed public source pages",
@@ -84,7 +84,7 @@ function buildApiModelsJsonLd(modelCount: number, providerCount: number, offerCo
         },
         {
           "@type": "Question",
-          name: "PriceAI 会收录灰色中转 API 吗？",
+          name: "ai-home 会收录灰色中转 API 吗？",
           acceptedAnswer: {
             "@type": "Answer",
             text: "首版不收录无法从公开文档或公开页面核验的灰色中转 API 作为主线推荐。",

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PRIMARY_ENDPOINT="${PRICEAI_ENDPOINT:-https://priceai.cc}"
+PRIMARY_ENDPOINT="${PRICEAI_ENDPOINT:-https://ai-home.example.com}"
 FALLBACK_ENDPOINTS="${PRICEAI_ENDPOINTS:-${PRICEAI_FALLBACK_ENDPOINTS:-${PRICEAI_RELAY_ENDPOINT:-}}}"
 TMP_DIR="${TMPDIR:-/tmp}"
 SCRIPT_PATH="$(mktemp "$TMP_DIR/priceai-edge-collector.XXXXXX.mjs")"
@@ -44,14 +44,14 @@ for endpoint in "${EXTRA_ENDPOINTS[@]}"; do
 done
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "PriceAI edge collector requires Node.js 18+." >&2
+  echo "ai-home edge collector requires Node.js 18+." >&2
   echo "Install Node.js first, then rerun this command." >&2
   exit 1
 fi
 
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])")"
 if [ "$NODE_MAJOR" -lt 18 ]; then
-  echo "PriceAI edge collector requires Node.js 18+. Current: $(node -v)" >&2
+  echo "ai-home edge collector requires Node.js 18+. Current: $(node -v)" >&2
   exit 1
 fi
 
@@ -75,7 +75,7 @@ else
 fi
 
 if [ -z "$DOWNLOADED_ENDPOINT" ]; then
-  echo "Failed to download PriceAI edge collector from all configured endpoints." >&2
+  echo "Failed to download ai-home edge collector from all configured endpoints." >&2
   exit 1
 fi
 
