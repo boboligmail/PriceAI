@@ -52,7 +52,7 @@ export function CloudComparisonView({ canonicalPath = "/cloud", activeSection = 
                   VPS 云服务器和 GPU 租赁平台，先按用途筛，再回原站核价。
                 </h1>
                 <p className="mt-5 max-w-3xl text-base leading-8 text-[var(--color-text-muted)]">
-                  这个页面先把常见平台、计费口径、适用场景和风险点整理出来。第一版不冒充实时最低价；价格字段会优先指向官方价格页或 marketplace，后续再接采集器自动更新。
+                  这个页面先把常见平台、入门参考价、计费口径、适用场景和风险点整理出来。第一版不冒充实时最低价；所有价格都保留回原站核验入口，后续再接采集器自动更新。
                 </p>
                 <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                   <Link
@@ -84,7 +84,7 @@ export function CloudComparisonView({ canonicalPath = "/cloud", activeSection = 
                   );
                 })}
                 <p className="rounded-2xl bg-[#fff8e6] px-4 py-3 text-xs leading-6 text-[#7a5a00]">
-                  成功标志：后续每个平台都要有价格来源、更新时间、采集状态和回原站核验入口。没有来源的价格不展示成最低价。
+                  成功标志：每个平台都有入门参考价、计费方式、价格口径、更新时间和回原站核验入口。没有来源的价格不展示成最低价。
                 </p>
               </div>
             </div>
@@ -96,7 +96,7 @@ export function CloudComparisonView({ canonicalPath = "/cloud", activeSection = 
             <InfoCard
               icon={<Database size={19} />}
               title="第一版先做目录和口径"
-              body="先统一平台、规格、计费方式、地区、适用场景和价格来源，等口径稳定后再做自动采集。"
+              body="先统一平台、规格、入门价、计费方式、地区、适用场景和价格来源，等口径稳定后再做自动采集。"
             />
             <InfoCard
               icon={<Gauge size={19} />}
@@ -130,7 +130,7 @@ function InfoCard({ icon, title, body }: { icon: ReactNode; title: string; body:
 
 function OfferSection({ id, title, description, offers }: { id: string; title: string; description: string; offers: CloudOffer[] }) {
   return (
-    <section id={id} className="border-b border-[var(--color-border)]">
+    <section id={id} className="scroll-mt-24 border-b border-[var(--color-border)]">
       <div className="mx-auto max-w-[1500px] border-x border-[var(--color-border-soft)] px-5 py-10 sm:px-8">
         <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
@@ -166,8 +166,10 @@ function OfferCard({ offer }: { offer: CloudOffer }) {
       </div>
 
       <div className="mt-5 rounded-2xl bg-[var(--color-surface)] p-4">
-        <p className="text-sm font-bold text-[var(--color-text-primary)]">{offer.priceDisplay}</p>
+        <p className="text-xs font-semibold text-[var(--color-text-soft)]">入门参考价</p>
+        <p className="mt-1 text-xl font-bold tracking-tight text-[var(--color-text-primary)]">{offer.priceDisplay}</p>
         <p className="mt-2 text-xs leading-6 text-[var(--color-text-muted)]">{offer.priceBasis}</p>
+        <p className="mt-3 text-xs font-semibold text-[var(--color-info-text)]">核验日期：{offer.lastChecked}</p>
       </div>
 
       <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-2">
@@ -175,6 +177,7 @@ function OfferCard({ offer }: { offer: CloudOffer }) {
         <MetaItem label="覆盖地区" value={offer.regions.join(" / ")} />
       </dl>
 
+      <PriceFactList items={offer.priceHighlights} />
       <TagGroup title="关键规格" items={offer.specs} />
       <TagGroup title="适合场景" items={offer.bestFor} />
       <TagGroup title="注意事项" items={offer.cautions} tone="warning" />
@@ -199,6 +202,22 @@ function OfferCard({ offer }: { offer: CloudOffer }) {
         </a>
       </div>
     </article>
+  );
+}
+
+function PriceFactList({ items }: { items: readonly string[] }) {
+  return (
+    <div className="mt-5 rounded-2xl bg-[var(--color-info-bg)] p-4">
+      <p className="text-xs font-bold text-[var(--color-info-text)]">价格事实</p>
+      <ul className="mt-3 space-y-2">
+        {items.map((item) => (
+          <li key={item} className="flex gap-2 text-xs leading-6 text-[var(--color-text-body)]">
+            <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-info-text)]" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
