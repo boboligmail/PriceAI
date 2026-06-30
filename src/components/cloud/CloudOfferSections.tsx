@@ -17,7 +17,7 @@ export function CloudOfferSection({
       <div className="mx-auto max-w-[1500px] border-x border-[var(--color-border-soft)] px-5 py-10 sm:px-8">
         <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-end">
           <div>
-            <p className="text-sm font-semibold text-[var(--color-success-text)]">{offers.length} 个候选平台</p>
+            <p className="text-sm font-semibold text-[var(--color-success-text)]">{offers.length} 条最低价记录</p>
             <h2 className="mt-2 font-serif text-3xl font-semibold text-[var(--color-text-primary)]">{title}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--color-text-muted)]">{description}</p>
           </div>
@@ -77,10 +77,10 @@ function CloudOfferRow({ offer }: { offer: CloudOffer }) {
             href={offer.pricingUrl}
             target="_blank"
             rel="noreferrer"
-            aria-label={`核验 ${offer.provider} ${offer.priceDisplay} 的官方价格`}
+            aria-label={`核验 ${offer.provider} ${offer.priceDisplay} 的对应价格行`}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-text-on-primary)] transition hover:bg-[var(--color-primary-hover)]"
           >
-            核验此价格
+            核验/进入
             <ArrowUpRight size={15} />
           </a>
           <p className="text-center text-xs leading-5 text-[var(--color-text-soft)]">对应当前价格行</p>

@@ -25,14 +25,14 @@ export function CloudComparisonView({
       <main>
         <CloudOfferSection
           id="vps"
-          title="VPS / 云服务器"
-          description="直接按商家、价格、CPU、内存、硬盘和流量对比。这里是入门参考规格，下单前点右侧链接核验官方价格。"
+          title="VPS / 云服务器最低价榜"
+          description="从公开比价数据里抽取当前最低月价 15 条，直接看商家、价格、CPU、内存、硬盘、流量和对应跳转链接。"
           offers={vpsOffers}
         />
         <CloudOfferSection
           id="gpu"
-          title="GPU 租赁平台"
-          description="直接展示 GPU 型号、显存、存储和附加费用口径。Marketplace 平台的 CPU、内存、带宽会随主机变化。"
+          title="GPU 租赁最低小时价榜"
+          description="从公开 GPU 价格数据里抽取当前最低小时价 15 条。Spot、Reserved、地区和库存会强烈影响最终可用价格。"
           offers={gpuOffers}
         />
       </main>
@@ -48,7 +48,7 @@ function buildCloudJsonLd(offers: CloudOffer[], canonicalPath: string) {
     url: `${siteUrl}${canonicalPath === "/" ? "" : canonicalPath}`,
     inLanguage: "zh-CN",
     dateModified: cloudComparisonSummary.updatedAt,
-    description: "整理 VPS 云服务器与 GPU 租赁平台的用途、参考价格、最大风险和官网核验入口。",
+    description: cloudComparisonSummary.selection,
     mainEntity: offers.map((offer) => ({
       "@type": "Service",
       name: `${offer.provider} ${offer.product}`,
