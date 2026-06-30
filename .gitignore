@@ -38,6 +38,7 @@ yarn-error.log*
 /.claude/
 /.codex/
 /.impeccable/
+/.omo/
 /.trellis/
 
 # local/manual workflow drafts

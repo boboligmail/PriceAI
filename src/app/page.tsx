@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
-import { CloudComparisonView } from "@/app/cloud/page";
+import { CloudComparisonView } from "@/components/cloud/CloudComparisonView";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
-  description: "比较 VPS 云服务器、轻量云和 GPU 租赁平台的计费方式、适用场景、风险点和价格来源，先筛平台，再回原站核验实时价格。",
+  title: "ai-home | VPS 云服务器与 GPU 租赁平台选择工具",
+  description: "先判断长期在线还是短期算力，再看每个平台适合谁、大概多少钱、最大风险和官网核验入口。",
   alternates: { canonical: "/" },
   openGraph: {
-    title: "ai-home | VPS 云服务器与 GPU 租赁平台比价",
-    description: "VPS、轻量云、GPU 租赁平台选型入口：看计费口径、适合场景、价格来源和风险提示。",
+    title: "ai-home | VPS 云服务器与 GPU 租赁平台选择工具",
+    description: "按用途、价格和风险快速筛选 VPS 云服务器与 GPU 租赁平台，并回到官网核验实时价格、库存、地区和计费规则。",
     url: "https://ai-home.example.com",
     siteName: "ai-home",
   },
