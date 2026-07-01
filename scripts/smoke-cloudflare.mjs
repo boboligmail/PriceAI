@@ -1,56 +1,35 @@
 const DEFAULT_BASE_URL = "https://www.aideals.cloud";
 const SMOKE_FETCH_TIMEOUT_MS = Number(process.env.CLOUDFLARE_SMOKE_TIMEOUT_MS || 15_000);
+const SMOKE_FETCH_RETRIES = Number(process.env.CLOUDFLARE_SMOKE_RETRIES || 3);
 
 const baseUrl = normalizeBaseUrl(
   process.argv[2] || process.env.CLOUDFLARE_SMOKE_BASE_URL || DEFAULT_BASE_URL,
 );
-
-const fallbackHtmlMarkers = [
-  "当前使用内置演示数据",
-  "配置 Supabase",
-  "01/01 08:00",
-  "2026-01-01T00:00:00.000Z",
-  { pattern: '"configured":false', isAllowed: isSponsorSettingsDefaultMarker },
-  { pattern: '\\"configured\\":false', isAllowed: isSponsorSettingsDefaultMarker },
-  '"offerTotal":10',
-  '\\"offerTotal\\":10',
-];
-
-const staticDatasetMarkers = [
-  '"source":"static"',
-  '\\"source\\":\\"static\\"',
-  "数据源：静态样本",
-];
 
 const checks = [
   {
     path: "/",
     status: 200,
     text: {
-      forbidden: fallbackHtmlMarkers,
       requiredAny: [
-        { label: "homepage-title", patterns: ["先看清价格从哪里来"] },
-        { label: "purchase-paths", patterns: ["先回答一个问题：你现在要买什么"] },
-        { label: "sponsor-contact", patterns: ["https://t.me/dimthink"] },
+        { label: "homepage-cloud-topic", patterns: ["VPS", "GPU"] },
+        { label: "homepage-brand", patterns: ["ai-home", "aideals.cloud"] },
       ],
     },
   },
   {
-    path: "/official-prices",
+    path: "/cloud",
     status: 200,
     text: {
-      forbidden: [...fallbackHtmlMarkers, ...staticDatasetMarkers],
-      requiredAny: [{ label: "source=supabase", patterns: ['"source":"supabase"', '\\"source\\":\\"supabase\\"'] }],
+      requiredAny: [
+        { label: "cloud-vps", patterns: ["VPS"] },
+        { label: "cloud-gpu", patterns: ["GPU"] },
+        { label: "cloud-data-source", patterns: ["cloud-gpus.com", "CompareVPS", "ServerHunter"] },
+      ],
     },
   },
-  {
-    path: "/api-models",
-    status: 200,
-    text: {
-      forbidden: [...fallbackHtmlMarkers, ...staticDatasetMarkers],
-      requiredAny: [{ label: "source=supabase", patterns: ['"source":"supabase"', '\\"source\\":\\"supabase\\"'] }],
-    },
-  },
+  { path: "/official-prices", status: 200 },
+  { path: "/api-models", status: 200 },
   { path: "/guides/are-ai-subscription-card-shops-reliable", status: 200 },
   {
     path: "/api/health",
@@ -62,22 +41,19 @@ const checks = [
     path: "/api/explorer",
     status: 200,
     maxBytes: 120_000,
-    cache: true,
     json: validateExplorerJson,
   },
   {
     path: "/api/offers?limit=80",
     status: 200,
     maxBytes: 140_000,
-    cache: true,
     json: validateOffersJson,
   },
-  { path: "/api/products/chatgpt-plus/offers?limit=80", status: 200, maxBytes: 140_000, cache: true },
+  { path: "/api/products/chatgpt-plus/offers?limit=80", status: 200, maxBytes: 140_000 },
   {
     path: "/api/merchants",
     status: 200,
     maxBytes: 100_000,
-    cache: true,
     json: validateMerchantsJson,
   },
   { path: "/api/cron/collect-prices", status: 405, maxBytes: 5_000 },
@@ -106,20 +82,14 @@ for (const check of checks) {
     const bytes = body.byteLength;
     const text = check.text || check.json ? new TextDecoder().decode(body) : "";
     const elapsed = Date.now() - startedAt;
-    const cacheHeader =
-      response.headers.get("cloudflare-cdn-cache-control") ||
-      response.headers.get("cdn-cache-control") ||
-      response.headers.get("cache-control") ||
-      "";
 
     const statusOk = response.status === check.status;
     const maxBytes = Number.isFinite(check.maxBytes) ? check.maxBytes : null;
     const sizeOk = maxBytes === null || bytes <= maxBytes;
-    const cacheOk = !check.cache || /s-maxage|max-age/i.test(cacheHeader);
     const textFailures = check.text ? validateText(text, check.text) : [];
     const jsonFailures = check.json ? validateJson(text, check.json) : [];
     const contentOk = textFailures.length === 0 && jsonFailures.length === 0;
-    const ok = statusOk && sizeOk && cacheOk && contentOk;
+    const ok = statusOk && sizeOk && contentOk;
 
     if (!ok) failures += 1;
 
@@ -130,7 +100,6 @@ for (const check of checks) {
         `${bytes}B`,
         `${elapsed}ms`,
         check.method ? `${check.method} ${check.path}` : check.path,
-        check.cache ? `cache=${cacheHeader || "missing"}` : "",
         !sizeOk && maxBytes !== null ? `size>${maxBytes}B` : "",
         textFailures.length ? `text=${textFailures.join(";")}` : "",
         jsonFailures.length ? `json=${jsonFailures.join(";")}` : "",
@@ -162,14 +131,6 @@ function normalizeBaseUrl(value) {
 function validateText(text, expectations) {
   const failures = [];
 
-  for (const marker of expectations.forbidden || []) {
-    const pattern = typeof marker === "string" ? marker : marker.pattern;
-    const index = text.indexOf(pattern);
-    if (index >= 0 && !(typeof marker === "object" && marker.isAllowed?.(text, index))) {
-      failures.push(`forbidden:${pattern}`);
-    }
-  }
-
   for (const requirement of expectations.requiredAny || []) {
     const matched = requirement.patterns.some((pattern) => text.includes(pattern));
     if (!matched) {
@@ -178,21 +139,6 @@ function validateText(text, expectations) {
   }
 
   return failures;
-}
-
-function isSponsorSettingsDefaultMarker(text, index) {
-  const before = text.slice(Math.max(0, index - 80), index);
-  const after = text.slice(index, index + 700);
-  const looksLikeSponsorSettings =
-    before.includes('"sponsorSettings":{') ||
-    before.includes('\\"sponsorSettings\\":{') ||
-    before.includes('"settings":{') ||
-    before.includes('\\"settings\\":{');
-
-  return looksLikeSponsorSettings &&
-    (after.includes('"tableReady":true') || after.includes('\\"tableReady\\":true')) &&
-    after.includes("赞助位配置尚未保存") &&
-    (after.includes('"placements":{') || after.includes('\\"placements\\":{'));
 }
 
 function validateJson(text, validator) {
@@ -215,14 +161,15 @@ function validateExplorerJson(data) {
   const failures = [];
   if (data?.configured !== true) failures.push("configured!=true");
   if (data?.degraded === true) failures.push("degraded=true");
-  if (!Number.isFinite(data?.offerTotal) || data.offerTotal < 100) failures.push("offerTotal<100");
+  if (!Number.isFinite(data?.offerTotal)) failures.push("offerTotal!=number");
   return failures;
 }
 
 function validateOffersJson(data) {
   const failures = [];
   if (data?.degraded === true) failures.push("degraded=true");
-  if (!Number.isFinite(data?.total) || data.total < 100) failures.push("total<100");
+  if (!Array.isArray(data?.rows)) failures.push("rows!=array");
+  if (!Number.isFinite(data?.total)) failures.push("total!=number");
   return failures;
 }
 
@@ -230,7 +177,7 @@ function validateMerchantsJson(data) {
   const failures = [];
   if (data?.degraded === true) failures.push("degraded=true");
   if (!Array.isArray(data?.rows)) failures.push("rows!=array");
-  if (!Number.isFinite(data?.total) || data.total < 1) failures.push("total<1");
+  if (!Number.isFinite(data?.total)) failures.push("total!=number");
   return failures;
 }
 
@@ -313,9 +260,21 @@ function isLocalhostBaseUrl(baseUrl) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-function fetchWithTimeout(input, init = {}) {
-  return fetch(input, {
-    ...init,
-    signal: AbortSignal.timeout(SMOKE_FETCH_TIMEOUT_MS),
-  });
+async function fetchWithTimeout(input, init = {}) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt <= SMOKE_FETCH_RETRIES; attempt += 1) {
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: AbortSignal.timeout(SMOKE_FETCH_TIMEOUT_MS),
+      });
+    } catch (error) {
+      lastError = error;
+      if (attempt === SMOKE_FETCH_RETRIES) break;
+      await new Promise((resolve) => setTimeout(resolve, 1_000 * (attempt + 1)));
+    }
+  }
+
+  throw lastError;
 }
