@@ -1,6 +1,7 @@
 export type CloudOfferKind = "vps" | "gpu";
 
 import cloudOfferPayload from "../../data/cloud-offers-db.json";
+import cloudOfferUpdatePayload from "../../data/cloud-offer-update-records.json";
 
 export type CloudDataStatus = "parsed_source" | "manual_reference" | "pending_collector" | "needs_review";
 
@@ -33,6 +34,20 @@ export type CloudOffer = {
   readonly cautions: readonly string[];
   readonly dataStatus: CloudDataStatus;
   readonly lastChecked: string;
+};
+
+export type CloudOfferUpdateRecord = {
+  readonly generatedAt: string;
+  readonly updatedAt: string;
+  readonly totalOffers: number;
+  readonly vpsOffers: number;
+  readonly gpuOffers: number;
+  readonly sources: {
+    readonly parsed: number;
+    readonly blocked: number;
+    readonly failed: number;
+    readonly metadataOnly: number;
+  };
 };
 
 type CloudOfferPayloadRow = {
@@ -96,6 +111,20 @@ const cloudOfferData: CloudOfferPayload = {
   }),
 };
 
+export const cloudOfferUpdateRecords: CloudOfferUpdateRecord[] = cloudOfferUpdatePayload.records.map((record) => ({
+  generatedAt: record.generatedAt,
+  updatedAt: record.updatedAt,
+  totalOffers: record.totalOffers,
+  vpsOffers: record.vpsOffers,
+  gpuOffers: record.gpuOffers,
+  sources: {
+    parsed: record.sources.parsed,
+    blocked: record.sources.blocked,
+    failed: record.sources.failed,
+    metadataOnly: record.sources.metadataOnly,
+  },
+}));
+
 export const cloudOffers: CloudOffer[] = cloudOfferData.offers.map((offer) => ({
   id: offer.id,
   kind: offer.kind,
@@ -127,6 +156,7 @@ export const cloudOffers: CloudOffer[] = cloudOfferData.offers.map((offer) => ({
 
 export const cloudComparisonSummary = {
   updatedAt: cloudOfferData.updatedAt,
+  generatedAt: cloudOfferData.generatedAt,
   selection: cloudOfferData.selection,
   vpsCount: cloudOffers.filter((offer) => offer.kind === "vps").length,
   gpuCount: cloudOffers.filter((offer) => offer.kind === "gpu").length,

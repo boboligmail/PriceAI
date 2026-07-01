@@ -11,13 +11,26 @@ import { FeedbackDialog, FeedbackLink, GitHubLink, QQGroupDialog, QQGroupLink, T
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { qqGroupNumber, telegramUrl } from "@/lib/community";
 
+type NavItem = {
+  readonly key: string;
+  readonly href: string;
+  readonly label: string;
+  readonly mobileLabel: string;
+  readonly match: (pathname: string) => boolean;
+};
+
 const navItems = [
   { key: "cloud", href: "/cloud", label: "云算力", mobileLabel: "云算力", match: (pathname: string) => pathname.startsWith("/cloud") },
   { key: "channels", href: "/channels", label: "卡网订阅", mobileLabel: "卡网", match: (pathname: string) => pathname.startsWith("/channels") || pathname.startsWith("/products") },
   { key: "official", href: "/official-prices", label: "官方订阅", mobileLabel: "订阅", match: (pathname: string) => pathname.startsWith("/official-prices") },
   { key: "api", href: "/api-models", label: "官方 API", mobileLabel: "API", match: (pathname: string) => pathname.startsWith("/api-models") },
   { key: "transit", href: "/api-transit", label: "中转 API", mobileLabel: "中转", match: (pathname: string) => pathname.startsWith("/api-transit") },
-];
+] satisfies readonly NavItem[];
+
+const cloudNavItems = [
+  { key: "cloud-vps", href: "/cloud#vps", label: "VPS 比价", mobileLabel: "VPS", match: (pathname: string) => pathname.startsWith("/cloud") },
+  { key: "cloud-gpu", href: "/cloud#gpu", label: "GPU 租赁", mobileLabel: "GPU", match: () => false },
+] satisfies readonly NavItem[];
 
 type SiteHeaderSection = (typeof navItems)[number]["key"] | "home" | "guides";
 const homeHref = "/";
@@ -36,10 +49,11 @@ export function SiteHeader({
 }) {
   const pathname = usePathname();
   const aboutActive = pathname.startsWith("/about");
+  const visibleNavItems = pathname.startsWith("/cloud") ? cloudNavItems : navItems;
   const desktopCenterNavClassName = "hidden items-center rounded-full bg-[#e4e9ea] p-1 text-sm font-semibold text-[#5a6061] min-[720px]:flex";
   const actionGroupGapClassName =
     compactActionLabelFrom === "never" ? "gap-1.5" : compactActionLabelFrom === "2xl" ? "gap-1.5 2xl:gap-3" : "gap-1.5 sm:gap-3";
-  const activeNavItem = navItems.find((item) => (activeSection && activeSection !== "home" && activeSection !== "guides" ? item.key === activeSection : item.match(pathname)));
+  const activeNavItem = visibleNavItems.find((item) => (activeSection && activeSection !== "home" && activeSection !== "guides" ? item.key === activeSection : item.match(pathname)));
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [qqGroupOpen, setQqGroupOpen] = useState(false);
@@ -63,7 +77,7 @@ export function SiteHeader({
         </div>
 
         <nav className={`${desktopCenterNavClassName} max-w-full justify-self-center overflow-x-auto min-[720px]:col-start-2 xl:absolute xl:left-1/2 xl:top-1/2 xl:col-start-1 xl:col-end-4 xl:-translate-x-1/2 xl:-translate-y-1/2`}>
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const active = activeSection ? item.key === activeSection : item.match(pathname);
 
             return (
@@ -99,6 +113,7 @@ export function SiteHeader({
       {mobileDrawerOpen ? (
         <MobileModuleDrawer
           activeKey={activeNavItem?.key}
+          items={visibleNavItems}
           aboutActive={aboutActive}
           onClose={() => setMobileDrawerOpen(false)}
           onFeedback={() => {
@@ -118,13 +133,15 @@ export function SiteHeader({
 }
 
 function MobileModuleDrawer({
+  items,
   activeKey,
   aboutActive,
   onClose,
   onFeedback,
   onQQGroup,
 }: {
-  activeKey?: (typeof navItems)[number]["key"];
+  items: readonly NavItem[];
+  activeKey?: string;
   aboutActive: boolean;
   onClose: () => void;
   onFeedback: () => void;
@@ -168,7 +185,7 @@ function MobileModuleDrawer({
         </div>
 
         <nav className="space-y-1" aria-label="移动端模块导航">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = item.key === activeKey;
 
             return (

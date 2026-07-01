@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useSyncExternalStore, useState, type ChangeEvent } from "react";
+import { useMemo, useSyncExternalStore, useState } from "react";
+import { Clock3, RotateCcw } from "lucide-react";
+import { CloudPagination, CloudSelectField, CloudTabButton } from "@/components/cloud/CloudOfferExplorerParts";
 import { CloudOfferTable } from "@/components/cloud/CloudOfferSections";
-import type { CloudOffer, CloudOfferKind } from "@/lib/cloud-comparison";
+import type { CloudOffer, CloudOfferKind, CloudOfferUpdateRecord } from "@/lib/cloud-comparison";
 import {
   billingOptions,
   compareOffers,
@@ -26,9 +28,11 @@ import { getCloudOfferMetrics } from "@/lib/cloud-offer-metrics";
 export function CloudOfferExplorer({
   offers,
   updatedAt,
+  updateRecords,
 }: {
   readonly offers: readonly CloudOffer[];
   readonly updatedAt: string;
+  readonly updateRecords: readonly CloudOfferUpdateRecord[];
 }) {
   const hashKind = useHashKind();
   const [selectedKind, setSelectedKind] = useState<CloudOfferKind | null>(null);
@@ -89,6 +93,8 @@ export function CloudOfferExplorer({
   const safePage = Math.min(page, pageCount);
   const pageStart = (safePage - 1) * pageSize;
   const visibleOffers = filteredOffers.slice(pageStart, pageStart + pageSize);
+  const cheapestVpsPrice = getCheapestPrice(offers, "vps");
+  const cheapestGpuPrice = getCheapestPrice(offers, "gpu");
 
   const activateTab = (kind: CloudOfferKind) => {
     setSelectedKind(kind);
@@ -102,30 +108,49 @@ export function CloudOfferExplorer({
     setPage(1);
   };
 
+  const resetFilters = () => {
+    setQuery("");
+    setCpuMin("0");
+    setMemoryMin("0");
+    setStorageMin("0");
+    setMonthlyMax("0");
+    setGpuCountMin("0");
+    setGpuModel("all");
+    setVramMin("0");
+    setHourlyMax("0");
+    setBillingMode("all");
+    setSortMode(activeKind === "gpu" ? "price-asc" : "monthly-asc");
+    setPage(1);
+  };
+
+  const formattedUpdatedAt = formatUpdatedAt(updatedAt);
   return (
     <main className="border-b border-[var(--color-border)]">
-      <section className="mx-auto max-w-[1500px] border-x border-[var(--color-border-soft)] px-5 py-8 sm:px-8">
-        <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
+      <section className="mx-auto max-w-[1600px] border-x border-[var(--color-border-soft)] px-4 py-6 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-col justify-between gap-4 border-b border-[var(--color-border-soft)] pb-5 lg:flex-row lg:items-start">
           <div>
-            <p className="text-sm font-semibold text-[var(--color-success-text)]">云服务器 / GPU 租赁选择工具</p>
-            <h1 className="mt-2 font-serif text-4xl font-semibold text-[var(--color-text-primary)]">先筛配置，再看价格和链接</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--color-text-muted)]">
-              默认展示全部入库结果；用 CPU、内存、硬盘、显存和预算筛掉不合适的低配项，再点每行的核验/进入查看对应价格来源。
+            <p className="text-sm font-semibold text-[var(--color-success-text)]">云服务器 / GPU 租赁价格筛选器</p>
+            <h1 className="mt-2 font-serif text-4xl font-semibold tracking-tight text-[var(--color-text-primary)] lg:text-5xl">
+              云服务器与 GPU 租赁价格筛选器
+            </h1>
+            <p className="mt-3 max-w-3xl text-base leading-7 text-[var(--color-text-muted)]">
+              按配置、地区、计费方式和风险快速找到可核验的低价方案；每一行都直接指向对应官网价格页。
             </p>
           </div>
-          <div className="rounded-[1.25rem] bg-[var(--color-warning-bg)] px-4 py-3 text-xs leading-6 text-[var(--color-warning-text)]">
-            数据不是实时成交价。下单前必须核验地区、库存、税费、IPv4、流量和存储费用。更新日期：{updatedAt}
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[var(--color-border-soft)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-text-muted)]">
+            <Clock3 size={16} />
+            <span>最近更新：{formattedUpdatedAt}</span>
           </div>
         </div>
 
-        <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label="云资源类型">
-          <TabButton active={activeKind === "vps"} onClick={() => activateTab("vps")} label={`VPS ${tabTotals.vps}`} />
-          <TabButton active={activeKind === "gpu"} onClick={() => activateTab("gpu")} label={`GPU ${tabTotals.gpu}`} />
+        <div className="mb-5 grid max-w-3xl gap-3 sm:grid-cols-2" role="tablist" aria-label="云资源类型">
+          <CloudTabButton active={activeKind === "vps"} onClick={() => activateTab("vps")} label={`VPS 云服务器 ${tabTotals.vps}`} />
+          <CloudTabButton active={activeKind === "gpu"} onClick={() => activateTab("gpu")} label={`GPU 算力租赁 ${tabTotals.gpu}`} />
         </div>
 
-        <div className="mb-6 rounded-[1.5rem] bg-[var(--color-panel)] p-4 shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-soft)]">
-          <div className="grid gap-3 md:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(130px,1fr))] xl:grid-cols-[minmax(260px,1.5fr)_repeat(6,minmax(120px,1fr))]">
-            <label className="flex min-h-11 items-center rounded-full bg-white px-4 text-sm ring-1 ring-[var(--color-border-soft)]">
+        <div className="mb-5 rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-white p-4 shadow-[var(--shadow-panel)]">
+          <div className="grid gap-3 md:grid-cols-[minmax(220px,1.4fr)_repeat(3,minmax(130px,1fr))] xl:grid-cols-[minmax(240px,1.4fr)_repeat(6,minmax(116px,1fr))_90px]">
+            <label className="flex min-h-11 items-center rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-white px-3 text-sm">
               <span className="mr-2 text-xs font-bold text-[var(--color-text-soft)]">搜索</span>
               <input
                 value={query}
@@ -136,99 +161,161 @@ export function CloudOfferExplorer({
             </label>
             {activeKind === "vps" ? (
               <>
-                <SelectField label="CPU" value={cpuMin} options={vpsCpuOptions} onChange={(value) => updateFilter(setCpuMin, value)} />
-                <SelectField label="内存" value={memoryMin} options={vpsMemoryOptions} onChange={(value) => updateFilter(setMemoryMin, value)} />
-                <SelectField label="硬盘" value={storageMin} options={storageOptions} onChange={(value) => updateFilter(setStorageMin, value)} />
-                <SelectField label="月价" value={monthlyMax} options={monthlyOptions} onChange={(value) => updateFilter(setMonthlyMax, value)} />
+                <CloudSelectField label="CPU" value={cpuMin} options={vpsCpuOptions} onChange={(value) => updateFilter(setCpuMin, value)} />
+                <CloudSelectField label="内存" value={memoryMin} options={vpsMemoryOptions} onChange={(value) => updateFilter(setMemoryMin, value)} />
+                <CloudSelectField label="硬盘" value={storageMin} options={storageOptions} onChange={(value) => updateFilter(setStorageMin, value)} />
+                <CloudSelectField label="月价" value={monthlyMax} options={monthlyOptions} onChange={(value) => updateFilter(setMonthlyMax, value)} />
               </>
             ) : (
               <>
-                <SelectField label="GPU 数" value={gpuCountMin} options={gpuCountOptions} onChange={(value) => updateFilter(setGpuCountMin, value)} />
-                <SelectField label="GPU 型号" value={gpuModel} options={gpuModelOptions} onChange={(value) => updateFilter(setGpuModel, value)} />
-                <SelectField label="显存" value={vramMin} options={vramOptions} onChange={(value) => updateFilter(setVramMin, value)} />
-                <SelectField label="小时价" value={hourlyMax} options={hourlyOptions} onChange={(value) => updateFilter(setHourlyMax, value)} />
-                <SelectField label="计费" value={billingMode} options={billingOptions} onChange={(value) => updateFilter(setBillingMode, value)} />
+                <CloudSelectField label="GPU 数" value={gpuCountMin} options={gpuCountOptions} onChange={(value) => updateFilter(setGpuCountMin, value)} />
+                <CloudSelectField label="GPU 型号" value={gpuModel} options={gpuModelOptions} onChange={(value) => updateFilter(setGpuModel, value)} />
+                <CloudSelectField label="显存" value={vramMin} options={vramOptions} onChange={(value) => updateFilter(setVramMin, value)} />
+                <CloudSelectField label="小时价" value={hourlyMax} options={hourlyOptions} onChange={(value) => updateFilter(setHourlyMax, value)} />
+                <CloudSelectField label="计费" value={billingMode} options={billingOptions} onChange={(value) => updateFilter(setBillingMode, value)} />
               </>
             )}
-            <SelectField label="排序" value={sortMode} options={getSortOptions(activeKind)} onChange={(value) => updateFilter(setSortMode, toSortMode(value, activeKind))} />
-            <SelectField label="每页" value={String(pageSize)} options={[["25", "分页 25 条"], ["50", "分页 50 条"], ["100", "分页 100 条"]]} onChange={(value) => {
+            <CloudSelectField label="排序" value={sortMode} options={getSortOptions(activeKind)} onChange={(value) => updateFilter(setSortMode, toSortMode(value, activeKind))} />
+            <CloudSelectField label="每页" value={String(pageSize)} options={[["25", "分页 25 条"], ["50", "分页 50 条"], ["100", "分页 100 条"]]} onChange={(value) => {
               setPageSize(toPageSize(value));
               setPage(1);
             }} />
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-4 text-sm font-bold text-[var(--color-text-body)] transition hover:bg-[var(--color-surface-selected)]"
+            >
+              <RotateCcw size={15} />
+              重置
+            </button>
           </div>
         </div>
 
-        <div className="mb-4 flex flex-col justify-between gap-2 md:flex-row md:items-center">
+        <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_300px]">
           <div>
-            <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{activeKind === "vps" ? "VPS 全量列表" : "GPU 全量列表"}</h2>
-            <p className="mt-1 text-sm text-[var(--color-text-muted)]">
-              当前显示 {visibleOffers.length} 条，筛选后共 {filteredOffers.length} 条，数据库共 {tabTotals[activeKind]} 条。
-            </p>
+            <div className="mb-4 flex flex-col justify-between gap-2 md:flex-row md:items-center">
+              <div>
+                <h2 className="text-xl font-bold text-[var(--color-text-primary)]">{activeKind === "vps" ? "VPS 比价列表" : "GPU 租赁列表"}</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                  当前显示 {visibleOffers.length} 条，筛选后共 {filteredOffers.length} 条，数据库共 {tabTotals[activeKind]} 条。
+                </p>
+              </div>
+              <CloudPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+            </div>
+
+            <CloudOfferTable offers={visibleOffers} startIndex={pageStart + 1} />
+
+            <div className="mt-5 flex justify-center">
+              <CloudPagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+            </div>
           </div>
-          <Pagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
-        </div>
 
-        <CloudOfferTable offers={visibleOffers} />
-
-        <div className="mt-5 flex justify-end">
-          <Pagination page={safePage} pageCount={pageCount} onPageChange={setPage} />
+          <aside className="space-y-4 2xl:sticky 2xl:top-24 2xl:self-start">
+            <CloudResultSummary
+              activeKind={activeKind}
+              filteredCount={filteredOffers.length}
+              tabTotals={tabTotals}
+              cheapestVpsPrice={cheapestVpsPrice}
+              cheapestGpuPrice={cheapestGpuPrice}
+            />
+            {activeKind === "vps" ? <VpsUpdateRecords records={updateRecords} formattedUpdatedAt={formattedUpdatedAt} /> : null}
+          </aside>
         </div>
       </section>
     </main>
   );
 }
 
-function TabButton({ active, label, onClick }: { readonly active: boolean; readonly label: string; readonly onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={`rounded-full px-5 py-3 text-sm font-bold transition ${active ? "bg-[var(--color-primary)] text-[var(--color-text-on-primary)]" : "bg-[var(--color-surface)] text-[var(--color-text-body)] hover:bg-[var(--color-surface-selected)]"}`}
-    >
-      {label}
-    </button>
-  );
+function formatUpdatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Shanghai",
+  });
+  return formatter.format(date).replace(/\//g, "-");
 }
 
-function SelectField({
-  label,
-  value,
-  options,
-  onChange,
+function getCheapestPrice(offers: readonly CloudOffer[], kind: CloudOfferKind) {
+  const rows = offers.filter((offer) => offer.kind === kind);
+  if (rows.length === 0) return "暂无";
+  const cheapest = rows.reduce((best, offer) => {
+    const bestPrice = kind === "vps" ? best.monthlyEstimateUsd : best.priceUsd;
+    const offerPrice = kind === "vps" ? offer.monthlyEstimateUsd : offer.priceUsd;
+    return offerPrice < bestPrice ? offer : best;
+  }, rows[0]);
+  return cheapest?.priceDisplay ?? "暂无";
+}
+
+function CloudResultSummary({
+  activeKind,
+  filteredCount,
+  tabTotals,
+  cheapestVpsPrice,
+  cheapestGpuPrice,
 }: {
-  readonly label: string;
-  readonly value: string;
-  readonly options: readonly (readonly [string, string])[];
-  readonly onChange: (value: string) => void;
+  readonly activeKind: CloudOfferKind;
+  readonly filteredCount: number;
+  readonly tabTotals: Readonly<Record<CloudOfferKind, number>>;
+  readonly cheapestVpsPrice: string;
+  readonly cheapestGpuPrice: string;
 }) {
   return (
-    <label className="flex min-h-11 items-center rounded-full bg-white px-4 text-sm ring-1 ring-[var(--color-border-soft)]">
-      <span className="mr-2 shrink-0 text-xs font-bold text-[var(--color-text-soft)]">{label}</span>
-      <select value={value} onChange={(event: ChangeEvent<HTMLSelectElement>) => onChange(event.target.value)} className="w-full bg-transparent text-sm font-semibold outline-none">
-        {options.map(([optionValue, optionLabel]) => (
-          <option key={optionValue} value={optionValue}>
-            {optionLabel}
-          </option>
-        ))}
-      </select>
-    </label>
+    <section className="rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-white p-5 shadow-[var(--shadow-panel)]">
+      <h2 className="text-xl font-bold text-[var(--color-text-primary)]">当前筛选结果</h2>
+      <div className="mt-5 space-y-4 text-sm">
+        <SummaryMetric label="VPS 云服务器" value={`${tabTotals.vps} 条`} active={activeKind === "vps"} />
+        <SummaryMetric label="GPU 算力租赁" value={`${tabTotals.gpu} 条`} active={activeKind === "gpu"} />
+      </div>
+      <div className="mt-5 border-t border-[var(--color-border-soft)] pt-5 text-sm">
+        <SummaryMetric label="当前结果" value={`${filteredCount} 条`} active />
+        <SummaryMetric label="最低 VPS 价格" value={cheapestVpsPrice} />
+        <SummaryMetric label="最低 GPU 价格" value={cheapestGpuPrice} />
+      </div>
+      <p className="mt-5 rounded-[var(--radius-card)] bg-[var(--color-warning-bg)] px-4 py-3 text-xs leading-6 text-[var(--color-warning-text)]">
+        价格仅作入口参考，购买前必须点「官网直达」核验地区、库存、税费、IPv4、流量和存储费用。
+      </p>
+    </section>
   );
 }
 
-function Pagination({ page, pageCount, onPageChange }: { readonly page: number; readonly pageCount: number; readonly onPageChange: (page: number) => void }) {
+function SummaryMetric({ label, value, active = false }: { readonly label: string; readonly value: string; readonly active?: boolean }) {
   return (
-    <div className="flex items-center gap-2 text-sm">
-      <button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="rounded-full bg-[var(--color-surface)] px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40">
-        上一页
-      </button>
-      <span className="min-w-24 text-center text-xs font-bold text-[var(--color-text-muted)]">
-        第 {page} / {pageCount} 页
-      </span>
-      <button type="button" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)} className="rounded-full bg-[var(--color-surface)] px-4 py-2 font-semibold disabled:cursor-not-allowed disabled:opacity-40">
-        下一页
-      </button>
+    <p className="flex items-center justify-between gap-4">
+      <span className={active ? "font-bold text-[var(--color-text-primary)]" : "text-[var(--color-text-muted)]"}>{label}</span>
+      <span className={active ? "text-lg font-bold text-[var(--color-success-text)]" : "font-bold text-[var(--color-text-primary)]"}>{value}</span>
+    </p>
+  );
+}
+
+function VpsUpdateRecords({
+  records,
+  formattedUpdatedAt,
+}: {
+  readonly records: readonly CloudOfferUpdateRecord[];
+  readonly formattedUpdatedAt: string;
+}) {
+  const visibleRecords = records.slice(0, 3);
+
+  return (
+    <div className="rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-[var(--color-surface)] px-4 py-3 text-xs leading-6 text-[var(--color-text-muted)]">
+      <p className="font-bold text-[var(--color-text-primary)]">VPS 更新记录</p>
+      {visibleRecords.length > 0 ? (
+        <ul className="mt-1 space-y-1">
+          {visibleRecords.map((record) => (
+            <li key={`${record.generatedAt}-${record.totalOffers}`}>
+              {formatUpdatedAt(record.generatedAt)}：入库 {record.totalOffers} 条，其中 VPS {record.vpsOffers} 条、GPU {record.gpuOffers} 条；已解析来源 {record.sources.parsed} 个。
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1">{formattedUpdatedAt}：完成数据抓取入库。后续按每天一次自动更新。</p>
+      )}
     </div>
   );
 }

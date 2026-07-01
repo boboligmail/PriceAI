@@ -168,6 +168,14 @@ assert(/check-performance-guards\.mjs/.test(buildCloudflareText), "scripts/build
 const qualityWorkflowText = read(".github/workflows/quality.yml");
 assert(/npm run check:performance/.test(qualityWorkflowText), ".github/workflows/quality.yml: run performance guards before build.");
 
+const cloudOffersWorkflowText = read(".github/workflows/collect-cloud-offers.yml");
+assert(/schedule:/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: cloud offers must update on a daily schedule.");
+assert(/workflow_dispatch:/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: cloud offers must support manual dispatch.");
+assert(/npm run collect:cloud-offers/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: workflow must run the cloud collector.");
+assert(/npm run test:cloud/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: workflow must validate cloud data.");
+assert(/npm run test:cloud-ui/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: workflow must validate cloud UI contracts.");
+assert(/gh workflow run deploy-cloudflare-worker\.yml/.test(cloudOffersWorkflowText), ".github/workflows/collect-cloud-offers.yml: data changes must explicitly trigger Cloudflare deployment.");
+
 for (const file of listSourceFiles(["src/app", "src/lib"])) {
   if (!isPublicRuntimeFile(file)) continue;
   const text = read(file);

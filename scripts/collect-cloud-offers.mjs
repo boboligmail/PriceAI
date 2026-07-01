@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,7 @@ await collectCompareVps();
 await collectCloudGpus();
 await probeUnparsedSources();
 
+const sortedOffers = [...offers].sort(compareCloudOffers);
 const vpsOffers = offers
   .filter((offer) => offer.kind === "vps")
   .sort((left, right) => left.monthlyEstimateUsd - right.monthlyEstimateUsd)
@@ -47,19 +48,16 @@ const gpuOffers = offers
   .sort((left, right) => left.priceUsd - right.priceUsd)
   .slice(0, 15);
 
-const cheapest = [...vpsOffers, ...gpuOffers].map((offer, index) => ({
-  ...offer,
-  rank: index + 1,
-}));
+const highlightOffers = [...vpsOffers, ...gpuOffers];
 
 const databasePayload = {
   generatedAt,
   updatedAt: today,
   selection:
-    "从可公开解析的数据源中分别选取 VPS/云服务器最低月价 15 条、GPU 最低小时价 15 条，共 30 条。小时价与月价不直接混排。",
+    `全量入库：本次从可公开解析的数据源采集 ${offers.length} 条云资源报价，页面默认全量展示，低价结果只作为排序和高亮参考。`,
   sources: [...sourceStates.values()],
-  offers,
-  cheapestOfferIds: cheapest.map((offer) => offer.id),
+  offers: sortedOffers,
+  highlightOfferIds: highlightOffers.map((offer) => offer.id),
 };
 
 const pagePayload = {
@@ -67,11 +65,12 @@ const pagePayload = {
   updatedAt: today,
   selection: databasePayload.selection,
   sourceSummary: databasePayload.sources,
-  offers: cheapest,
+  offers: sortedOffers,
 };
 
 await writeFile(path.join(dataDir, "cloud-offers-db.json"), `${JSON.stringify(databasePayload, null, 2)}\n`, "utf8");
 await writeFile(path.join(dataDir, "cloud-offers.json"), `${JSON.stringify(pagePayload, null, 2)}\n`, "utf8");
+await writeUpdateRecords(databasePayload);
 await writeSqlite(databasePayload);
 
 console.log(
@@ -80,7 +79,7 @@ console.log(
     `all=${offers.length}`,
     `vps=${offers.filter((offer) => offer.kind === "vps").length}`,
     `gpu=${offers.filter((offer) => offer.kind === "gpu").length}`,
-    `page=${cheapest.length}`,
+    `page=${sortedOffers.length}`,
   ].join(" "),
 );
 
@@ -177,7 +176,7 @@ function normalizeCompareVpsPlan(plan, provider) {
     billing: buildCompareVpsBilling(plan),
     compute: `${plan.vcpu} vCPU${plan.cpu_vendor ? ` / ${plan.cpu_vendor}` : ""}`,
     memory: `${formatNumber(plan.ram_gb)} GB RAM`,
-    storage: `${formatNumber(plan.storage_gb)} GB ${plan.storage_type}`,
+    storage: `${formatNumber(plan.storage_gb)} GB${plan.storage_type ? ` ${plan.storage_type}` : ""}`,
     network: `${bandwidth}；${port}${dedicatedIp}`,
     region: Array.isArray(plan.locations) ? plan.locations.slice(0, 4).join(" / ") : "地区未列出",
     risk: `下单前核验续费、IPv4、备份、地区库存和税费${setupFee}。`,
@@ -212,7 +211,7 @@ function normalizeCloudGpuRow(row, index) {
     billing: `${provisioning} / ${commitment}`,
     compute: `${acceleratorCount}x ${model}`,
     memory: totalMemory ? `${formatNumber(totalMemory)} GB VRAM` : "显存未列出",
-    storage: row.instance_type_label ? String(row.instance_type_label) : "实例存储看商家页",
+    storage: row.instance_type_label ? String(row.instance_type_label) : "未列出",
     network: `${countries}；${row.include_p2p === "Yes" ? "支持 P2P" : "P2P 未标注"}`,
     region: countries,
     risk: "Spot/Reserved/地区价格差异大，必须核验库存、承诺期、网络和存储费用。",
@@ -382,6 +381,39 @@ async function writeSqlite(payload) {
   } catch (error) {
     await writeFile(path.join(dataDir, "cloud-offers.sqlite.error.txt"), `${getErrorMessage(error)}\n`, "utf8");
   }
+}
+
+async function writeUpdateRecords(payload) {
+  const historyPath = path.join(dataDir, "cloud-offer-update-records.json");
+  const previousRecords = existsSync(historyPath)
+    ? JSON.parse(await readFile(historyPath, "utf8")).records
+    : [];
+  const sources = payload.sources.reduce(
+    (counts, source) => {
+      if (source.status === "parsed") counts.parsed += 1;
+      if (source.status === "blocked") counts.blocked += 1;
+      if (source.status === "failed") counts.failed += 1;
+      if (source.status === "metadata_only") counts.metadataOnly += 1;
+      return counts;
+    },
+    { parsed: 0, blocked: 0, failed: 0, metadataOnly: 0 },
+  );
+  const nextRecord = {
+    generatedAt: payload.generatedAt,
+    updatedAt: payload.updatedAt,
+    totalOffers: payload.offers.length,
+    vpsOffers: payload.offers.filter((offer) => offer.kind === "vps").length,
+    gpuOffers: payload.offers.filter((offer) => offer.kind === "gpu").length,
+    sources,
+  };
+  const records = [nextRecord, ...previousRecords.filter((record) => record.generatedAt !== nextRecord.generatedAt)].slice(0, 30);
+  await writeFile(historyPath, `${JSON.stringify({ records }, null, 2)}\n`, "utf8");
+}
+
+function compareCloudOffers(left, right) {
+  if (left.kind !== right.kind) return left.kind === "vps" ? -1 : 1;
+  if (left.kind === "vps") return left.monthlyEstimateUsd - right.monthlyEstimateUsd;
+  return left.priceUsd - right.priceUsd;
 }
 
 async function fetchText(url) {

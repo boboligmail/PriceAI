@@ -1,5 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
-import { cloudComparisonSummary, getCloudStatusLabel, type CloudOffer } from "@/lib/cloud-comparison";
+import type { ReactNode } from "react";
+import { getCloudStatusLabel, type CloudOffer } from "@/lib/cloud-comparison";
 
 export function CloudOfferSection({
   id,
@@ -21,7 +22,6 @@ export function CloudOfferSection({
             <h2 className="mt-2 font-serif text-3xl font-semibold text-[var(--color-text-primary)]">{title}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-7 text-[var(--color-text-muted)]">{description}</p>
           </div>
-          <p className="text-xs text-[var(--color-text-soft)]">更新日期：{cloudComparisonSummary.updatedAt}</p>
         </div>
 
         <CloudOfferTable offers={offers} />
@@ -30,81 +30,97 @@ export function CloudOfferSection({
   );
 }
 
-export function CloudOfferTable({ offers }: { readonly offers: readonly CloudOffer[] }) {
+export function CloudOfferTable({ offers, startIndex = 1 }: { readonly offers: readonly CloudOffer[]; readonly startIndex?: number }) {
   return (
-    <div className="overflow-hidden rounded-[1.5rem] bg-[var(--color-panel)] shadow-[var(--shadow-panel)] ring-1 ring-[var(--color-border-soft)]">
-      <div className="hidden grid-cols-[180px_210px_130px_140px_160px_minmax(150px,1fr)_150px] gap-4 bg-[var(--color-surface)] px-5 py-3 text-xs font-bold text-[var(--color-text-soft)] lg:grid">
-        <span>商家</span>
-        <span>价格</span>
-        <span>CPU / 显卡</span>
-        <span>内存 / 显存</span>
-        <span>硬盘 / 存储</span>
-        <span>流量 / 备注</span>
-        <span>跳转链接</span>
-      </div>
+    <div className="overflow-x-auto rounded-[var(--radius-card)] border border-[var(--color-border-soft)] bg-white shadow-[var(--shadow-panel)]">
       {offers.length === 0 ? (
         <div className="px-5 py-12 text-center text-sm text-[var(--color-text-muted)]">没有符合条件的结果，放宽筛选条件再试。</div>
       ) : (
-        offers.map((offer) => <CloudOfferRow key={offer.id} offer={offer} />)
+        <table className="min-w-[1180px] w-full border-collapse text-left text-sm">
+          <thead className="bg-[var(--color-surface)] text-xs font-bold text-[var(--color-text-soft)]">
+            <tr>
+              <TableHead className="w-10">#</TableHead>
+              <TableHead className="w-32">商家</TableHead>
+              <TableHead className="w-40">配置明细</TableHead>
+              <TableHead className="w-28">CPU/GPU</TableHead>
+              <TableHead className="w-28">内存/显存</TableHead>
+              <TableHead className="w-28">硬盘</TableHead>
+              <TableHead className="w-32">流量/带宽</TableHead>
+              <TableHead className="w-28">地区</TableHead>
+              <TableHead className="w-24">计费</TableHead>
+              <TableHead className="w-28">价格</TableHead>
+              <TableHead>风险</TableHead>
+              <TableHead className="w-28 text-center">官网</TableHead>
+            </tr>
+          </thead>
+          <tbody>
+            {offers.map((offer, index) => (
+              <CloudOfferRow key={offer.id} offer={offer} rowNumber={startIndex + index} />
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );
 }
 
-function CloudOfferRow({ offer }: { offer: CloudOffer }) {
-  const priceLabel = offer.kind === "vps" ? "大概价格" : "参考价格";
+function CloudOfferRow({ offer, rowNumber }: { readonly offer: CloudOffer; readonly rowNumber: number }) {
+  const regionText = offer.regions.length > 0 ? offer.regions.slice(0, 3).join(" / ") : "地区未列出";
+  const riskText = offer.cautions[0] || offer.config.note || "购买前核验库存和附加费用。";
 
   return (
-    <article className="border-t border-[var(--color-border-soft)] px-5 py-5 first:border-t-0">
-      <div className="grid gap-4 lg:grid-cols-[180px_210px_130px_140px_160px_minmax(150px,1fr)_150px] lg:items-start">
-        <div>
-          <p className="text-xs font-bold text-[var(--color-text-soft)] lg:hidden">商家</p>
-          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-soft)] lg:mt-0">{offer.kind === "vps" ? "VPS" : "GPU"}</p>
-          <h3 className="mt-2 text-xl font-bold text-[var(--color-text-primary)]">{offer.provider}</h3>
-          <p className="mt-1 text-sm text-[var(--color-text-muted)]">{offer.product}</p>
-          <span className="mt-3 inline-flex w-fit rounded-full bg-[var(--color-surface-selected)] px-3 py-1 text-xs font-bold text-[var(--color-success-text)]">
-            {getCloudStatusLabel(offer.dataStatus)}
-          </span>
-        </div>
-
-        <div>
-          <p className="text-xs font-bold text-[var(--color-text-soft)] lg:hidden">{priceLabel}</p>
-          <p className="mt-1 text-lg font-bold tracking-tight text-[var(--color-text-primary)] lg:mt-0">{offer.priceDisplay}</p>
-          <p className="mt-2 text-xs leading-6 text-[var(--color-text-muted)]">{offer.billing}</p>
-          <p className="mt-2 text-xs font-semibold text-[var(--color-info-text)]">核验日期：{offer.lastChecked}</p>
-        </div>
-
-        <ConfigCell label={offer.kind === "vps" ? "CPU" : "显卡"} value={offer.config.compute} />
-        <ConfigCell label={offer.kind === "vps" ? "内存" : "显存"} value={offer.config.memory} />
-        <ConfigCell label="硬盘 / 存储" value={offer.config.storage} />
-        <ConfigCell label="流量 / 备注" value={`${offer.config.network}；${offer.config.note}`} muted />
-
-        <div className="flex flex-col gap-3">
-          <p className="text-xs font-bold text-[var(--color-text-soft)] lg:hidden">跳转链接</p>
-          <a
-            href={offer.pricingUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`核验 ${offer.provider} ${offer.priceDisplay} 的对应价格行`}
-            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-[var(--color-primary)] px-4 text-sm font-semibold text-[var(--color-text-on-primary)] transition hover:bg-[var(--color-primary-hover)]"
-          >
-            核验/进入
-            <ArrowUpRight size={15} />
-          </a>
-          <p className="text-center text-xs leading-5 text-[var(--color-text-soft)]">对应当前价格行</p>
-        </div>
-      </div>
-    </article>
+    <tr className="border-t border-[var(--color-border-soft)] align-top transition hover:bg-[var(--color-surface-hover)]">
+      <td className="px-3 py-4 text-xs font-bold text-[var(--color-text-soft)]">{rowNumber}</td>
+      <td className="px-3 py-4">
+        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-soft)]">{offer.kind === "vps" ? "VPS" : "GPU"}</p>
+        <h3 className="mt-1 text-base font-bold text-[var(--color-text-primary)]">{offer.provider}</h3>
+        <span className="mt-2 inline-flex w-fit rounded-full bg-[var(--color-surface-selected)] px-2.5 py-1 text-xs font-bold text-[var(--color-success-text)]">
+          {getCloudStatusLabel(offer.dataStatus)}
+        </span>
+      </td>
+      <TableCell>
+        <p className="font-semibold text-[var(--color-text-body)]">{offer.product}</p>
+        <p className="mt-1 text-xs text-[var(--color-text-soft)]">{offer.sourceName}</p>
+      </TableCell>
+      <TableCell strong>{offer.config.compute}</TableCell>
+      <TableCell strong>{offer.config.memory}</TableCell>
+      <TableCell strong>{offer.config.storage}</TableCell>
+      <TableCell>{offer.config.network}</TableCell>
+      <TableCell>{regionText}</TableCell>
+      <TableCell>{offer.billing}</TableCell>
+      <td className="px-3 py-4">
+        <p className="text-lg font-bold tracking-tight text-[var(--color-success-text)]">{offer.priceDisplay}</p>
+        <p className="mt-1 text-xs font-semibold text-[var(--color-info-text)]">核验日：{offer.lastChecked}</p>
+      </td>
+      <TableCell>{riskText}</TableCell>
+      <td className="px-3 py-4 text-center">
+        <a
+          href={offer.pricingUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`打开 ${offer.provider} ${offer.product} 官网价格页`}
+          className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[var(--radius-card)] border border-[var(--color-success-text)] bg-[var(--color-success-bg)] px-3 text-xs font-bold text-[var(--color-success-text)] transition hover:bg-white"
+        >
+          官网直达
+          <ArrowUpRight size={14} />
+        </a>
+      </td>
+    </tr>
   );
 }
 
-function ConfigCell({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+function TableHead({ children, className = "" }: { readonly children: ReactNode; readonly className?: string }) {
   return (
-    <div>
-      <p className="text-xs font-bold text-[var(--color-text-soft)] lg:hidden">{label}</p>
-      <p className={`mt-1 text-sm font-semibold leading-6 lg:mt-0 ${muted ? "text-[var(--color-text-muted)]" : "text-[var(--color-text-body)]"}`}>
-        {value}
-      </p>
-    </div>
+    <th scope="col" className={`px-3 py-3 ${className}`}>
+      {children}
+    </th>
+  );
+}
+
+function TableCell({ children, strong = false }: { readonly children: ReactNode; readonly strong?: boolean }) {
+  return (
+    <td className={`px-3 py-4 leading-6 ${strong ? "font-bold text-[var(--color-text-primary)]" : "font-medium text-[var(--color-text-muted)]"}`}>
+      {children}
+    </td>
   );
 }

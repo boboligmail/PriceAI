@@ -1,7 +1,7 @@
 import { JsonLd } from "@/components/JsonLd";
 import { SiteHeader } from "@/components/SiteHeader";
 import { CloudOfferExplorer } from "@/components/cloud/CloudOfferExplorer";
-import { cloudComparisonSummary, cloudOffers, type CloudOffer } from "@/lib/cloud-comparison";
+import { cloudComparisonSummary, cloudOffers, cloudOfferUpdateRecords, type CloudOffer } from "@/lib/cloud-comparison";
 
 const siteUrl = "https://www.aideals.cloud";
 
@@ -19,7 +19,7 @@ export function CloudComparisonView({
         <SiteHeader activeSection={activeSection} />
       </div>
 
-      <CloudOfferExplorer offers={cloudOffers} updatedAt={cloudComparisonSummary.updatedAt} />
+      <CloudOfferExplorer offers={cloudOffers} updatedAt={cloudComparisonSummary.generatedAt} updateRecords={cloudOfferUpdateRecords} />
     </div>
   );
 }
