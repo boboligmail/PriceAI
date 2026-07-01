@@ -76,9 +76,18 @@ jobs:
             },
           };
           EOF
-            npx wrangler deploy .cloudflare-bootstrap/worker.js \
-              --name "$worker_name" \
-              --compatibility-date 2026-06-11 \
+            cat > .cloudflare-bootstrap/wrangler.jsonc <<EOF
+          {
+            "name": "$worker_name",
+            "main": "worker.js",
+            "compatibility_date": "2026-06-11",
+            "workers_dev": false,
+            "preview_urls": false
+          }
+          EOF
+            npx wrangler deploy \
+              --cwd .cloudflare-bootstrap \
+              --config wrangler.jsonc \
               --no-bundle
           fi
 
