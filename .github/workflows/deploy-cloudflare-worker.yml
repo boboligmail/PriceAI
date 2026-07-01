@@ -14,7 +14,7 @@ on:
 jobs:
   deploy-cloudflare-worker:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     permissions:
       contents: read
     env:
@@ -50,6 +50,12 @@ jobs:
       - run: npm ci
 
       - run: npm run check:cloudflare-env
+
+      - name: Bootstrap production datasets
+        run: |
+          set -euo pipefail
+          npm run import:api-models -- --post
+          npm run collect:official -- --all --post --mode=worker
 
       - run: npm run lint
 
