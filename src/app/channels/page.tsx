@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home 卡网订阅比价",
     description: "购买 AI 订阅前，先比较卡网订阅渠道的价格、库存、来源和更新时间。",
-    url: "https://ai-home.example.com/channels",
+    url: "https://www.aideals.cloud/channels",
     siteName: "ai-home",
   },
 };
@@ -54,7 +54,7 @@ function buildChannelsJsonLd() {
       "@type": "CollectionPage",
       name: "ai-home 卡网订阅比价",
       alternateName: ["AI 订阅卡网比价", "AI 比价雷达卡网订阅"],
-      url: "https://ai-home.example.com/channels",
+      url: "https://www.aideals.cloud/channels",
       inLanguage: "zh-CN",
       description:
         "ai-home 卡网订阅比价整理 AI 订阅、账号、卡密、邮箱和接码等渠道报价，展示有货最低价、来源、库存和更新时间。",
@@ -63,12 +63,12 @@ function buildChannelsJsonLd() {
         name: "ai-home channel subscription offers",
         description:
           "A curated dataset of AI subscription channel offers, source titles, stock states, prices, and collection timestamps.",
-        url: "https://ai-home.example.com/channels",
+        url: "https://www.aideals.cloud/channels",
         license: "https://github.com/YOUR_GITHUB_USER/ai-home/blob/main/LICENSE",
         creator: {
           "@type": "Organization",
           name: "ai-home",
-          url: "https://ai-home.example.com",
+          url: "https://www.aideals.cloud",
           sameAs: "https://github.com/YOUR_GITHUB_USER/ai-home",
         },
         variableMeasured: ["product", "source", "price", "stock", "updated time", "purchase link"],

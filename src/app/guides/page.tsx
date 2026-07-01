@@ -8,7 +8,7 @@ import { getGuideCategory, guideEntries } from "@/lib/guides";
 
 export const revalidate = 86400;
 
-const pageUrl = "https://ai-home.example.com/guides";
+const pageUrl = "https://www.aideals.cloud/guides";
 
 export const metadata: Metadata = {
   title: "ai-home 快速入门：如何比价、判断渠道、提交渠道和反馈问题",
@@ -325,14 +325,14 @@ function buildGuidesJsonLd() {
       isPartOf: {
         "@type": "WebSite",
         name: "ai-home",
-        url: "https://ai-home.example.com",
+        url: "https://www.aideals.cloud",
       },
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://ai-home.example.com" },
+        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://www.aideals.cloud" },
         { "@type": "ListItem", position: 2, name: "快速入门", item: pageUrl },
       ],
     },
@@ -345,7 +345,7 @@ function buildGuidesJsonLd() {
         position: index + 1,
         name: guide.title,
         description: `${getGuideCategory(guide.categoryId)?.label ?? "指南"}：${guide.description}`,
-        url: `https://ai-home.example.com${guide.href}`,
+        url: `https://www.aideals.cloud${guide.href}`,
       })),
     },
   ];

@@ -28,7 +28,7 @@ const themeInitScript = `
 `;
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ai-home.example.com"),
+  metadataBase: new URL("https://www.aideals.cloud"),
   title: {
     default: "ai-home | VPS 云服务器与 GPU 租赁平台配置价格表",
     template: "%s | ai-home",
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home | VPS 云服务器与 GPU 租赁平台配置价格表",
     description: "把 VPS、轻量云和 GPU 租赁平台整理成可直接对比配置、价格和核验链接的云算力清单。",
-    url: "https://ai-home.example.com",
+    url: "https://www.aideals.cloud",
     siteName: "ai-home",
     locale: "zh_CN",
     type: "website",

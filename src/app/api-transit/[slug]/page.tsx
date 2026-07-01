@@ -57,11 +57,11 @@ export default async function ApiTransitDetailPage({
             "@type": "WebPage",
             name: `${station.name} — API 中转站详情`,
             description: station.summary.slice(0, 160),
-            url: `https://ai-home.example.com/api-transit/${slug}`,
+            url: `https://www.aideals.cloud/api-transit/${slug}`,
             isPartOf: {
               "@type": "WebSite",
               name: "ai-home",
-              url: "https://ai-home.example.com",
+              url: "https://www.aideals.cloud",
             },
           },
         ]}

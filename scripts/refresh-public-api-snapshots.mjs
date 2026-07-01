@@ -2,7 +2,7 @@
 
 import { existsSync, readFileSync } from "node:fs";
 
-const DEFAULT_BASE_URL = "https://ai-home.example.com";
+const DEFAULT_BASE_URL = "https://www.aideals.cloud";
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_DIRTY_ALERT_MS = 15 * 60 * 1000;
 const DEFAULT_LAST_REFRESH_ALERT_MS = 20 * 60 * 1000;
@@ -200,7 +200,7 @@ Usage:
 
 Environment:
   CRON_SECRET                               Required endpoint secret
-  PRICEAI_BASE_URL                         Optional, defaults to https://ai-home.example.com
+  PRICEAI_BASE_URL                         Optional, defaults to https://www.aideals.cloud
   PRICEAI_ALERT_WEBHOOK_URL                Optional alert webhook
   PRICEAI_PUBLIC_SNAPSHOT_DIRTY_ALERT_MS   Optional dirty backlog alert threshold
 `);

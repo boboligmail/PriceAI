@@ -55,11 +55,11 @@ export default async function ApiTransitDetectorPage() {
             name: "API 中转模型检测",
             description:
               "PriceAI API 中转模型检测工作台，用于整理中转 API 的协议、能力、来源和计费证据链。",
-            url: "https://priceai.cc/api-transit/detector",
+            url: "https://www.aideals.cloud/api-transit/detector",
             isPartOf: {
               "@type": "WebSite",
               name: "PriceAI",
-              url: "https://priceai.cc",
+              url: "https://www.aideals.cloud",
             },
           },
         ]}

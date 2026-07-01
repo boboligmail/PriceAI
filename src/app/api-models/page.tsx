@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home API 模型雷达",
     description: "对比官方 API、Token Plan 和免费测试入口。",
-    url: "https://ai-home.example.com/api-models",
+    url: "https://www.aideals.cloud/api-models",
   },
 };
 
@@ -39,7 +39,7 @@ function buildApiModelsJsonLd(modelCount: number, providerCount: number, offerCo
       "@context": "https://schema.org",
       "@type": "CollectionPage",
       name: "ai-home API 模型雷达",
-      url: "https://ai-home.example.com/api-models",
+      url: "https://www.aideals.cloud/api-models",
       inLanguage: "zh-CN",
       description:
         "整理官方 API、公开模型路由、免费 API、Token Plan、价格、额度和限制，帮助用户比较模型 API 获取方式。",
@@ -48,12 +48,12 @@ function buildApiModelsJsonLd(modelCount: number, providerCount: number, offerCo
         name: "ai-home API model access dataset",
         description:
           "A curated dataset of public model API providers, offers, free quotas, Token Plans, prices, and source links.",
-        url: "https://ai-home.example.com/api-models",
+        url: "https://www.aideals.cloud/api-models",
         license: "https://github.com/YOUR_GITHUB_USER/ai-home/blob/main/LICENSE",
         creator: {
           "@type": "Organization",
           name: "ai-home",
-          url: "https://ai-home.example.com",
+          url: "https://www.aideals.cloud",
           sameAs: "https://github.com/YOUR_GITHUB_USER/ai-home",
         },
         variableMeasured: ["model", "provider", "price", "free quota", "token plan", "limit", "source"],

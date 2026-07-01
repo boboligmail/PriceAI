@@ -6,7 +6,7 @@ on:
       smoke_base_url:
         description: "URL to smoke test after deployment"
         required: false
-        default: "https://priceai.cc"
+        default: "https://www.aideals.cloud"
 
 jobs:
   deploy-cloudflare-worker:

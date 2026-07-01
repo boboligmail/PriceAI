@@ -9,7 +9,7 @@ on:
       smoke_base_url:
         description: "Production URL to smoke test after promotion"
         required: false
-        default: "https://priceai.cc"
+        default: "https://www.aideals.cloud"
 
 jobs:
   promote-cloudflare-worker:

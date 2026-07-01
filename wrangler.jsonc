@@ -17,16 +17,12 @@
   },
   "routes": [
     {
-      "pattern": "cf.ai-home.example.com",
+      "pattern": "aideals.cloud",
       "custom_domain": true
     },
     {
-      "pattern": "ai-home.example.com/*",
-      "zone_name": "ai-home.example.com"
-    },
-    {
-      "pattern": "www.ai-home.example.com/*",
-      "zone_name": "ai-home.example.com"
+      "pattern": "www.aideals.cloud",
+      "custom_domain": true
     }
   ],
   "services": [
@@ -62,9 +58,9 @@
     ]
   },
   "vars": {
-    "CRON_PUBLIC_BASE_URL": "https://ai-home.example.com",
+    "CRON_PUBLIC_BASE_URL": "https://www.aideals.cloud",
     "NEXT_PUBLIC_UMAMI_SCRIPT_URL": "https://umami.dimthink.com/script.js",
     "NEXT_PUBLIC_UMAMI_WEBSITE_ID": "ded26a4f-77c4-45ed-86ef-774b0fed0ef6",
-    "NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS": "ai-home.example.com,www.ai-home.example.com"
+    "NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS": "aideals.cloud,www.aideals.cloud"
   }
 }

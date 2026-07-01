@@ -49,7 +49,7 @@ export const platformPageConfigs = {
     slug: "chatgpt",
     platform: "ChatGPT",
     iconPlatform: "ChatGPT",
-    pageUrl: "https://ai-home.example.com/platforms/chatgpt",
+    pageUrl: "https://www.aideals.cloud/platforms/chatgpt",
     productIds: [
       "chatgpt-free-account",
       "chatgpt-plus",
@@ -158,7 +158,7 @@ export const platformPageConfigs = {
       openGraph: {
         title: "ChatGPT 比价与订阅渠道价格 | ai-home",
         description: "购买 ChatGPT 订阅前，先比较 Plus、Pro、Team 邀请、普号、Plus CDK 和账号购买的价格、来源和更新时间。",
-        url: "https://ai-home.example.com/platforms/chatgpt",
+        url: "https://www.aideals.cloud/platforms/chatgpt",
       },
     },
   },
@@ -166,7 +166,7 @@ export const platformPageConfigs = {
     slug: "gemini",
     platform: "Gemini",
     iconPlatform: "Gemini",
-    pageUrl: "https://ai-home.example.com/platforms/gemini",
+    pageUrl: "https://www.aideals.cloud/platforms/gemini",
     productIds: ["gemini-pro-year", "gemini-pro-recharge", "gemini-ultra"],
     badge: "Gemini 平台价格页",
     title: "Gemini Pro 与 Google AI Ultra 价格对比",
@@ -259,7 +259,7 @@ export const platformPageConfigs = {
       openGraph: {
         title: "Gemini Pro 与 Google AI Ultra 价格对比 | ai-home",
         description: "购买 Gemini Pro 或 Google AI Ultra 前，先比较有货最低价、官方地区价、Google Play 路径和第三方渠道说明。",
-        url: "https://ai-home.example.com/platforms/gemini",
+        url: "https://www.aideals.cloud/platforms/gemini",
       },
     },
   },
@@ -267,7 +267,7 @@ export const platformPageConfigs = {
     slug: "claude",
     platform: "Claude",
     iconPlatform: "Claude",
-    pageUrl: "https://ai-home.example.com/platforms/claude",
+    pageUrl: "https://www.aideals.cloud/platforms/claude",
     productIds: [
       "claude-pro-month",
       "claude-team-standard",
@@ -367,7 +367,7 @@ export const platformPageConfigs = {
       openGraph: {
         title: "Claude Pro 与 Max 订阅渠道价格 | ai-home",
         description: "购买 Claude Pro 或 Claude Max 前，先比较有货最低价、官方参考价、账号交付和渠道风险。",
-        url: "https://ai-home.example.com/platforms/claude",
+        url: "https://www.aideals.cloud/platforms/claude",
       },
     },
   },
@@ -375,7 +375,7 @@ export const platformPageConfigs = {
     slug: "api",
     platform: "API/CDK",
     iconPlatform: "API/CDK",
-    pageUrl: "https://ai-home.example.com/platforms/api",
+    pageUrl: "https://www.aideals.cloud/platforms/api",
     productIds: ["openai-api-cdk"],
     badge: "API / CDK 平台价格页",
     title: "模型 API、CDK 与额度获取入口",
@@ -463,7 +463,7 @@ export const platformPageConfigs = {
       openGraph: {
         title: "模型 API、CDK 与额度获取入口 | ai-home",
         description: "把官方 API、免费 API、模型路由、Token Plan 和 API/CDK 渠道报价放在一起比较。",
-        url: "https://ai-home.example.com/platforms/api",
+        url: "https://www.aideals.cloud/platforms/api",
       },
     },
   },

@@ -287,14 +287,14 @@ function buildPlatformJsonLd(config: PlatformPageConfig, products: ExplorerProdu
       hasPart: products.map((product) => ({
         "@type": "Product",
         name: product.displayName,
-        url: `https://ai-home.example.com/products/${product.slug}`,
+        url: `https://www.aideals.cloud/products/${product.slug}`,
       })),
     },
     {
       "@context": "https://schema.org",
       "@type": "BreadcrumbList",
       itemListElement: [
-        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://ai-home.example.com" },
+        { "@type": "ListItem", position: 1, name: "ai-home", item: "https://www.aideals.cloud" },
         { "@type": "ListItem", position: 2, name: config.platform, item: config.pageUrl },
       ],
     },

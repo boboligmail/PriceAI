@@ -53,11 +53,11 @@ export default async function ApiTransitPage() {
             name: "API 中转站价格榜",
             description:
               "ai-home API 中转站价格榜 — 整理已发布的第三方 API 中转站真实信息，包括充值系数、模型倍率、综合倍率和稳定性。",
-            url: "https://ai-home.example.com/api-transit",
+            url: "https://www.aideals.cloud/api-transit",
             isPartOf: {
               "@type": "WebSite",
               name: "ai-home",
-              url: "https://ai-home.example.com",
+              url: "https://www.aideals.cloud",
             },
           },
         ]}

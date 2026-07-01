@@ -1,7 +1,7 @@
 import Script from "next/script";
 import { getRuntimeEnv } from "@/lib/runtime-env";
 
-const DEFAULT_ALLOWED_DOMAINS = ["ai-home.example.com", "www.ai-home.example.com"];
+const DEFAULT_ALLOWED_DOMAINS = ["aideals.cloud", "www.aideals.cloud"];
 
 function getAllowedDomains(): string[] {
   const configured = getRuntimeEnv("NEXT_PUBLIC_UMAMI_ALLOWED_DOMAINS");

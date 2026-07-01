@@ -1,4 +1,4 @@
-const DEFAULT_BASE_URL = "https://ai-home.example.com";
+const DEFAULT_BASE_URL = "https://www.aideals.cloud";
 const SMOKE_FETCH_TIMEOUT_MS = Number(process.env.CLOUDFLARE_SMOKE_TIMEOUT_MS || 15_000);
 
 const baseUrl = normalizeBaseUrl(

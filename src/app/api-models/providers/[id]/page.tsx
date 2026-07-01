@@ -58,7 +58,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${summary.provider.name} API 模型覆盖`,
       description: `对比 ${summary.provider.name} 的公开模型、Token Plan 和限制。`,
-      url: `https://ai-home.example.com/api-models/providers/${id}`,
+      url: `https://www.aideals.cloud/api-models/providers/${id}`,
     },
   };
 }

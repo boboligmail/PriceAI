@@ -7,7 +7,7 @@ import {
   missingEnv,
 } from "./cloudflare-env.mjs";
 
-const DEFAULT_BASE_URL = "https://ai-home.example.com";
+const DEFAULT_BASE_URL = "https://www.aideals.cloud";
 const DEFAULT_REF = "main";
 const WORKFLOW_FILE = "deploy-cloudflare-worker.yml";
 

@@ -74,7 +74,7 @@ export default async function ApiTransitDetectorReportPage({ params }: DetectorR
     isPartOf: {
       "@type": "WebSite",
       name: "PriceAI",
-      url: "https://priceai.cc",
+      url: "https://www.aideals.cloud",
     },
   };
 

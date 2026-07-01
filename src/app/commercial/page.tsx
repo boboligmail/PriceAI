@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home 赞助位合作",
     description: "了解 ai-home 可投放的赞助位置、适合对象、展示形式和投放资料要求。",
-    url: "https://ai-home.example.com/commercial",
+    url: "https://www.aideals.cloud/commercial",
     siteName: "ai-home",
   },
 };
@@ -248,13 +248,13 @@ function buildCommercialJsonLd() {
     "@context": "https://schema.org",
     "@type": "WebPage",
     name: "ai-home 赞助位合作",
-    url: "https://ai-home.example.com/commercial",
+    url: "https://www.aideals.cloud/commercial",
     inLanguage: "zh-CN",
     description: "说明 ai-home 的赞助位、适合对象、展示形式和投放资料要求。",
     isPartOf: {
       "@type": "WebSite",
       name: "ai-home",
-      url: "https://ai-home.example.com",
+      url: "https://www.aideals.cloud",
     },
   };
 }

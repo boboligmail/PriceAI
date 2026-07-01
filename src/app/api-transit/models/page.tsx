@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home 中转 API 模型对比",
     description: "按主流标准模型对比中转站价格与稳定性。",
-    url: "https://ai-home.example.com/api-transit/models",
+    url: "https://www.aideals.cloud/api-transit/models",
   },
 };
 
@@ -45,7 +45,7 @@ export default async function ApiTransitModelsPage() {
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: "ai-home 中转 API 模型对比",
-          url: "https://ai-home.example.com/api-transit/models",
+          url: "https://www.aideals.cloud/api-transit/models",
           inLanguage: "zh-CN",
           description: "按主流标准模型对比 API 中转站价格与稳定性。",
         }}

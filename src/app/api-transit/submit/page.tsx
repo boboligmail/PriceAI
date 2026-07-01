@@ -42,7 +42,7 @@ export default function ApiTransitSubmitPage() {
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "提交 API 中转站 / 商家入驻",
-          url: "https://ai-home.example.com/api-transit/submit",
+          url: "https://www.aideals.cloud/api-transit/submit",
           description: "向 ai-home 推荐 API 中转站、提交价格修正或申请商家入驻。",
           inLanguage: "zh-CN",
         }}

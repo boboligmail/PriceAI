@@ -71,7 +71,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description: seoProfile?.metadataDescription || `对比 ${product.displayName} 的渠道报价、库存状态和更新时间。`,
-      url: `https://ai-home.example.com/products/${product.slug}`,
+      url: `https://www.aideals.cloud/products/${product.slug}`,
     },
   };
 }
@@ -207,10 +207,10 @@ function getOfficialPricePlanMapping(product: Pick<ExplorerProductSummary, "id" 
 }
 
 const platformBreadcrumbUrls: Record<string, string> = {
-  "API/CDK": "https://ai-home.example.com/platforms/api",
-  ChatGPT: "https://ai-home.example.com/platforms/chatgpt",
-  Claude: "https://ai-home.example.com/platforms/claude",
-  Gemini: "https://ai-home.example.com/platforms/gemini",
+  "API/CDK": "https://www.aideals.cloud/platforms/api",
+  ChatGPT: "https://www.aideals.cloud/platforms/chatgpt",
+  Claude: "https://www.aideals.cloud/platforms/claude",
+  Gemini: "https://www.aideals.cloud/platforms/gemini",
 };
 
 async function OfficialPriceReferenceSection({ product }: { product: ExplorerProductSummary }) {
@@ -411,7 +411,7 @@ function buildProductJsonLd(
   product: ExplorerProductSummary,
   seoProfile: ProductSeoProfile | null,
 ) {
-  const productUrl = `https://ai-home.example.com/products/${product.slug}`;
+  const productUrl = `https://www.aideals.cloud/products/${product.slug}`;
   const priceCurrency = product.lowestOffer?.currency || "CNY";
   const lowestOffer = product.lowestPrice !== null && product.lowestOffer
     ? {
@@ -454,13 +454,13 @@ function buildProductJsonLd(
           "@type": "ListItem",
           position: 1,
           name: "ai-home",
-          item: "https://ai-home.example.com",
+          item: "https://www.aideals.cloud",
         },
         {
           "@type": "ListItem",
           position: 2,
           name: product.platform,
-          item: platformBreadcrumbUrls[product.platform] || "https://ai-home.example.com",
+          item: platformBreadcrumbUrls[product.platform] || "https://www.aideals.cloud",
         },
         {
           "@type": "ListItem",

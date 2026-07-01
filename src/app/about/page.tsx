@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "ai-home 边界与披露",
     description: "ai-home 提供购买前信息，不卖货、不收款、不替任何渠道背书。",
-    url: "https://ai-home.example.com/about",
+    url: "https://www.aideals.cloud/about",
     siteName: "ai-home",
   },
 };
@@ -192,13 +192,13 @@ function buildAboutJsonLd() {
     "@context": "https://schema.org",
     "@type": "AboutPage",
     name: "ai-home 边界与披露",
-    url: "https://ai-home.example.com/about",
+    url: "https://www.aideals.cloud/about",
     inLanguage: "zh-CN",
     description: "说明 ai-home 的产品边界、数据来源和商业披露原则。",
     isPartOf: {
       "@type": "WebSite",
       name: "ai-home",
-      url: "https://ai-home.example.com",
+      url: "https://www.aideals.cloud",
     },
   };
 }

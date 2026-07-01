@@ -7,7 +7,7 @@ import { getOfficialPricePlanSummaries } from "@/lib/official-prices";
 import { platformPageConfigList } from "@/lib/platform-pages";
 import { shouldNoIndexProduct } from "@/lib/product-seo";
 
-const siteUrl = "https://ai-home.example.com";
+const siteUrl = "https://www.aideals.cloud";
 
 export const revalidate = 3600;
 

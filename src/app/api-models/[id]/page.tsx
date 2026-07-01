@@ -58,7 +58,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${summary.displayName} API 渠道`,
       description: `对比 ${summary.displayName} 的公开 API 渠道和限制。`,
-      url: `https://ai-home.example.com/api-models/${id}`,
+      url: `https://www.aideals.cloud/api-models/${id}`,
     },
   };
 }

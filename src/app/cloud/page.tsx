@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "VPS 云服务器与 GPU 租赁平台配置价格表 | ai-home",
     description: "按商家、价格、CPU、内存、硬盘、流量和核验链接整理 VPS 与 GPU 租赁参考规格。",
-    url: "https://ai-home.example.com/cloud",
+    url: "https://www.aideals.cloud/cloud",
     siteName: "ai-home",
   },
 };

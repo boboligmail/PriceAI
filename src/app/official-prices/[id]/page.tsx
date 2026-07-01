@@ -49,7 +49,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${summary.label} 官方地区价`,
       description: `查看 ${summary.label} 的公开地区价格对比。`,
-      url: `https://ai-home.example.com/official-prices/${id}`,
+      url: `https://www.aideals.cloud/official-prices/${id}`,
     },
   };
 }

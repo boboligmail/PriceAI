@@ -3,7 +3,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { CloudOfferExplorer } from "@/components/cloud/CloudOfferExplorer";
 import { cloudComparisonSummary, cloudOffers, type CloudOffer } from "@/lib/cloud-comparison";
 
-const siteUrl = "https://ai-home.example.com";
+const siteUrl = "https://www.aideals.cloud";
 
 export function CloudComparisonView({
   canonicalPath = "/cloud",
