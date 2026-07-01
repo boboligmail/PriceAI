@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
-import { compileMDX } from "next-mdx-remote/rsc";
-import remarkGfm from "remark-gfm";
 import { z } from "zod";
-import { mdxGuideSources } from "@/lib/generated-mdx-guides";
+import { mdxGuides } from "@/lib/generated-mdx-guides";
 
 const frontmatterSchema = z.object({
   title: z.string(),
@@ -28,13 +26,14 @@ const frontmatterSchema = z.object({
 });
 
 export type MdxGuideFrontmatter = z.infer<typeof frontmatterSchema>;
+export type MdxGuide = (typeof mdxGuides)[keyof typeof mdxGuides];
 
-export async function readMdxGuide(slug: string) {
-  const source = mdxGuideSources[slug as keyof typeof mdxGuideSources];
-  if (!source) {
+export function readMdxGuide(slug: string): MdxGuide {
+  const guide = mdxGuides[slug as keyof typeof mdxGuides];
+  if (!guide) {
     throw new Error(`Unknown MDX guide slug: ${slug}`);
   }
-  return source;
+  return guide;
 }
 
 export function parseMdxGuideFrontmatter(frontmatter: unknown) {
@@ -42,17 +41,8 @@ export function parseMdxGuideFrontmatter(frontmatter: unknown) {
 }
 
 export async function buildMdxGuideMetadata(slug: string): Promise<Metadata> {
-  const source = await readMdxGuide(slug);
-  const compiled = await compileMDX({
-    source,
-    options: {
-      parseFrontmatter: true,
-      mdxOptions: {
-        remarkPlugins: [remarkGfm],
-      },
-    },
-  });
-  const frontmatter = parseMdxGuideFrontmatter(compiled.frontmatter);
+  const guide = readMdxGuide(slug);
+  const frontmatter = parseMdxGuideFrontmatter(guide.frontmatter);
 
   return {
     title: frontmatter.title,

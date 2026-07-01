@@ -1,26 +1,14 @@
-import { compileMDX } from "next-mdx-remote/rsc";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import remarkGfm from "remark-gfm";
 import { GuideDocsLayout } from "@/components/GuideDocsLayout";
+import { GuideBlockRenderer } from "@/components/GuideBlockRenderer";
 import { GuideReadingFooter } from "@/components/GuideReadingFooter";
 import { JsonLd } from "@/components/JsonLd";
-import { mdxGuideComponents } from "@/components/mdx-guide-components";
 import { buildMdxGuideJsonLd, parseMdxGuideFrontmatter, readMdxGuide } from "@/lib/mdx-guides";
 
-export async function MdxGuidePage({ slug }: { slug: string }) {
-  const source = await readMdxGuide(slug);
-  const compiled = await compileMDX({
-    source,
-    options: {
-      parseFrontmatter: true,
-      mdxOptions: {
-        remarkPlugins: [remarkGfm],
-      },
-    },
-    components: mdxGuideComponents,
-  });
-  const frontmatter = parseMdxGuideFrontmatter(compiled.frontmatter);
+export function MdxGuidePage({ slug }: { slug: string }) {
+  const guide = readMdxGuide(slug);
+  const frontmatter = parseMdxGuideFrontmatter(guide.frontmatter);
 
   return (
     <>
@@ -47,7 +35,7 @@ export async function MdxGuidePage({ slug }: { slug: string }) {
             ) : null}
           </header>
 
-          <div className="max-w-[78ch] pt-8">{compiled.content}</div>
+          <GuideBlockRenderer blocks={guide.blocks} />
 
           <GuideReadingFooter currentHref={frontmatter.canonical} />
         </article>
