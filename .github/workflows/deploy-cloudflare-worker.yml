@@ -61,6 +61,49 @@ jobs:
 
       - run: npm run build:cloudflare
 
+      - name: Sync Cloudflare Worker secrets
+        run: |
+          set -euo pipefail
+
+          worker_name="$(node -e "const fs=require('node:fs'); process.stdout.write(JSON.parse(fs.readFileSync('wrangler.jsonc','utf8')).name)")"
+
+          if ! npx wrangler secret list --name "$worker_name" >/dev/null 2>&1; then
+            mkdir -p .cloudflare-bootstrap
+            cat > .cloudflare-bootstrap/worker.js <<'EOF'
+          export default {
+            fetch() {
+              return new Response("Bootstrapping Cloudflare Worker secrets.", { status: 503 });
+            },
+          };
+          EOF
+            npx wrangler deploy .cloudflare-bootstrap/worker.js \
+              --name "$worker_name" \
+              --compatibility-date 2026-06-11 \
+              --no-bundle
+          fi
+
+          secret_file="$(mktemp)"
+          trap 'rm -f "$secret_file"' EXIT
+          node <<'NODE' > "$secret_file"
+          const names = [
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "ADMIN_PASSWORD",
+            "ADMIN_SESSION_SECRET",
+            "ADMIN_SESSION_VERSION",
+            "CRON_SECRET",
+            "API_TRANSIT_CREDENTIAL_ENCRYPTION_KEY",
+            "PRICEAI_RISK_REVIEW_API_KEY",
+            "PRICEAI_RISK_REVIEW_BASE_URL",
+            "PRICEAI_RISK_REVIEW_MODEL",
+            "NEXT_PUBLIC_GA_MEASUREMENT_ID",
+          ];
+          const secrets = Object.fromEntries(names.map((name) => [name, process.env[name] || ""]));
+          process.stdout.write(JSON.stringify(secrets));
+          NODE
+          npx wrangler secret bulk "$secret_file" --name "$worker_name"
+
       - run: npm run deploy:cloudflare
 
       - run: npm run smoke:cloudflare -- "$CLOUDFLARE_SMOKE_BASE_URL"
