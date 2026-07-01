@@ -2,6 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "priceai-cloudflare-poc",
   "main": ".open-next/worker.js",
+  "minify": true,
   "compatibility_date": "2026-06-11",
   "compatibility_flags": [
     "nodejs_compat",
