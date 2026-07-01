@@ -1,6 +1,19 @@
 {
   "records": [
     {
+      "generatedAt": "2026-07-01T20:54:14.350Z",
+      "updatedAt": "2026-07-01",
+      "totalOffers": 1002,
+      "vpsOffers": 282,
+      "gpuOffers": 720,
+      "sources": {
+        "parsed": 2,
+        "blocked": 1,
+        "failed": 2,
+        "metadataOnly": 2
+      }
+    },
+    {
       "generatedAt": "2026-07-01T09:45:04.293Z",
       "updatedAt": "2026-07-01",
       "totalOffers": 1002,
