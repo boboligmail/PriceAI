@@ -1,8 +1,6 @@
 name: Collect Cloud Offers
 
 on:
-  schedule:
-    - cron: "17 19 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -50,9 +48,3 @@ jobs:
           git commit -m "chore(cloud): refresh cloud offer data"
           git push
           echo "changed=true" >> "$GITHUB_OUTPUT"
-
-      - name: Trigger Cloudflare deploy
-        if: steps.commit-data.outputs.changed == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh workflow run deploy-cloudflare-worker.yml --ref main -f smoke_base_url=https://www.aideals.cloud
